@@ -35,28 +35,28 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
 - **Pro-tip:** Dr. Miriti emphasizes the 4 necessary conditions for deadlock in exam questions.`;
 
   return (
-    <div className="mb-6 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/20 via-slate-900 to-indigo-950/20 p-5 shadow-lg backdrop-blur-sm">
-      <div className="flex items-center justify-between">
+    <div className="mb-4 sm:mb-6 rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/20 via-slate-900 to-indigo-950/20 p-4 sm:p-5 shadow-lg backdrop-blur-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400 shrink-0">
             <Sunrise className="h-5 w-5" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold tracking-wide text-blue-400 uppercase">
-                3 AM Nightly Abstractor • Morning Mission
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xs sm:text-sm font-semibold tracking-wide text-blue-400 uppercase">
+                3 AM Abstractor • Morning Mission
               </h2>
-              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-400">
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] sm:text-xs font-medium text-emerald-400">
                 Live EAT
               </span>
             </div>
-            <p className="text-xs text-slate-400">
-              Synced with Chiromo LG01 lecture timetable & your recent study weakness logs
+            <p className="text-[11px] sm:text-xs text-slate-400 line-clamp-1 sm:line-clamp-none">
+              Synced with Chiromo LG01 lecture timetable & weakness logs
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
             onClick={handleTriggerNow}
             disabled={isTriggering}
