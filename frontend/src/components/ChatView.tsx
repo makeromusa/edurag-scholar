@@ -1,11 +1,29 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Globe, Sparkles, BookOpen, User, Bot, Layers } from "lucide-react";
+import {
+  Send,
+  Globe,
+  Sparkles,
+  BookOpen,
+  User,
+  Bot,
+  Paperclip,
+  Image as ImageIcon,
+  FileText,
+  X,
+} from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { ActiveCitation } from "./DocumentViewer";
+
+interface AttachedFileMeta {
+  name: string;
+  type: "image" | "document";
+  previewUrl?: string;
+  size?: string;
+}
 
 interface Message {
   id: string;
@@ -14,6 +32,16 @@ interface Message {
   citations?: ActiveCitation[];
   external_sources?: { type: string; title: string; url: string }[];
   web_search_used?: boolean;
+  attachedFile?: AttachedFileMeta;
+}
+
+interface PendingAttachment {
+  file: File;
+  name: string;
+  type: "image" | "document";
+  base64: string;
+  previewUrl?: string;
+  sizeFormatted: string;
 }
 
 interface ChatViewProps {
@@ -31,7 +59,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [inputQuery, setInputQuery] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingAttachment, setPendingAttachment] = useState<PendingAttachment | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     // Reset or greet on unit change
@@ -41,28 +72,97 @@ export const ChatView: React.FC<ChatViewProps> = ({
         sender: "assistant",
         content: `👋 Hello Asman! I am your AI Copilot strictly isolated to **${unitCode}: ${unitName}**.
 
-Ask me anything about your lecture slides, past exams, or algorithmic proofs. When I answer, I'll cite the exact slide numbers.`,
+You can ask me questions, attach past papers (PDF), or upload screenshots/diagrams of exam questions. I will solve them with step-by-step proofs and cite exact lecture slide numbers.`,
       },
     ]);
+    setPendingAttachment(null);
   }, [unitCode, unitName]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  };
+
+  const processFile = (file: File) => {
+    if (file.size > 25 * 1024 * 1024) {
+      alert("File is too large. Please select a file under 25MB.");
+      return;
+    }
+    const isImage =
+      file.type.startsWith("image/") ||
+      /\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64Str = reader.result as string;
+      setPendingAttachment({
+        file,
+        name: file.name,
+        type: isImage ? "image" : "document",
+        base64: base64Str,
+        previewUrl: isImage ? base64Str : undefined,
+        sizeFormatted: formatFileSize(file.size),
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processFile(file);
+    e.target.value = "";
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) {
+          processFile(file);
+          break;
+        }
+      }
+    }
+  };
+
   const handleSendMessage = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
-    const query = customQuery || inputQuery;
-    if (!query.trim() || isLoading) return;
+    const query = (customQuery || inputQuery).trim();
+    if ((!query && !pendingAttachment) || isLoading) return;
+
+    const effectiveQuery =
+      query ||
+      (pendingAttachment?.type === "image"
+        ? `Please carefully analyze this attached image/diagram and solve or explain it step-by-step for ${unitCode}.`
+        : `Please examine this attached document for ${unitCode} and provide a comprehensive academic analysis.`);
+
+    const attached = pendingAttachment ? { ...pendingAttachment } : null;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: "user",
-      content: query,
+      content: effectiveQuery,
+      attachedFile: attached
+        ? {
+            name: attached.name,
+            type: attached.type,
+            previewUrl: attached.previewUrl,
+            size: attached.sizeFormatted,
+          }
+        : undefined,
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputQuery("");
+    setPendingAttachment(null);
     setIsLoading(true);
 
     try {
@@ -72,8 +172,11 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           unit_code: unitCode,
-          query: query,
+          query: effectiveQuery,
           deep_search: deepSearch,
+          image_base64: attached?.type === "image" ? attached.base64 : undefined,
+          attached_file_base64: attached?.base64,
+          attached_file_name: attached?.name,
         }),
       });
 
@@ -94,7 +197,7 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
         {
           id: (Date.now() + 1).toString(),
           sender: "assistant",
-          content: `⚠️ Error contacting EduRAG Backend: ${err.message}. Make sure the FastAPI backend is running on port 8000.`,
+          content: `⚠️ Error contacting EduRAG Backend: ${err.message}. Make sure the FastAPI backend is running.`,
         },
       ]);
     } finally {
@@ -153,6 +256,32 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
                   : "bg-[#0f172a] border border-slate-800 text-slate-200 rounded-bl-none"
               }`}
             >
+              {/* Attached File/Image in message */}
+              {msg.attachedFile && (
+                <div className="mb-2">
+                  {msg.attachedFile.type === "image" && msg.attachedFile.previewUrl ? (
+                    <div className="overflow-hidden rounded-lg border border-white/20 max-w-sm">
+                      <img
+                        src={msg.attachedFile.previewUrl}
+                        alt={msg.attachedFile.name}
+                        className="max-h-56 w-auto object-contain rounded-lg bg-black/40"
+                      />
+                      <div className="text-[10px] bg-black/70 backdrop-blur-sm px-2 py-1 text-slate-200 truncate">
+                        📷 {msg.attachedFile.name} ({msg.attachedFile.size})
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-lg bg-blue-700/60 border border-blue-400/30 px-3 py-1.5 text-[11px] text-white max-w-xs">
+                      <FileText className="h-4 w-4 shrink-0 text-blue-200" />
+                      <div className="truncate">
+                        <p className="font-semibold truncate">{msg.attachedFile.name}</p>
+                        <span className="text-[9px] text-blue-200">{msg.attachedFile.size}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="prose prose-invert max-w-none text-xs">
                 <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
                   {msg.content}
@@ -217,7 +346,9 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white animate-pulse">
               <Sparkles className="h-4 w-4" />
             </div>
-            <span className="animate-pulse">Synthesizing answer from {unitCode} lecture notes & academic sources...</span>
+            <span className="animate-pulse">
+              Synthesizing response from {unitCode} lecture notes, attached files & academic sources...
+            </span>
           </div>
         )}
 
@@ -227,9 +358,9 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
       {/* Suggested Fast Prompts */}
       <div className="flex gap-2 px-6 py-2 overflow-x-auto border-t border-slate-800/60 bg-[#090d16]/50">
         {[
+          "Solve this past paper question step-by-step",
+          "Explain the formula or diagram in detail",
           "Summarize key definitions from the slides",
-          "Explain core formulas with LaTeX proofs",
-          "Generate 3 Chiromo exam practice questions",
           "What are the common exam pitfalls for this topic?",
         ].map((prompt, idx) => (
           <button
@@ -242,20 +373,90 @@ Ask me anything about your lecture slides, past exams, or algorithmic proofs. Wh
         ))}
       </div>
 
+      {/* Attachment Preview Banner */}
+      {pendingAttachment && (
+        <div className="flex items-center justify-between border-t border-slate-800 bg-[#0a0f1d] px-6 py-2.5">
+          <div className="flex items-center gap-3 min-w-0">
+            {pendingAttachment.type === "image" && pendingAttachment.previewUrl ? (
+              <img
+                src={pendingAttachment.previewUrl}
+                alt="Attachment Preview"
+                className="h-10 w-10 rounded-lg object-cover border border-slate-700 shrink-0"
+              />
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 shrink-0">
+                <FileText className="h-5 w-5" />
+              </div>
+            )}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-xs font-semibold text-white max-w-[220px] sm:max-w-md">
+                  {pendingAttachment.name}
+                </span>
+                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                  {pendingAttachment.sizeFormatted}
+                </span>
+              </div>
+              <p className="text-[10px] text-blue-400">
+                {pendingAttachment.type === "image"
+                  ? "Vision-ready: GPT-4.1-mini & Gemini will inspect equations & diagrams"
+                  : "Document context: Will be extracted and analyzed with lecture notes"}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPendingAttachment(null)}
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            title="Remove attachment"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Input Box */}
-      <form onSubmit={(e) => handleSendMessage(e)} className="border-t border-slate-800 bg-[#0c111d] p-4">
-        <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-[#090d16] px-4 py-2 focus-within:border-blue-500">
+      <form
+        onSubmit={(e) => handleSendMessage(e)}
+        className="border-t border-slate-800 bg-[#0c111d] p-4"
+        onPaste={handlePaste}
+      >
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*,.pdf,.txt,.docx,.doc,.md,.py,.c,.cpp,.java,.sql"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-[#090d16] px-3 py-2 focus-within:border-blue-500">
+          {/* Attach Button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-blue-400 transition"
+            title="Attach past paper PDF, question screenshot, or diagram (or Ctrl+V to paste)"
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
+
           <input
             type="text"
             value={inputQuery}
             onChange={(e) => setInputQuery(e.target.value)}
-            placeholder={`Ask anything about ${unitCode} slides, past papers, or algorithms...`}
+            placeholder={
+              pendingAttachment
+                ? `Ask a question about ${pendingAttachment.name} (or hit Enter to analyze)...`
+                : `Ask about ${unitCode} slides, past papers, or attach an exam question...`
+            }
             className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
           />
+
           <button
             type="submit"
-            disabled={!inputQuery.trim() || isLoading}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40"
+            disabled={(!inputQuery.trim() && !pendingAttachment) || isLoading}
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition shadow-sm shadow-blue-500/20"
           >
             <Send className="h-4 w-4" />
           </button>

@@ -1,11 +1,14 @@
 import json
 import logging
 import uuid
+import base64
+import io
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from bson import ObjectId
+import fitz  # PyMuPDF
 
 from app.core.database import get_supabase_admin_client
 from app.core.mongodb import (
@@ -32,6 +35,9 @@ class ChatRequest(BaseModel):
     session_id: Optional[str] = None
     deep_search: bool = False
     similarity_threshold: float = 0.68
+    image_base64: Optional[str] = None
+    attached_file_base64: Optional[str] = None
+    attached_file_name: Optional[str] = None
 
 
 class PastPaperAnalyzeRequest(BaseModel):
@@ -229,14 +235,60 @@ async def upload_document(
 async def chat_with_unit(payload: ChatRequest):
     """
     RAG Chat endpoint strictly isolated to payload.unit_code.
+    Supports multimodal queries (attached past papers, diagrams, screenshots, formulas).
     Falls back to Tavily web search if notes have knowledge gaps or deep_search is enabled.
     Persists the full interaction into MongoDB chat_transcripts.
     """
+    attached_document_text = None
+    image_b64 = payload.image_base64
+
+    # Process attached document or file if supplied
+    if payload.attached_file_base64:
+        try:
+            raw_b64 = payload.attached_file_base64
+            if "," in raw_b64:
+                raw_b64 = raw_b64.split(",", 1)[1]
+            file_bytes = base64.b64decode(raw_b64)
+            file_name = (payload.attached_file_name or "").lower()
+
+            # Image attachment
+            if any(file_name.endswith(ext) for ext in [".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"]):
+                if not image_b64:
+                    image_b64 = raw_b64
+            # PDF attachment (past papers, lecture slides, assignments)
+            elif file_name.endswith(".pdf"):
+                doc = fitz.open(stream=file_bytes, filetype="pdf")
+                pages_text = []
+                for idx, page in enumerate(doc):
+                    if idx >= 20:  # Cap at 20 pages for chat prompt context
+                        pages_text.append("... [Remaining pages omitted for context limits]")
+                        break
+                    txt = page.get_text()
+                    if txt.strip():
+                        pages_text.append(f"--- Page {idx + 1} ---\n{txt.strip()}")
+                attached_document_text = "\n\n".join(pages_text)
+            # Word / Docx
+            elif file_name.endswith((".docx",)):
+                try:
+                    import docx
+                    doc = docx.Document(io.BytesIO(file_bytes))
+                    attached_document_text = "\n".join([p.text for p in doc.paragraphs if p.text])
+                except Exception as de:
+                    attached_document_text = file_bytes.decode("utf-8", errors="ignore")
+            # Plain text, code, markdown
+            else:
+                attached_document_text = file_bytes.decode("utf-8", errors="replace")
+        except Exception as e:
+            logger.warning(f"Failed to process attached document in chat: {e}")
+
     result = await rag_router.execute_query(
         unit_code=payload.unit_code,
         query=payload.query,
         deep_search=payload.deep_search,
-        similarity_threshold=payload.similarity_threshold
+        similarity_threshold=payload.similarity_threshold,
+        image_base64=image_b64,
+        attached_document_text=attached_document_text,
+        attached_file_name=payload.attached_file_name
     )
 
     # Persist transcript asynchronously to MongoDB
@@ -251,6 +303,8 @@ async def chat_with_unit(payload: ChatRequest):
             "external_sources": result["external_sources"],
             "web_search_used": result["web_search_used"],
             "max_similarity": result["max_similarity"],
+            "has_image": bool(image_b64),
+            "attached_file_name": payload.attached_file_name,
             "created_at": datetime.now(timezone.utc).isoformat()
         })
     except Exception as e:

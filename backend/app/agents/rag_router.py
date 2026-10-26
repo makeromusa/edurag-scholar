@@ -35,15 +35,35 @@ class RagAgentRouter:
         if settings.TAVILY_API_KEY:
             self.tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
 
-    async def generate_text(self, system_instruction: str, user_prompt: str) -> str:
-        """Universal text generator: Primary Azure OpenAI (gpt-4.1-mini) with seamless Gemini fallback."""
+    async def generate_text(
+        self,
+        system_instruction: str,
+        user_prompt: str,
+        image_base64: Optional[str] = None
+    ) -> str:
+        """Universal multimodal text & vision generator: Primary Azure OpenAI (gpt-4.1-mini) with seamless Gemini fallback."""
+        clean_b64 = image_base64
+        if clean_b64 and "," in clean_b64:
+            clean_b64 = clean_b64.split(",", 1)[1]
+
         if self.azure_client:
             try:
+                if clean_b64:
+                    user_content: Any = [
+                        {"type": "text", "text": user_prompt},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/jpeg;base64,{clean_b64}"}
+                        }
+                    ]
+                else:
+                    user_content = user_prompt
+
                 resp = self.azure_client.chat.completions.create(
                     model=self.chat_model,
                     messages=[
                         {"role": "system", "content": system_instruction},
-                        {"role": "user", "content": user_prompt}
+                        {"role": "user", "content": user_content}
                     ],
                     temperature=0.2
                 )
@@ -54,7 +74,7 @@ class RagAgentRouter:
                 logger.warning(f"Azure OpenAI generation error ({e}), seamlessly failing over to Gemini...")
 
         if self.has_gemini:
-            return generate_gemini_content(system_instruction, user_prompt)
+            return generate_gemini_content(system_instruction, user_prompt, image_base64=clean_b64)
 
         return "⚠️ No LLM brain configured."
 
@@ -64,10 +84,13 @@ class RagAgentRouter:
         query: str,
         deep_search: bool = False,
         similarity_threshold: float = 0.68,
-        top_k: int = 6
+        top_k: int = 6,
+        image_base64: Optional[str] = None,
+        attached_document_text: Optional[str] = None,
+        attached_file_name: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Executes unit-isolated RAG retrieval.
+        Executes unit-isolated RAG retrieval with multimodal image & attached document support.
         Autonomously routes to Tavily academic search if local context is insufficient or deep_search is requested.
         """
         # 1. Embed student query
@@ -83,7 +106,7 @@ class RagAgentRouter:
 
         # Determine if web fallback is needed
         max_similarity = max([c.get("similarity", 0) for c in local_chunks], default=0)
-        web_search_needed = deep_search or (max_similarity < similarity_threshold) or (len(local_chunks) == 0)
+        web_search_needed = deep_search or (max_similarity < similarity_threshold and not attached_document_text)
 
         web_results = []
         if web_search_needed and self.tavily_client:
@@ -104,11 +127,18 @@ class RagAgentRouter:
             unit_code=unit_code,
             query=query,
             local_chunks=local_chunks,
-            web_results=web_results
+            web_results=web_results,
+            attached_document_text=attached_document_text,
+            attached_file_name=attached_file_name,
+            has_image=bool(image_base64)
         )
 
-        # 4. Generate LLM Response
-        answer_text = await self.generate_text(system_instruction, user_content)
+        # 4. Generate LLM Response (Multimodal Vision + Text)
+        answer_text = await self.generate_text(
+            system_instruction=system_instruction,
+            user_prompt=user_content,
+            image_base64=image_base64
+        )
 
         # Extract structured citations
         citations = []
@@ -142,25 +172,37 @@ class RagAgentRouter:
         unit_code: str,
         query: str,
         local_chunks: List[Dict[str, Any]],
-        web_results: List[Dict[str, Any]]
+        web_results: List[Dict[str, Any]],
+        attached_document_text: Optional[str] = None,
+        attached_file_name: Optional[str] = None,
+        has_image: bool = False
     ):
         system_instruction = f"""You are the UoN Chiromo Academic AI Copilot for unit [{unit_code}].
 Your role is to help Computer Science students master this syllabus, ace CATs, and pass final exams.
 
 STRICT GROUNDING & CITATION RULES:
-1. Prioritize lecturer course notes whenever available.
+1. Prioritize lecturer course notes and directly attached study materials.
 2. When referencing facts from lecturer notes, cite them strictly as:
    `[{unit_code} | <File Name> | Slide <Page #>]`
-3. If external web search results are provided, format them as:
+3. If the student attached an image or diagram, inspect all visual formulas, network graphs, or architecture diagrams carefully and transcribe/solve them.
+4. If external web search results are provided, format them as:
    `[Web: <Domain> | <Title>]`
-4. Answer structure for university exam readiness:
+5. Answer structure for university exam readiness:
    - Direct Academic Definition / Summary
    - Step-by-Step Technical Explanation (use LaTeX math `$ ... $` for formulas or equations)
    - Architectural diagrams in Mermaid syntax (```mermaid ... ```) where applicable
    - Practical Trade-offs or Common Exam Pitfalls
-5. Do NOT hallucinate. If neither the lecturer slides nor web results contain the answer, explicitly state: "This concept is not present in the indexed materials for {unit_code}."
+6. Do NOT hallucinate. If the answer is not present, explicitly state: "This concept is not present in the indexed materials for {unit_code}."
 """
         context_blocks = []
+
+        if attached_document_text:
+            context_blocks.append(
+                f"--- DIRECTLY ATTACHED STUDENT DOCUMENT: {attached_file_name or 'Uploaded File'} ---\n"
+                f"{attached_document_text[:8000]}\n"
+                f"---------------------------------------------------"
+            )
+
         if local_chunks:
             context_blocks.append("--- LECTURER COURSE NOTES CONTEXT ---")
             for i, c in enumerate(local_chunks, 1):
