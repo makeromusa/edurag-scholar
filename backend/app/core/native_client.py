@@ -1,7 +1,10 @@
 import json
 import logging
+import os
 import subprocess
+import sys
 from typing import List, Dict, Any
+import requests
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -9,22 +12,36 @@ logger = logging.getLogger(__name__)
 
 def generate_gemini_content(system_instruction: str, user_prompt: str) -> str:
     """
-    Executes a Gemini generation call using Windows native WinHTTP/PowerShell bridge.
-    Guarantees zero Python OpenSSL timeouts on Windows network stacks.
+    Executes a Gemini generation call.
+    Uses native HTTP on Linux/Azure and PowerShell bridge on Windows to avoid OpenSSL quirks.
     """
     api_key = settings.GEMINI_API_KEY
     model = "gemini-flash-lite-latest"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
+    # If running on Linux (Azure App Service)
+    if sys.platform != "win32":
+        try:
+            payload = {
+                "system_instruction": {"parts": [{"text": system_instruction}]},
+                "contents": [{"parts": [{"text": user_prompt}]}]
+            }
+            r = requests.post(url, json=payload, timeout=25)
+            data = r.json()
+            return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            logger.error(f"Linux direct Gemini generation failed: {e}")
+            return f"⚠️ Generation error: {e}"
+
+    # Windows fallback via WinHTTP
     combined_prompt = f"{system_instruction}\n\n{user_prompt}".replace('"', '\\"').replace("'", "''")
-
     ps_script = f"""
 $headers = @{{
     'Content-Type' = 'application/json'
     'X-goog-api-key' = '{api_key}'
 }}
 $body = '{{\"contents\":[{{\"parts\":[{{\"text\":\"{combined_prompt}\"}}]}}]}}'
-$res = Invoke-RestMethod -Uri '{url}' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
+$res = Invoke-RestMethod -Uri 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
 $res.candidates[0].content.parts[0].text
 """
     try:
@@ -46,18 +63,35 @@ $res.candidates[0].content.parts[0].text
 def get_gemini_embedding_native(text: str) -> List[float]:
     """
     Generates 1536-dimensional embeddings via Gemini gemini-embedding-001.
+    Uses native HTTP on Linux (Azure) and PowerShell bridge on Windows.
     """
     api_key = settings.GEMINI_API_KEY
-    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
-    clean_text = text.replace('"', '\\"').replace("'", "''").replace("\n", " ").strip()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={api_key}"
+    clean_text = text.replace("\n", " ").strip()
 
+    # Linux (Azure App Service)
+    if sys.platform != "win32":
+        try:
+            payload = {
+                "content": {"parts": [{"text": clean_text}]},
+                "output_dimensionality": 1536
+            }
+            r = requests.post(url, json=payload, timeout=20)
+            data = r.json()
+            return data["embedding"]["values"]
+        except Exception as e:
+            logger.error(f"Linux direct Gemini embedding failed: {e}")
+            raise e
+
+    # Windows fallback via WinHTTP
+    escaped_text = clean_text.replace('"', '\\"').replace("'", "''")
     ps_script = f"""
 $headers = @{{
     'Content-Type' = 'application/json'
     'X-goog-api-key' = '{api_key}'
 }}
-$body = '{{\"content\":{{\"parts\":[{{\"text\":\"{clean_text}\"}}]}},\"output_dimensionality\":1536}}'
-$res = Invoke-RestMethod -Uri '{url}' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
+$body = '{{\"content\":{{\"parts\":[{{\"text\":\"{escaped_text}\"}}]}},\"output_dimensionality\":1536}}'
+$res = Invoke-RestMethod -Uri 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
 $res.embedding.values | ConvertTo-Json -Compress
 """
     try:
