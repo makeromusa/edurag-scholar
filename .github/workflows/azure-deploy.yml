@@ -24,6 +24,7 @@ jobs:
         cp -r backend/app deploy/
         cp backend/requirements.txt deploy/
         cp startup.sh deploy/
+        chmod +x deploy/startup.sh
         cd deploy
         zip -r ../release.zip .
 
@@ -33,3 +34,4 @@ jobs:
         app-name: 'edurag-openai-musa'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
         package: release.zip
+        startup-command: 'startup.sh'

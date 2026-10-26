@@ -35,13 +35,13 @@ def extract_text_from_pdf(file_bytes: bytes, file_name: str) -> List[ExtractedPa
     
     for i, page in enumerate(doc):
         page_num = i + 1
-        text = page.get_text("text").strip()
+        text = page.get_text("text").replace("\x00", "").replace("\u0000", "").strip()
         
         # Extract potential slide title (often the first non-empty line or block)
         blocks = page.get_text("blocks")
         title = None
         if blocks:
-            first_block_text = blocks[0][4].strip()
+            first_block_text = blocks[0][4].replace("\x00", "").replace("\u0000", "").strip()
             if len(first_block_text) < 100:
                 title = first_block_text.replace("\n", " ")
 

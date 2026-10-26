@@ -230,19 +230,21 @@ async def upload_document(
             emb = embeddings[i] if i < len(embeddings) else [0.0] * 1536
             if not emb or len(emb) != 1536:
                 emb = [0.0] * 1536
+            clean_content = (chunk.content or "").replace("\x00", "").replace("\u0000", "")
+            clean_title = (chunk.slide_title or "").replace("\x00", "").replace("\u0000", "") if chunk.slide_title else None
             records_to_insert.append({
                 "document_id": document_id,
                 "unit_code": unit_code,
                 "page_number": chunk.page_number,
-                "slide_title": chunk.slide_title,
-                "content": chunk.content,
+                "slide_title": clean_title,
+                "content": clean_content,
                 "embedding": emb,
                 "metadata": chunk.metadata
             })
 
-        # Insert chunks in batches of 100 for maximum throughput
+        # Insert chunks in batches of 250 for maximum throughput and sub-5s database ingestion
         logger.info(f"Inserting {len(records_to_insert)} vector chunks into Supabase...")
-        batch_size = 100
+        batch_size = 250
         for i in range(0, len(records_to_insert), batch_size):
             batch = records_to_insert[i:i+batch_size]
             client.table("document_chunks").insert(batch).execute()
