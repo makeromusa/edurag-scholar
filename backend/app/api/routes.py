@@ -103,7 +103,7 @@ def get_timetable():
 
 
 def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Extracts verified user info from Supabase JWT if present."""
+    """Extracts verified user info from Supabase JWT and ensures profile exists in profiles table."""
     if not authorization or not authorization.startswith("Bearer "):
         return None
     token = authorization.split("Bearer ", 1)[1].strip()
@@ -111,9 +111,26 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
         client = get_supabase_admin_client()
         user_res = client.auth.get_user(token)
         if user_res and user_res.user:
+            user_id = str(user_res.user.id)
+            user_email = user_res.user.email or "student@uon.ac.ke"
+            full_name = (user_res.user.user_metadata or {}).get("full_name") or user_email.split("@")[0]
+
+            # Ensure profile exists in profiles table so foreign key constraint never fails!
+            try:
+                prof = client.table("profiles").select("id").eq("id", user_id).execute()
+                if not prof.data:
+                    client.table("profiles").insert({
+                        "id": user_id,
+                        "email": user_email,
+                        "full_name": full_name
+                    }).execute()
+                    logger.info(f"Created profile record for authenticated student: {user_email} ({user_id})")
+            except Exception as pe:
+                logger.warning(f"Could not auto-create profile for {user_email}: {pe}")
+
             return {
-                "id": str(user_res.user.id),
-                "email": user_res.user.email,
+                "id": user_id,
+                "email": user_email,
                 "metadata": user_res.user.user_metadata or {}
             }
     except Exception as e:
@@ -198,8 +215,8 @@ async def upload_document(
         if not extracted_pages:
             raise HTTPException(status_code=400, detail="No extractable text found in file.")
 
-        # 2. Register document in Supabase with uploaded_by user_id
-        doc_res = client.table("documents").insert({
+        # 2. Register document in Supabase with uploaded_by user_id (with resilient foreign-key safety)
+        doc_payload = {
             "unit_code": unit_code,
             "title": file_name,
             "file_type": file_type,
@@ -208,7 +225,27 @@ async def upload_document(
             "page_count": len(extracted_pages),
             "uploaded_by": user_id,
             "is_processed": False
-        }).execute()
+        }
+        try:
+            doc_res = client.table("documents").insert(doc_payload).execute()
+        except Exception as insert_err:
+            logger.warning(f"Initial document insert failed ({insert_err}), checking profiles table for foreign key...")
+            if user_id:
+                try:
+                    prof = client.table("profiles").select("id").eq("id", user_id).execute()
+                    if not prof.data:
+                        client.table("profiles").insert({
+                            "id": user_id,
+                            "email": (user or {}).get("email") or "student@uon.ac.ke",
+                            "full_name": ((user or {}).get("metadata") or {}).get("full_name") or "Student"
+                        }).execute()
+                    doc_res = client.table("documents").insert(doc_payload).execute()
+                except Exception as retry_err:
+                    logger.warning(f"Retry with profile failed ({retry_err}), inserting as shared course doc...")
+                    doc_payload["uploaded_by"] = None
+                    doc_res = client.table("documents").insert(doc_payload).execute()
+            else:
+                raise insert_err
         
         doc_record = doc_res.data[0]
         document_id = doc_record["id"]
