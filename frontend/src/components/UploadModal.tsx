@@ -48,7 +48,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       if (res.ok) {
         setStatusMsg({
           type: "success",
-          text: `Successfully extracted & indexed ${data.slides_extracted} slides (${data.chunks_indexed} vectors).`,
+          text: data.status === "indexing"
+            ? (data.message || `Document received (${data.slides_extracted} pages)! Indexing vector embeddings in background...`)
+            : `Successfully extracted & indexed ${data.slides_extracted} slides (${data.chunks_indexed} vectors).`,
         });
         setFile(null);
         if (onSuccess) onSuccess();
@@ -61,7 +63,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     } catch (err: any) {
       setStatusMsg({
         type: "error",
-        text: err.message || "Network error uploading file.",
+        text: err.message || "Network error uploading file. For large textbooks (20MB+), consider uploading by chapter.",
       });
     } finally {
       setIsUploading(false);

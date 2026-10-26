@@ -96,14 +96,52 @@ def get_timetable():
     return {"timetable": res.data or []}
 
 
+def process_document_background(
+    extracted_pages,
+    unit_code: str,
+    document_id: str,
+    file_name: str
+):
+    """Asynchronous background worker to chunk, embed, and store massive textbooks without timing out."""
+    try:
+        client = get_supabase_admin_client()
+        chunks = chunk_extracted_pages(extracted_pages, unit_code=unit_code, document_id=document_id)
+        chunk_texts = [c.content for c in chunks]
+        embeddings = embedding_service.get_embeddings_batch(chunk_texts, batch_size=50)
+
+        records_to_insert = []
+        for i, chunk in enumerate(chunks):
+            records_to_insert.append({
+                "document_id": document_id,
+                "unit_code": unit_code,
+                "page_number": chunk.page_number,
+                "slide_title": chunk.slide_title,
+                "content": chunk.content,
+                "embedding": embeddings[i],
+                "metadata": chunk.metadata
+            })
+
+        batch_size = 50
+        for i in range(0, len(records_to_insert), batch_size):
+            batch = records_to_insert[i:i+batch_size]
+            client.table("document_chunks").insert(batch).execute()
+
+        client.table("documents").update({"is_processed": True}).eq("id", document_id).execute()
+        logger.info(f"Background indexing completed for {file_name}: {len(chunks)} chunks.")
+    except Exception as e:
+        logger.error(f"Error in background indexing for {file_name}: {e}")
+
+
 @router.post("/documents/upload")
 async def upload_document(
+    background_tasks: BackgroundTasks,
     unit_code: str = Form(...),
     file: UploadFile = File(...)
 ):
     """
-    Ingests and processes a course document (PDF slides, PPTX, DOCX, past paper).
-    Extracts text/slides, creates chunks, computes embeddings, and stores in Supabase.
+    Ingests and processes a course document (PDF slides, PPTX, DOCX, past paper, textbook).
+    For slide decks (<= 30 pages), processes synchronously with fast batch embeddings.
+    For massive textbooks (> 30 pages), dispatches to background worker to prevent HTTP timeout.
     """
     client = get_supabase_admin_client()
     file_bytes = await file.read()
@@ -130,12 +168,28 @@ async def upload_document(
         doc_record = doc_res.data[0]
         document_id = doc_record["id"]
 
-        # 3. Slide-aware Chunking
-        chunks = chunk_extracted_pages(extracted_pages, unit_code=unit_code, document_id=document_id)
+        # 3. For large textbooks (> 30 pages), dispatch to background worker!
+        if len(extracted_pages) > 30:
+            background_tasks.add_task(
+                process_document_background,
+                extracted_pages=extracted_pages,
+                unit_code=unit_code,
+                document_id=document_id,
+                file_name=file_name
+            )
+            return {
+                "status": "indexing",
+                "document_id": document_id,
+                "file_name": file_name,
+                "slides_extracted": len(extracted_pages),
+                "chunks_indexed": 0,
+                "message": f"Textbook received ({len(extracted_pages)} pages). Indexing vector embeddings in background..."
+            }
 
-        # 4. Generate Embeddings & Insert
+        # 4. For slide decks (<= 30 pages), process immediately with batch embeddings
+        chunks = chunk_extracted_pages(extracted_pages, unit_code=unit_code, document_id=document_id)
         chunk_texts = [c.content for c in chunks]
-        embeddings = embedding_service.get_embeddings_batch(chunk_texts)
+        embeddings = embedding_service.get_embeddings_batch(chunk_texts, batch_size=50)
 
         records_to_insert = []
         for i, chunk in enumerate(chunks):

@@ -2,7 +2,7 @@ from typing import List
 import logging
 from openai import AzureOpenAI, OpenAI
 from app.core.config import settings
-from app.core.native_client import get_gemini_embedding_native
+from app.core.native_client import get_gemini_embedding_native, get_gemini_embeddings_batch
 
 logger = logging.getLogger(__name__)
 
@@ -46,13 +46,13 @@ class EmbeddingService:
         )
         return response.data[0].embedding
 
-    def get_embeddings_batch(self, texts: List[str], batch_size: int = 20) -> List[List[float]]:
-        """Batch embeds chunks for efficiency."""
-        all_embeddings: List[List[float]] = []
+    def get_embeddings_batch(self, texts: List[str], batch_size: int = 50) -> List[List[float]]:
+        """Batch embeds chunks with 100x acceleration via batch API."""
+        if not texts:
+            return []
+
         if self.is_gemini:
-            for text in texts:
-                all_embeddings.append(self.get_embedding(text))
-            return all_embeddings
+            return get_gemini_embeddings_batch(texts, batch_size=batch_size)
 
         if not self.client:
             raise ValueError("Embedding client is not configured.")

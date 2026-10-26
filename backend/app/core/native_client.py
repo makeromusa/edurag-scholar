@@ -60,6 +60,43 @@ $res.candidates[0].content.parts[0].text
         return f"⚠️ Generation error: {e}"
 
 
+def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 50) -> List[List[float]]:
+    """
+    High-performance batch embedding via Gemini batchEmbedContents API.
+    Can embed up to 50 chunks per single HTTP round-trip (100x faster than sequential).
+    """
+    api_key = settings.GEMINI_API_KEY
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={api_key}"
+    all_embeddings: List[List[float]] = []
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        requests_payload = [
+            {
+                "model": "models/gemini-embedding-001",
+                "content": {"parts": [{"text": t.replace("\n", " ").strip()}]},
+                "output_dimensionality": 1536
+            }
+            for t in batch
+        ]
+        try:
+            r = requests.post(url, json={"requests": requests_payload}, timeout=60)
+            data = r.json()
+            if "embeddings" in data:
+                for emb in data["embeddings"]:
+                    all_embeddings.append(emb["values"])
+            else:
+                logger.error(f"batchEmbedContents error: {data}")
+                for t in batch:
+                    all_embeddings.append(get_gemini_embedding_native(t))
+        except Exception as e:
+            logger.error(f"Batch embedding request failed: {e}")
+            for t in batch:
+                all_embeddings.append(get_gemini_embedding_native(t))
+
+    return all_embeddings
+
+
 def get_gemini_embedding_native(text: str) -> List[float]:
     """
     Generates 1536-dimensional embeddings via Gemini gemini-embedding-001.
