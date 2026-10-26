@@ -34,4 +34,3 @@ jobs:
         app-name: 'edurag-openai-musa'
         publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
         package: release.zip
-        startup-command: 'startup.sh'
