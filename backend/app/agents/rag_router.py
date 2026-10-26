@@ -12,28 +12,23 @@ logger = logging.getLogger(__name__)
 
 class RagAgentRouter:
     def __init__(self):
-        # LLM Clients: Gemini / Azure / OpenAI
-        self.is_gemini = False
-        self.is_azure = False
-        self.llm_client = None
+        # Dual-Engine Architecture: Azure OpenAI + Gemini
+        self.azure_client = None
+        self.chat_model = settings.AZURE_OPENAI_CHAT_DEPLOYMENT or "gpt-4.1-mini"
+        self.has_gemini = bool(settings.GEMINI_API_KEY)
 
-        if settings.GEMINI_API_KEY:
-            self.is_gemini = True
-            logger.info("RagAgentRouter initialized with Native Gemini Brain.")
-        elif settings.AZURE_OPENAI_API_KEY and settings.AZURE_OPENAI_ENDPOINT:
-            self.llm_client = AzureOpenAI(
-                api_key=settings.AZURE_OPENAI_API_KEY,
-                api_version=settings.AZURE_OPENAI_API_VERSION,
-                azure_endpoint=settings.AZURE_OPENAI_ENDPOINT
-            )
-            self.chat_model = settings.AZURE_OPENAI_CHAT_DEPLOYMENT
-            self.is_azure = True
-        elif settings.OPENAI_API_KEY:
-            self.llm_client = OpenAI(api_key=settings.OPENAI_API_KEY)
-            self.chat_model = "gpt-4o-mini"
-            self.is_azure = False
-        else:
-            logger.warning("No LLM client credentials configured.")
+        if settings.AZURE_OPENAI_API_KEY and settings.AZURE_OPENAI_ENDPOINT:
+            try:
+                self.azure_client = OpenAI(
+                    base_url=settings.AZURE_OPENAI_ENDPOINT,
+                    api_key=settings.AZURE_OPENAI_API_KEY
+                )
+                logger.info(f"RagAgentRouter initialized with Azure OpenAI ({self.chat_model}).")
+            except Exception as e:
+                logger.error(f"Failed to initialize Azure OpenAI: {e}")
+
+        if self.has_gemini:
+            logger.info("RagAgentRouter armed with Gemini Brain as dual-engine & fallback.")
 
         # Tavily Search Client
         self.tavily_client = None
@@ -41,20 +36,25 @@ class RagAgentRouter:
             self.tavily_client = TavilyClient(api_key=settings.TAVILY_API_KEY)
 
     async def generate_text(self, system_instruction: str, user_prompt: str) -> str:
-        """Universal text generator across Gemini, Azure OpenAI, and OpenAI."""
-        if self.is_gemini:
-            return generate_gemini_content(system_instruction, user_prompt)
+        """Universal text generator: Primary Azure OpenAI (gpt-4.1-mini) with seamless Gemini fallback."""
+        if self.azure_client:
+            try:
+                resp = self.azure_client.chat.completions.create(
+                    model=self.chat_model,
+                    messages=[
+                        {"role": "system", "content": system_instruction},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    temperature=0.2
+                )
+                content = resp.choices[0].message.content
+                if content:
+                    return content
+            except Exception as e:
+                logger.warning(f"Azure OpenAI generation error ({e}), seamlessly failing over to Gemini...")
 
-        if self.llm_client:
-            resp = self.llm_client.chat.completions.create(
-                model=self.chat_model,
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.2
-            )
-            return resp.choices[0].message.content or ""
+        if self.has_gemini:
+            return generate_gemini_content(system_instruction, user_prompt)
 
         return "⚠️ No LLM brain configured."
 
