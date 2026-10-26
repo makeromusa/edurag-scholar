@@ -93,7 +93,7 @@ def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 80) -> List[
                 "output_dimensionality": 1536
             })
         try:
-            r = requests.post(url, json={"requests": requests_payload}, timeout=15)
+            r = requests.post(url, json={"requests": requests_payload}, timeout=5)
             if r.status_code == 200:
                 data = r.json()
                 embs = []

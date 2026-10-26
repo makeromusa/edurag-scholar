@@ -4,6 +4,7 @@ import uuid
 import base64
 import io
 from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header
 from pydantic import BaseModel
@@ -152,9 +153,9 @@ def list_documents(unit_code: Optional[str] = None, authorization: Optional[str]
     if unit_code:
         query = query.eq("unit_code", unit_code)
     
-    # User isolation: If user is logged in, show their private documents + public course slides
+    # Strict User isolation: Logged-in students ONLY see their own uploaded documents
     if user_id:
-        query = query.or_(f"uploaded_by.eq.{user_id},uploaded_by.is.null")
+        query = query.eq("uploaded_by", user_id)
     else:
         query = query.is_("uploaded_by", "null")
 
@@ -279,7 +280,7 @@ async def upload_document(
                 "metadata": chunk.metadata
             })
 
-        # Insert chunks in batches of 250 for maximum throughput and sub-5s database ingestion
+        # Insert chunks in clean batches of 250 (thread-safe, high throughput)
         logger.info(f"Inserting {len(records_to_insert)} vector chunks into Supabase...")
         batch_size = 250
         for i in range(0, len(records_to_insert), batch_size):

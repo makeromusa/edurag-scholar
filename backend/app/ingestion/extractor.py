@@ -47,6 +47,39 @@ def extract_text_from_pdf(file_bytes: bytes, file_name: str) -> List[ExtractedPa
 
         is_scanned = len(text) < 40 and len(page.get_images()) > 0
         
+        # Automatic Vision OCR fallback for scanned slides / syllabus documents with minimal text
+        if len(text) < 25 and len(page.get_images()) > 0:
+            try:
+                from app.core.config import settings
+                from openai import OpenAI
+                import base64
+                if settings.AZURE_OPENAI_ENDPOINT and settings.AZURE_OPENAI_API_KEY:
+                    pix = page.get_pixmap(dpi=120)
+                    img_bytes = pix.tobytes("jpeg")
+                    b64 = base64.b64encode(img_bytes).decode("utf-8")
+                    client = OpenAI(base_url=settings.AZURE_OPENAI_ENDPOINT, api_key=settings.AZURE_OPENAI_API_KEY)
+                    resp = client.chat.completions.create(
+                        model=settings.AZURE_OPENAI_CHAT_DEPLOYMENT or "gpt-4.1-mini",
+                        messages=[{
+                            "role": "user",
+                            "content": [
+                                {"type": "text", "text": "Transcribe all text from this academic course document accurately."},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                            ]
+                        }],
+                        max_tokens=800
+                    )
+                    ocr_text = resp.choices[0].message.content or ""
+                    if len(ocr_text.strip()) > 10:
+                        text = ocr_text.replace("\x00", "").replace("\u0000", "").strip()
+                        title = title or text.split("\n")[0][:100]
+            except Exception as e:
+                logger.warning(f"Vision OCR fallback failed for page {page_num}: {e}")
+
+        # Ensure page content is never empty
+        if not text:
+            text = f"Course material {file_name} — Page {page_num}"
+        
         metadata = {
             "file_name": file_name,
             "is_scanned": is_scanned,

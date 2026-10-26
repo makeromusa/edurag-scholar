@@ -34,7 +34,7 @@ def chunk_extracted_pages(
     pages: List[ExtractedPage],
     unit_code: str,
     document_id: str,
-    max_chunk_chars: int = 2000,
+    max_chunk_chars: int = 3500,
     overlap_chars: int = 250
 ) -> List[DocumentChunk]:
     """
