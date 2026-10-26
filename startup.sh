@@ -1,3 +1,5 @@
 #!/bin/bash
-cd backend
+if [ -d "backend" ]; then
+    cd backend
+fi
 gunicorn -w 2 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 app.main:app

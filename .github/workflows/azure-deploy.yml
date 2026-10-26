@@ -1,0 +1,35 @@
+name: Deploy Backend to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python version
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Prepare deployment package
+      run: |
+        mkdir -p deploy
+        cp -r backend/app deploy/
+        cp backend/requirements.txt deploy/
+        cp startup.sh deploy/
+        cd deploy
+        zip -r ../release.zip .
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: 'edurag-openai-musa'
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE }}
+        package: release.zip
