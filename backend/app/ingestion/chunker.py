@@ -75,17 +75,19 @@ def chunk_extracted_pages(
                 end = min(start + max_chunk_chars, len(content))
                 chunk_slice = content[start:end].strip()
                 
-                slice_meta = meta.copy()
-                slice_meta["sub_chunk"] = sub_index
+                if chunk_slice:
+                    slice_meta = meta.copy()
+                    slice_meta["sub_chunk"] = sub_index
 
-                chunks.append(DocumentChunk(
-                    unit_code=unit_code,
-                    document_id=document_id,
-                    page_number=page.page_number,
-                    slide_title=f"{title} (Part {sub_index})",
-                    content=chunk_slice,
-                    metadata=slice_meta
-                ))
+                    chunks.append(DocumentChunk(
+                        unit_code=unit_code,
+                        document_id=document_id,
+                        page_number=page.page_number,
+                        slide_title=f"{title} (Part {sub_index})",
+                        content=chunk_slice,
+                        metadata=slice_meta
+                    ))
+                    sub_index += 1
 
                 if end == len(content):
                     break

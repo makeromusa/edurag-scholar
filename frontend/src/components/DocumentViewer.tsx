@@ -13,6 +13,7 @@ import {
   Layers,
   Paperclip,
 } from "lucide-react";
+import { useAuth } from "@/lib/AuthContext";
 
 export interface ActiveCitation {
   type: "local_slide" | "web";
@@ -49,6 +50,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   onClose,
   onOpenUpload,
 }) => {
+  const { session } = useAuth();
   const [documents, setDocuments] = useState<IngestedDoc[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
 
@@ -57,7 +59,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     setIsLoadingDocs(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-      const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(selectedUnit)}`);
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(selectedUnit)}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setDocuments(data.documents || []);

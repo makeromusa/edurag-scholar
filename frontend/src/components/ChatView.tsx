@@ -17,6 +17,7 @@ import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import { ActiveCitation } from "./DocumentViewer";
+import { useAuth } from "@/lib/AuthContext";
 
 interface AttachedFileMeta {
   name: string;
@@ -55,6 +56,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   unitName,
   onSelectCitation,
 }) => {
+  const { session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputQuery, setInputQuery] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
@@ -167,9 +169,14 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch(`${apiUrl}/api/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({
           unit_code: unitCode,
           query: effectiveQuery,

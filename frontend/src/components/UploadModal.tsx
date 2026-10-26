@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, UploadCloud, CheckCircle2, AlertCircle, FileText, Check, Loader2 } from "lucide-react";
 import { Unit } from "./Sidebar";
+import { useAuth } from "@/lib/AuthContext";
 
 interface UploadModalProps {
   units: Unit[];
@@ -19,6 +20,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { session } = useAuth();
   const [targetUnit, setTargetUnit] = useState(selectedUnit);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -42,8 +44,14 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
       const res = await fetch(`${apiUrl}/api/documents/upload`, {
         method: "POST",
+        headers,
         body: formData,
       });
 

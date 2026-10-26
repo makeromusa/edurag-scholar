@@ -73,6 +73,7 @@ def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 50) -> List[
     """
     High-performance batch embedding via Gemini batchEmbedContents API.
     Can embed up to 50 chunks per single HTTP round-trip (100x faster than sequential).
+    Resilient against empty texts, token limits, and network errors.
     """
     api_key = settings.GEMINI_API_KEY
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={api_key}"
@@ -80,28 +81,41 @@ def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 50) -> List[
 
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
-        requests_payload = [
-            {
+        requests_payload = []
+        for t in batch:
+            clean_t = (t or "").replace("\n", " ").strip()[:8000]
+            if not clean_t:
+                clean_t = "Academic study material content"
+            requests_payload.append({
                 "model": "models/gemini-embedding-001",
-                "content": {"parts": [{"text": t.replace("\n", " ").strip()}]},
+                "content": {"parts": [{"text": clean_t}]},
                 "output_dimensionality": 1536
-            }
-            for t in batch
-        ]
+            })
+
+        batch_success = False
         try:
             r = requests.post(url, json={"requests": requests_payload}, timeout=60)
             data = r.json()
             if "embeddings" in data:
                 for emb in data["embeddings"]:
-                    all_embeddings.append(emb["values"])
+                    values = emb.get("values", [])
+                    if len(values) == 1536:
+                        all_embeddings.append(values)
+                    else:
+                        all_embeddings.append([0.0] * 1536)
+                batch_success = True
             else:
-                logger.error(f"batchEmbedContents error: {data}")
-                for t in batch:
-                    all_embeddings.append(get_gemini_embedding_native(t))
+                logger.warning(f"batchEmbedContents returned non-embedding response: {data}")
         except Exception as e:
-            logger.error(f"Batch embedding request failed: {e}")
+            logger.warning(f"Batch embedding HTTP call failed: {e}")
+
+        if not batch_success:
+            # Fallback per-item for this batch
             for t in batch:
-                all_embeddings.append(get_gemini_embedding_native(t))
+                try:
+                    all_embeddings.append(get_gemini_embedding_native(t))
+                except Exception:
+                    all_embeddings.append([0.0] * 1536)
 
     return all_embeddings
 
@@ -110,10 +124,13 @@ def get_gemini_embedding_native(text: str) -> List[float]:
     """
     Generates 1536-dimensional embeddings via Gemini gemini-embedding-001.
     Uses native HTTP on Linux (Azure) and PowerShell bridge on Windows.
+    Gracefully returns zero vector fallback if API fails.
     """
     api_key = settings.GEMINI_API_KEY
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={api_key}"
-    clean_text = text.replace("\n", " ").strip()
+    clean_text = (text or "").replace("\n", " ").strip()[:8000]
+    if not clean_text:
+        clean_text = "Academic study material content"
 
     # Linux (Azure App Service)
     if sys.platform != "win32":
@@ -124,10 +141,13 @@ def get_gemini_embedding_native(text: str) -> List[float]:
             }
             r = requests.post(url, json=payload, timeout=20)
             data = r.json()
-            return data["embedding"]["values"]
+            if "embedding" in data and "values" in data["embedding"]:
+                return data["embedding"]["values"]
+            logger.warning(f"Gemini single embedding unexpected response: {data}")
+            return [0.0] * 1536
         except Exception as e:
             logger.error(f"Linux direct Gemini embedding failed: {e}")
-            raise e
+            return [0.0] * 1536
 
     # Windows fallback via WinHTTP
     escaped_text = clean_text.replace('"', '\\"').replace("'", "''")
