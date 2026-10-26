@@ -102,6 +102,26 @@ def get_timetable():
     return {"timetable": res.data or []}
 
 
+@router.get("/documents")
+def list_documents(unit_code: Optional[str] = None):
+    """Returns all ingested documents with page counts and real-time processing status."""
+    client = get_supabase_admin_client()
+    query = client.table("documents").select("id, unit_code, title, page_count, is_processed, file_size_bytes, uploaded_at")
+    if unit_code:
+        query = query.eq("unit_code", unit_code)
+    res = query.order("uploaded_at", desc=True).limit(50).execute()
+    
+    docs = res.data or []
+    enriched = []
+    for d in docs:
+        c_count = client.table("document_chunks").select("id", count="exact").eq("document_id", d["id"]).execute()
+        enriched.append({
+            **d,
+            "chunks_indexed": c_count.count or 0
+        })
+    return {"documents": enriched}
+
+
 @router.get("/documents/{doc_id}/status")
 def get_document_status(doc_id: str):
     """Checks the real-time processing and indexing status of an ingested document."""

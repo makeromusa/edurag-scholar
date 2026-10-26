@@ -95,9 +95,14 @@ export default function Home() {
             />
           </div>
 
-          {/* Synchronized Slide / Doc Viewer */}
+          {/* Synchronized Slide / Doc Viewer & Library */}
           <div className="w-1/2 flex-1 hidden md:block">
-            <DocumentViewer citation={activeCitation} />
+            <DocumentViewer
+              citation={activeCitation}
+              selectedUnit={currentUnit.code}
+              onClose={() => setActiveCitation(null)}
+              onOpenUpload={() => setIsUploadOpen(true)}
+            />
           </div>
         </div>
       </div>
