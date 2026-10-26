@@ -102,6 +102,24 @@ def get_timetable():
     return {"timetable": res.data or []}
 
 
+@router.get("/documents/{doc_id}/status")
+def get_document_status(doc_id: str):
+    """Checks the real-time processing and indexing status of an ingested document."""
+    client = get_supabase_admin_client()
+    doc = client.table("documents").select("id, unit_code, title, page_count, is_processed, created_at").eq("id", doc_id).execute()
+    if not doc.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+    chunks = client.table("document_chunks").select("id", count="exact").eq("document_id", doc_id).execute()
+    return {
+        "id": doc_id,
+        "title": doc.data[0].get("title"),
+        "unit_code": doc.data[0].get("unit_code"),
+        "page_count": doc.data[0].get("page_count", 0),
+        "is_processed": doc.data[0].get("is_processed", False),
+        "chunks_indexed": chunks.count or 0
+    }
+
+
 def process_document_background(
     extracted_pages,
     unit_code: str,
@@ -146,8 +164,8 @@ async def upload_document(
 ):
     """
     Ingests and processes a course document (PDF slides, PPTX, DOCX, past paper, textbook).
-    For slide decks (<= 30 pages), processes synchronously with fast batch embeddings.
-    For massive textbooks (> 30 pages), dispatches to background worker to prevent HTTP timeout.
+    For documents (<= 100 pages), processes immediately with fast batch embeddings (~5s).
+    For massive textbooks (> 100 pages), dispatches to background worker to prevent HTTP timeout.
     """
     client = get_supabase_admin_client()
     file_bytes = await file.read()
@@ -174,8 +192,8 @@ async def upload_document(
         doc_record = doc_res.data[0]
         document_id = doc_record["id"]
 
-        # 3. For large textbooks (> 30 pages), dispatch to background worker!
-        if len(extracted_pages) > 30:
+        # 3. For massive textbooks (> 100 pages), dispatch to background worker!
+        if len(extracted_pages) > 100:
             background_tasks.add_task(
                 process_document_background,
                 extracted_pages=extracted_pages,
@@ -192,7 +210,7 @@ async def upload_document(
                 "message": f"Textbook received ({len(extracted_pages)} pages). Indexing vector embeddings in background..."
             }
 
-        # 4. For slide decks (<= 30 pages), process immediately with batch embeddings
+        # 4. For slide decks & notes (<= 100 pages), process immediately with batch embeddings
         chunks = chunk_extracted_pages(extracted_pages, unit_code=unit_code, document_id=document_id)
         chunk_texts = [c.content for c in chunks]
         embeddings = embedding_service.get_embeddings_batch(chunk_texts, batch_size=50)

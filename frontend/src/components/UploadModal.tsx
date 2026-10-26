@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, UploadCloud, CheckCircle2, AlertCircle, FileText } from "lucide-react";
+import { X, UploadCloud, CheckCircle2, AlertCircle, FileText, Check } from "lucide-react";
 import { Unit } from "./Sidebar";
 
 interface UploadModalProps {
@@ -22,7 +22,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   const [targetUnit, setTargetUnit] = useState(selectedUnit);
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [statusMsg, setStatusMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{
+    type: "success" | "error";
+    text: string;
+    isIndexing?: boolean;
+  } | null>(null);
 
   if (!isOpen) return null;
 
@@ -46,11 +50,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
       const data = await res.json();
       if (res.ok) {
+        const isIndexing = data.status === "indexing";
         setStatusMsg({
           type: "success",
-          text: data.status === "indexing"
-            ? (data.message || `Document received (${data.slides_extracted} pages)! Indexing vector embeddings in background...`)
-            : `Successfully extracted & indexed ${data.slides_extracted} slides (${data.chunks_indexed} vectors).`,
+          isIndexing,
+          text: isIndexing
+            ? `✓ ${data.slides_extracted || "Document"} pages received! Vector indexing is running in the background. You can close this window and start asking questions in chat.`
+            : `✓ Successfully extracted & indexed ${data.slides_extracted} slides (${data.chunks_indexed} vector chunks). Ready for questions!`,
         });
         setFile(null);
         if (onSuccess) onSuccess();
@@ -70,6 +76,12 @@ export const UploadModal: React.FC<UploadModalProps> = ({
     }
   };
 
+  const handleClose = () => {
+    setStatusMsg(null);
+    setFile(null);
+    onClose();
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
       <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-[#0c111d] p-6 shadow-2xl">
@@ -80,7 +92,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </div>
             <h3 className="text-sm font-bold text-white">Upload Course Material</h3>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+          <button onClick={handleClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -110,7 +122,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
               <input
                 type="file"
                 accept=".pdf,.pptx,.ppt,.docx,.doc"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  setFile(e.target.files?.[0] || null);
+                  setStatusMsg(null);
+                }}
                 className="text-xs text-slate-400 file:mr-3 file:rounded-md file:border-0 file:bg-blue-600 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-white hover:file:bg-blue-500"
               />
               <p className="mt-2 text-[11px] text-slate-500">
@@ -128,32 +143,49 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
           {statusMsg && (
             <div
-              className={`rounded-lg p-3 text-xs flex items-center gap-2 ${
+              className={`rounded-lg p-3 text-xs flex items-start gap-2.5 leading-relaxed ${
                 statusMsg.type === "success"
-                  ? "border border-emerald-500/30 bg-emerald-950/20 text-emerald-400"
+                  ? "border border-emerald-500/30 bg-emerald-950/30 text-emerald-300"
                   : "border border-rose-500/30 bg-rose-950/20 text-rose-400"
               }`}
             >
-              {statusMsg.type === "success" ? <CheckCircle2 className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+              {statusMsg.type === "success" ? (
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
+              ) : (
+                <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
+              )}
               <span>{statusMsg.text}</span>
             </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-slate-800 px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!file || isUploading}
-              className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
-            >
-              {isUploading ? "Extracting & Embedding..." : "Ingest Document"}
-            </button>
+            {statusMsg?.type === "success" ? (
+              <button
+                type="button"
+                onClick={handleClose}
+                className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition shadow-sm shadow-emerald-600/20"
+              >
+                <Check className="h-4 w-4" />
+                Done / Close
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="rounded-lg border border-slate-800 px-4 py-2 text-xs font-semibold text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!file || isUploading}
+                  className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                >
+                  {isUploading ? "Extracting & Embedding..." : "Ingest Document"}
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>
