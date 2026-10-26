@@ -240,9 +240,9 @@ async def upload_document(
                 "metadata": chunk.metadata
             })
 
-        # Insert chunks in batches of 50
+        # Insert chunks in batches of 100 for maximum throughput
         logger.info(f"Inserting {len(records_to_insert)} vector chunks into Supabase...")
-        batch_size = 50
+        batch_size = 100
         for i in range(0, len(records_to_insert), batch_size):
             batch = records_to_insert[i:i+batch_size]
             client.table("document_chunks").insert(batch).execute()

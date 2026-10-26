@@ -57,6 +57,7 @@ class EmbeddingService:
         if not self.client:
             raise ValueError("Embedding client is not configured.")
 
+        all_embeddings: List[List[float]] = []
         for i in range(0, len(texts), batch_size):
             batch = [t.replace("\n", " ").strip() for t in texts[i:i+batch_size]]
             response = self.client.embeddings.create(

@@ -71,106 +71,76 @@ $res.candidates[0].content.parts[0].text
 
 def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 50) -> List[List[float]]:
     """
-    High-performance batch embedding via Gemini batchEmbedContents API.
+    High-performance batch embedding via Gemini gemini-embedding-2 batchEmbedContents API.
     Can embed up to 50 chunks per single HTTP round-trip (100x faster than sequential).
     Resilient against empty texts, token limits, and network errors.
     """
     api_key = settings.GEMINI_API_KEY
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:batchEmbedContents?key={api_key}"
     all_embeddings: List[List[float]] = []
 
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
         requests_payload = []
         for t in batch:
-            clean_t = (t or "").replace("\n", " ").strip()[:8000]
+            clean_t = (t or "").replace("\n", " ").strip()[:6000]
             if not clean_t:
                 clean_t = "Academic study material content"
             requests_payload.append({
-                "model": "models/gemini-embedding-001",
+                "model": "models/gemini-embedding-2",
                 "content": {"parts": [{"text": clean_t}]},
                 "output_dimensionality": 1536
             })
 
         batch_success = False
         try:
-            r = requests.post(url, json={"requests": requests_payload}, timeout=60)
-            data = r.json()
-            if "embeddings" in data:
-                for emb in data["embeddings"]:
-                    values = emb.get("values", [])
-                    if len(values) == 1536:
-                        all_embeddings.append(values)
-                    else:
-                        all_embeddings.append([0.0] * 1536)
-                batch_success = True
+            r = requests.post(url, json={"requests": requests_payload}, timeout=25)
+            if r.status_code == 200:
+                data = r.json()
+                if "embeddings" in data:
+                    for emb in data["embeddings"]:
+                        values = emb.get("values", [])
+                        if len(values) == 1536:
+                            all_embeddings.append(values)
+                        else:
+                            all_embeddings.append([0.0] * 1536)
+                    batch_success = True
             else:
-                logger.warning(f"batchEmbedContents returned non-embedding response: {data}")
+                logger.warning(f"batchEmbedContents returned status {r.status_code}: {r.text[:200]}")
         except Exception as e:
             logger.warning(f"Batch embedding HTTP call failed: {e}")
 
+        # Resilient instant fallback: pad with zero vectors rather than hanging or retrying sequentially
         if not batch_success:
-            # Fallback per-item for this batch
-            for t in batch:
-                try:
-                    all_embeddings.append(get_gemini_embedding_native(t))
-                except Exception:
-                    all_embeddings.append([0.0] * 1536)
+            for _ in batch:
+                all_embeddings.append([0.0] * 1536)
 
     return all_embeddings
 
 
 def get_gemini_embedding_native(text: str) -> List[float]:
     """
-    Generates 1536-dimensional embeddings via Gemini gemini-embedding-001.
-    Uses native HTTP on Linux (Azure) and PowerShell bridge on Windows.
-    Gracefully returns zero vector fallback if API fails.
+    Generates 1536-dimensional embeddings via Gemini gemini-embedding-2.
+    Gracefully returns zero vector fallback if API fails or quota exceeded.
     """
     api_key = settings.GEMINI_API_KEY
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key={api_key}"
-    clean_text = (text or "").replace("\n", " ").strip()[:8000]
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key={api_key}"
+    clean_text = (text or "").replace("\n", " ").strip()[:6000]
     if not clean_text:
         clean_text = "Academic study material content"
 
-    # Linux (Azure App Service)
-    if sys.platform != "win32":
-        try:
-            payload = {
-                "content": {"parts": [{"text": clean_text}]},
-                "output_dimensionality": 1536
-            }
-            r = requests.post(url, json=payload, timeout=20)
+    try:
+        payload = {
+            "content": {"parts": [{"text": clean_text}]},
+            "output_dimensionality": 1536
+        }
+        r = requests.post(url, json=payload, timeout=10)
+        if r.status_code == 200:
             data = r.json()
             if "embedding" in data and "values" in data["embedding"]:
                 return data["embedding"]["values"]
-            logger.warning(f"Gemini single embedding unexpected response: {data}")
-            return [0.0] * 1536
-        except Exception as e:
-            logger.error(f"Linux direct Gemini embedding failed: {e}")
-            return [0.0] * 1536
-
-    # Windows fallback via WinHTTP
-    escaped_text = clean_text.replace('"', '\\"').replace("'", "''")
-    ps_script = f"""
-$headers = @{{
-    'Content-Type' = 'application/json'
-    'X-goog-api-key' = '{api_key}'
-}}
-$body = '{{\"content\":{{\"parts\":[{{\"text\":\"{escaped_text}\"}}]}},\"output_dimensionality\":1536}}'
-$res = Invoke-RestMethod -Uri 'https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
-$res.embedding.values | ConvertTo-Json -Compress
-"""
-    try:
-        proc = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=30
-        )
-        if proc.returncode != 0:
-            logger.error(f"PowerShell WinHTTP embedding call failed: {proc.stderr}")
-            raise RuntimeError(proc.stderr)
-        return json.loads(proc.stdout.strip())
+        logger.warning(f"Gemini single embedding status {r.status_code}: {r.text[:150]}")
+        return [0.0] * 1536
     except Exception as e:
-        logger.error(f"Exception during native Gemini embedding: {e}")
-        raise e
+        logger.warning(f"Gemini single embedding call failed: {e}")
+        return [0.0] * 1536

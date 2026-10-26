@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Sidebar, Unit } from "@/components/Sidebar";
+import { Header } from "@/components/Header";
 import { ChatView } from "@/components/ChatView";
 import { DocumentViewer, ActiveCitation } from "@/components/DocumentViewer";
 import { DailyMissionCard } from "@/components/DailyMissionCard";
@@ -76,8 +77,16 @@ export default function Home() {
 
       {/* 2. Middle Main Studio */}
       <div className="flex flex-1 flex-col overflow-hidden">
+        {/* Top Header Bar with Unit Info & Google Sign-In */}
+        <Header
+          currentUnit={currentUnit}
+          onOpenUpload={() => setIsUploadOpen(true)}
+          onOpenPastPapers={() => setIsPastPapersOpen(true)}
+          onOpenFlashcards={() => setIsFlashcardsOpen(true)}
+        />
+
         {/* Top 3 AM Daily Mission Card */}
-        <div className="px-6 pt-5">
+        <div className="px-6 pt-4">
           <DailyMissionCard
             briefingMarkdown={briefingMarkdown}
             onRefresh={() => {}}

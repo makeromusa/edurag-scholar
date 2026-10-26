@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 from openai import AzureOpenAI, OpenAI
 from tavily import TavilyClient
 from app.core.config import settings
-from app.core.database import match_unit_chunks_rpc
+from app.core.database import match_unit_chunks_rpc, get_supabase_admin_client
 from app.core.native_client import generate_gemini_content
 from app.ingestion.embedder import embedding_service
 
@@ -103,6 +103,20 @@ class RagAgentRouter:
             match_threshold=similarity_threshold,
             match_count=top_k
         )
+
+        # Keyword fallback if vector search found 0 chunks (handles rate limits or low similarity)
+        if not local_chunks:
+            try:
+                client = get_supabase_admin_client()
+                terms = [w.strip() for w in query.replace("?", "").replace(",", "").replace(".", "").split() if len(w) > 3][:3]
+                for term in terms:
+                    kw_res = client.table("document_chunks").select("id, unit_code, document_id, page_number, slide_title, content, metadata").eq("unit_code", unit_code).ilike("content", f"%{term}%").limit(top_k).execute()
+                    if kw_res.data:
+                        local_chunks = [{**c, "similarity": 0.85} for c in kw_res.data]
+                        logger.info(f"Retrieved {len(local_chunks)} chunks via keyword fallback for term '{term}'")
+                        break
+            except Exception as e:
+                logger.warning(f"Keyword search fallback error: {e}")
 
         # Determine if web fallback is needed
         max_similarity = max([c.get("similarity", 0) for c in local_chunks], default=0)
