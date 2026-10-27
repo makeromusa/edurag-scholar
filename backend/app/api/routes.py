@@ -20,6 +20,7 @@ from app.core.mongodb import (
 )
 from app.services.spaced_repetition import calculate_sm2_review
 from app.services.professor_service import professor_service, PEDAGOGICAL_STAGES
+from app.services.professor_course_service import professor_course_service
 from app.ingestion.extractor import extract_document_pages
 from app.ingestion.chunker import chunk_extracted_pages
 from app.ingestion.embedder import embedding_service
@@ -88,6 +89,27 @@ class ProfessorTeachRequest(BaseModel):
     chunk_index: int = 0
     student_response: Optional[str] = None
     explain_deeper: bool = False
+
+
+class ProfessorLessonRequest(BaseModel):
+    document_id: str
+    unit_code: str
+    start_page: int
+    end_page: int
+    custom_focus: Optional[str] = None
+
+
+class ProfessorAskRequest(BaseModel):
+    document_id: str
+    unit_code: str
+    start_page: int
+    end_page: int
+    question: str
+
+
+class ProfessorSearchCurriculumRequest(BaseModel):
+    unit_code: str
+    query: str
 
 
 # --- Endpoints ---
@@ -696,4 +718,76 @@ async def teach_professor_chunk(payload: ProfessorTeachRequest):
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Error in professor teach endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/professor/document/{document_id}/syllabus")
+async def get_document_syllabus(document_id: str):
+    """
+    Parses an entire uploaded book, slide deck, or past paper from page 1 to the end,
+    organizing all slides into coherent, sequential Lesson Batches.
+    """
+    try:
+        syllabus = await professor_course_service.get_document_syllabus(document_id)
+        return {"status": "success", "data": syllabus}
+    except Exception as e:
+        logger.error(f"Error generating document syllabus: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/professor/document/lesson")
+async def teach_document_lesson(payload: ProfessorLessonRequest):
+    """
+    Delivers a full Professor Masterclass covering Slides start_page to end_page.
+    Teaches in MORE DETAIL than the slides themselves, unpacking mechanics, memory maps,
+    C code, and Chiromo Section B exam problems.
+    """
+    try:
+        lesson = await professor_course_service.teach_lesson_batch(
+            document_id=payload.document_id,
+            unit_code=payload.unit_code,
+            start_page=payload.start_page,
+            end_page=payload.end_page,
+            custom_focus=payload.custom_focus
+        )
+        return {"status": "success", "data": lesson}
+    except Exception as e:
+        logger.error(f"Error teaching document lesson: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/professor/document/ask")
+async def ask_professor_about_lesson(payload: ProfessorAskRequest):
+    """
+    Interactive Professor Office Hours: Answers student doubts specifically grounded
+    in the active lesson slide batch.
+    """
+    try:
+        answer = await professor_course_service.ask_lesson_question(
+            document_id=payload.document_id,
+            unit_code=payload.unit_code,
+            start_page=payload.start_page,
+            end_page=payload.end_page,
+            question=payload.question
+        )
+        return {"status": "success", "answer": answer}
+    except Exception as e:
+        logger.error(f"Error answering lesson question: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/professor/curriculum/search")
+async def search_and_create_curriculum(payload: ProfessorSearchCurriculumRequest):
+    """
+    Retrieves matching textbook or slides across the unit for a concept query
+    and constructs a lesson-by-lesson syllabus.
+    """
+    try:
+        result = await professor_course_service.search_and_create_curriculum(
+            unit_code=payload.unit_code,
+            query=payload.query
+        )
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Error searching curriculum: {e}")
         raise HTTPException(status_code=500, detail=str(e))

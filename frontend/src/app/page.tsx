@@ -11,7 +11,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { PastPaperModal } from "@/components/PastPaperModal";
 import { FlashcardModal } from "@/components/FlashcardModal";
 import { AuthModal } from "@/components/AuthModal";
-import { ProfessorModeModal } from "@/components/ProfessorModeModal";
+import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
 
 const DEFAULT_UNITS: Unit[] = [
   { code: "SMA 2114", name: "Differential and Integral Calculus", lecturer: "Dr. Okeyo", venue: "LG01" },
@@ -194,14 +194,13 @@ export default function Home() {
         onClose={() => setIsFlashcardsOpen(false)}
       />
 
-      {/* Professor Deep Abstraction & Teaching Mode */}
-      <ProfessorModeModal
+      {/* Professor Deep Abstraction & Lesson-by-Lesson Lecture Studio */}
+      <ProfessorLectureStudio
         isOpen={isProfessorOpen}
         onClose={() => setIsProfessorOpen(false)}
         unitCode={currentUnit.code}
+        initialDocumentId={professorDocId}
         initialTopic={professorTopic}
-        documentId={professorDocId}
-        documentTitle={professorDocTitle}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}
