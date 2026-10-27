@@ -20,8 +20,10 @@ import {
   ChevronUp,
   HelpCircle,
   Menu,
+  UploadCloud,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useAuth } from "@/lib/AuthContext";
 
 export interface ProfessorStudioProps {
   isOpen: boolean;
@@ -67,6 +69,9 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   initialDocumentId,
   initialTopic,
 }) => {
+  const { session } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [documents, setDocuments] = useState<DocumentMeta[]>([]);
   const [selectedDocId, setSelectedDocId] = useState<string>(initialDocumentId || "");
   const [syllabus, setSyllabus] = useState<SyllabusData | null>(null);
@@ -81,6 +86,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // Real-time upload states
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState("");
+
   // Office Hours interactive Q&A state
   const [officeHoursList, setOfficeHoursList] = useState<OfficeHoursQnA[]>([]);
   const [studentQuestion, setStudentQuestion] = useState("");
@@ -88,30 +97,97 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  // Fetch unit documents on open
-  useEffect(() => {
-    if (!isOpen) return;
+  // Fetch unit documents on open or session change
+  const fetchUnitDocs = async () => {
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(unitCode)}`, { headers });
+      if (res.ok) {
+        const data = await res.json();
+        let docList: DocumentMeta[] = data.documents || [];
 
-    const fetchUnitDocs = async () => {
-      try {
-        const res = await fetch(`${apiUrl}/api/documents/list?unit_code=${unitCode}`);
-        if (res.ok) {
-          const data = await res.json();
-          const docList: DocumentMeta[] = data.documents || [];
-          setDocuments(docList);
+        // If unit specific query returned 0, also fetch general documents for this student
+        if (docList.length === 0) {
+          const allRes = await fetch(`${apiUrl}/api/documents`, { headers });
+          if (allRes.ok) {
+            const allData = await allRes.json();
+            docList = allData.documents || [];
+          }
+        }
 
-          // If no doc is pre-selected, select the first processed document
-          if (!selectedDocId && docList.length > 0) {
+        setDocuments(docList);
+
+        // Auto-select document
+        if (docList.length > 0) {
+          if (initialDocumentId && docList.some((d) => d.id === initialDocumentId)) {
+            setSelectedDocId(initialDocumentId);
+          } else if (!selectedDocId || !docList.some((d) => d.id === selectedDocId)) {
             setSelectedDocId(docList[0].id);
           }
         }
-      } catch (err) {
-        console.error("Failed to fetch unit documents:", err);
       }
-    };
+    } catch (err) {
+      console.error("Failed to fetch unit documents:", err);
+    }
+  };
 
-    fetchUnitDocs();
-  }, [isOpen, unitCode]);
+  useEffect(() => {
+    if (isOpen) {
+      fetchUnitDocs();
+    }
+  }, [isOpen, unitCode, session?.access_token]);
+
+  // Real-time File Upload Handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgressText(`Uploading & indexing ${file.name} in real time...`);
+    setErrorMsg(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("unit_code", unitCode);
+      formData.append("file", file);
+
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+
+      const res = await fetch(`${apiUrl}/api/documents/upload`, {
+        method: "POST",
+        headers,
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to upload document.");
+      }
+
+      const uploadResult = await res.json();
+      const newDocId = uploadResult.document_id;
+
+      // Refresh documents dropdown list
+      await fetchUnitDocs();
+
+      // Automatically select newly uploaded document and begin teaching
+      if (newDocId) {
+        setSelectedDocId(newDocId);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "Upload failed. Please check file format.");
+    } finally {
+      setIsUploading(false);
+      setUploadProgressText("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   // Load syllabus whenever selectedDocId changes
   useEffect(() => {
@@ -313,30 +389,71 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
             }`}
           >
-            {/* Document Switcher Dropdown */}
+            {/* Document Switcher & Real-Time Upload Dropdown */}
             <div className="p-3.5 border-b border-slate-800 bg-[#0c1222]">
-              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Target Book or Slide Deck:
-              </label>
+              {/* Hidden File Input for Real-Time Upload */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.pptx,.docx,.txt"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Target Book or Slide Deck:
+                </label>
+                <span className="text-[10px] font-semibold text-indigo-400">
+                  {documents.length} Available
+                </span>
+              </div>
+
+              {/* Document Dropdown */}
               <select
                 value={selectedDocId}
                 onChange={(e) => setSelectedDocId(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none"
+                disabled={isUploading}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none transition"
               >
-                {documents.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.title} ({d.page_count} pages)
-                  </option>
-                ))}
+                {documents.length === 0 ? (
+                  <option value="">No books uploaded yet — upload below</option>
+                ) : (
+                  documents.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.title} ({d.page_count} pages)
+                    </option>
+                  ))
+                )}
               </select>
 
+              {/* Real-time File Upload Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-950/30 hover:bg-indigo-900/40 p-2.5 text-xs font-semibold text-indigo-300 transition shadow-sm"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+                    <span className="truncate">{uploadProgressText || "Indexing in real time..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <UploadCloud className="h-4 w-4 text-indigo-400" />
+                    <span>+ Upload Book / Slides in Real Time</span>
+                  </>
+                )}
+              </button>
+
               {/* Quick Topic Search Across Unit */}
-              <form onSubmit={handleSearchCurriculum} className="mt-2.5 flex items-center gap-1.5">
+              <form onSubmit={handleSearchCurriculum} className="mt-3 flex items-center gap-1.5">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Or search topic / chapter..."
+                  placeholder="Or search topic across unit..."
                   className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
                 />
                 <button

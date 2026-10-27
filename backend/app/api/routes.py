@@ -172,6 +172,7 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
 
 
 @router.get("/documents")
+@router.get("/documents/list")
 def list_documents(unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
     """
     Returns ingested documents with page counts and real-time processing status.
@@ -185,10 +186,12 @@ def list_documents(unit_code: Optional[str] = None, authorization: Optional[str]
     if unit_code:
         query = query.eq("unit_code", unit_code)
     
-    # Strict User isolation: Logged-in students ONLY see their own uploaded documents
+    # User isolation + shared documents:
+    # If user is logged in, show their documents + any shared course documents (uploaded_by is null)
     if user_id:
-        query = query.eq("uploaded_by", user_id)
+        query = query.or_(f"uploaded_by.eq.{user_id},uploaded_by.is.null")
     else:
+        # For guest / unauthenticated preview: show shared unit materials
         query = query.is_("uploaded_by", "null")
 
     res = query.order("uploaded_at", desc=True).limit(50).execute()
