@@ -19,6 +19,7 @@ from app.core.mongodb import (
     get_briefing_archives_collection
 )
 from app.services.spaced_repetition import calculate_sm2_review
+from app.services.professor_service import professor_service, PEDAGOGICAL_STAGES
 from app.ingestion.extractor import extract_document_pages
 from app.ingestion.chunker import chunk_extracted_pages
 from app.ingestion.embedder import embedding_service
@@ -78,6 +79,15 @@ class LogWeaknessRequest(BaseModel):
     topic_name: str
     error_pattern: Optional[str] = None
     difficulty_score: int = 3
+
+
+class ProfessorTeachRequest(BaseModel):
+    unit_code: str
+    topic: Optional[str] = None
+    document_id: Optional[str] = None
+    chunk_index: int = 0
+    student_response: Optional[str] = None
+    explain_deeper: bool = False
 
 
 # --- Endpoints ---
@@ -657,3 +667,33 @@ def log_student_weakness(payload: LogWeaknessRequest):
         "is_resolved": False
     }).execute()
     return {"status": "logged", "record": res.data}
+
+
+# --- Professor Deep Teaching & Abstraction Subsystem ---
+
+@router.get("/professor/stages")
+def get_professor_stages():
+    """Returns the pedagogical stage definitions for the 5-chunk Socratic journey."""
+    return {"stages": PEDAGOGICAL_STAGES}
+
+
+@router.post("/professor/teach")
+async def teach_professor_chunk(payload: ProfessorTeachRequest):
+    """
+    Delivers a deep, first-principles academic lecture chunk for any hard topic or ingested document.
+    Refuses superficial summaries: provides mechanical traces, ASCII memory diagrams, exam gotchas,
+    and Socratic checkpoints.
+    """
+    try:
+        result = await professor_service.teach_chunk(
+            unit_code=payload.unit_code,
+            topic=payload.topic or "",
+            document_id=payload.document_id,
+            chunk_index=payload.chunk_index,
+            student_response=payload.student_response,
+            explain_deeper=payload.explain_deeper
+        )
+        return {"status": "success", "data": result}
+    except Exception as e:
+        logger.error(f"Error in professor teach endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

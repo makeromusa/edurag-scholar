@@ -32,6 +32,7 @@ interface SidebarProps {
   onOpenUpload: () => void;
   onOpenPastPapers: () => void;
   onOpenFlashcards: () => void;
+  onOpenProfessorMode?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -43,6 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenUpload,
   onOpenPastPapers,
   onOpenFlashcards,
+  onOpenProfessorMode,
   isOpen = false,
   onClose,
 }) => {
@@ -127,6 +129,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Sparkles className="h-4 w-4 text-amber-400" />
             <span>Spaced Repetition (SM-2)</span>
           </button>
+          {onOpenProfessorMode && (
+            <button
+              onClick={() => {
+                onOpenProfessorMode();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-indigo-500/30 bg-indigo-950/20 px-3 py-2 text-xs font-medium text-indigo-300 transition hover:bg-indigo-900/40 hover:text-indigo-200"
+            >
+              <GraduationCap className="h-4 w-4 text-indigo-400" />
+              <span>👨‍🏫 Professor Deep Lecture</span>
+            </button>
+          )}
         </div>
 
         {/* The 7 Units Nav */}

@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   FileText,
   X,
+  GraduationCap,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -49,12 +50,14 @@ interface ChatViewProps {
   unitCode: string;
   unitName: string;
   onSelectCitation: (citation: ActiveCitation) => void;
+  onOpenProfessorMode?: (topic?: string) => void;
 }
 
 export const ChatView: React.FC<ChatViewProps> = ({
   unitCode,
   unitName,
   onSelectCitation,
+  onOpenProfessorMode,
 }) => {
   const { session } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -364,10 +367,19 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
       {/* Suggested Fast Prompts */}
       <div className="flex gap-2 px-6 py-2 overflow-x-auto border-t border-slate-800/60 bg-[#090d16]/50">
+        {onOpenProfessorMode && (
+          <button
+            onClick={() => onOpenProfessorMode(inputQuery.trim() || undefined)}
+            className="shrink-0 flex items-center gap-1.5 rounded-full border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 px-3.5 py-1 text-[11px] font-semibold text-indigo-300 transition shadow-sm"
+            title="Have an elite Professor teach this concept step-by-step with deep abstraction"
+          >
+            <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
+            <span>👨‍🏫 Professor Teaching Mode</span>
+          </button>
+        )}
         {[
           "Solve this past paper question step-by-step",
           "Explain the formula or diagram in detail",
-          "Summarize key definitions from the slides",
           "What are the common exam pitfalls for this topic?",
         ].map((prompt, idx) => (
           <button

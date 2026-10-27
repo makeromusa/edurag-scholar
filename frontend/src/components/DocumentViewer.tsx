@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   Layers,
   Paperclip,
+  GraduationCap,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -42,6 +43,7 @@ interface DocumentViewerProps {
   selectedUnit?: string;
   onClose?: () => void;
   onOpenUpload?: () => void;
+  onTeachDocument?: (docId: string, title: string) => void;
 }
 
 export const DocumentViewer: React.FC<DocumentViewerProps> = ({
@@ -49,6 +51,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   selectedUnit,
   onClose,
   onOpenUpload,
+  onTeachDocument,
 }) => {
   const { session } = useAuth();
   const [documents, setDocuments] = useState<IngestedDoc[]>([]);
@@ -267,6 +270,21 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                     </div>
                   )}
                 </div>
+
+                {/* Teach Step-by-Step Button */}
+                {onTeachDocument && isReady && (
+                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                    <span className="text-[10px] text-slate-500">Autonomous Socratic Mode</span>
+                    <button
+                      onClick={() => onTeachDocument(doc.id, doc.title)}
+                      className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-900/40 hover:text-indigo-200 transition"
+                      title="Have the Professor deconstruct and teach this document step-by-step"
+                    >
+                      <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>👨‍🏫 Teach Step-by-Step</span>
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })

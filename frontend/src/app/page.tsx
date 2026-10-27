@@ -11,6 +11,7 @@ import { UploadModal } from "@/components/UploadModal";
 import { PastPaperModal } from "@/components/PastPaperModal";
 import { FlashcardModal } from "@/components/FlashcardModal";
 import { AuthModal } from "@/components/AuthModal";
+import { ProfessorModeModal } from "@/components/ProfessorModeModal";
 
 const DEFAULT_UNITS: Unit[] = [
   { code: "SMA 2114", name: "Differential and Integral Calculus", lecturer: "Dr. Okeyo", venue: "LG01" },
@@ -29,6 +30,10 @@ export default function Home() {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isPastPapersOpen, setIsPastPapersOpen] = useState(false);
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
+  const [isProfessorOpen, setIsProfessorOpen] = useState(false);
+  const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
+  const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
+  const [professorDocTitle, setProfessorDocTitle] = useState<string | undefined>(undefined);
   const [briefingMarkdown, setBriefingMarkdown] = useState<string | undefined>(undefined);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "documents">("chat");
@@ -64,6 +69,13 @@ export default function Home() {
 
   const currentUnit = units.find((u) => u.code === selectedUnit) || units[0];
 
+  const handleOpenProfessor = (topic?: string, docId?: string, docTitle?: string) => {
+    setProfessorTopic(topic);
+    setProfessorDocId(docId);
+    setProfessorDocTitle(docTitle);
+    setIsProfessorOpen(true);
+  };
+
   const handleCitationSelect = (citation: ActiveCitation) => {
     setActiveCitation(citation);
     // On mobile devices, automatically switch tab so user sees the document page
@@ -83,6 +95,7 @@ export default function Home() {
         onOpenUpload={() => setIsUploadOpen(true)}
         onOpenPastPapers={() => setIsPastPapersOpen(true)}
         onOpenFlashcards={() => setIsFlashcardsOpen(true)}
+        onOpenProfessorMode={() => handleOpenProfessor()}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
@@ -140,6 +153,7 @@ export default function Home() {
               unitCode={currentUnit.code}
               unitName={currentUnit.name}
               onSelectCitation={handleCitationSelect}
+              onOpenProfessorMode={(topic) => handleOpenProfessor(topic)}
             />
           </div>
 
@@ -154,6 +168,7 @@ export default function Home() {
               selectedUnit={currentUnit.code}
               onClose={() => setActiveCitation(null)}
               onOpenUpload={() => setIsUploadOpen(true)}
+              onTeachDocument={(docId, title) => handleOpenProfessor(title, docId, title)}
             />
           </div>
         </div>
@@ -177,6 +192,16 @@ export default function Home() {
         unitCode={selectedUnit}
         isOpen={isFlashcardsOpen}
         onClose={() => setIsFlashcardsOpen(false)}
+      />
+
+      {/* Professor Deep Abstraction & Teaching Mode */}
+      <ProfessorModeModal
+        isOpen={isProfessorOpen}
+        onClose={() => setIsProfessorOpen(false)}
+        unitCode={currentUnit.code}
+        initialTopic={professorTopic}
+        documentId={professorDocId}
+        documentTitle={professorDocTitle}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}
