@@ -738,6 +738,19 @@ async def get_document_syllabus(document_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/professor/document/{document_id}/slide/{page_number}")
+async def get_individual_slide(document_id: str, page_number: int):
+    """
+    Returns the exact raw extracted text and metadata of a single slide in < 50ms.
+    """
+    try:
+        slide = await professor_course_service.get_slide_raw_content(document_id, page_number)
+        return {"status": "success", "data": slide}
+    except Exception as e:
+        logger.error(f"Error fetching individual slide {page_number}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/professor/document/lesson")
 async def teach_document_lesson(payload: ProfessorLessonRequest):
     """

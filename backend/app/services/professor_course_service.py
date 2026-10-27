@@ -50,16 +50,9 @@ class ProfessorCourseService:
                 "lessons": []
             }
 
-        # Determine optimal lesson batch size based on total document length:
-        # - Short slides (under 40 pages): ~5-7 slides per lesson
-        # - Medium slides (40-100 pages): ~8-12 slides per lesson
-        # - Long textbooks (100+ pages): ~15-20 pages per lesson
-        if total_pages <= 40:
-            batch_size = 6
-        elif total_pages <= 120:
-            batch_size = 10
-        else:
-            batch_size = 15
+        # Determine optimal lesson batch size:
+        # Smaller, focused batches (4 to 6 slides) prevent generation timeouts and maintain deep pedagogical precision.
+        batch_size = 5
 
         lessons = []
         lesson_idx = 1
@@ -67,12 +60,22 @@ class ProfessorCourseService:
 
         # Map page numbers to slide titles
         page_titles: Dict[int, str] = {}
+        individual_slides = []
+        seen_pages = set()
+
         for s in raw_slides:
             p = s.get("page_number", 1)
             t = clean_text(s.get("slide_title") or "")
             if p not in page_titles or (len(t) > len(page_titles[p]) and not t.isdigit()):
-                page_titles[p] = t
+                page_titles[p] = t or f"Slide {p}"
+            if p not in seen_pages:
+                seen_pages.add(p)
+                individual_slides.append({
+                    "page_number": p,
+                    "title": t or f"Slide {p}"
+                })
 
+        individual_slides.sort(key=lambda x: x["page_number"])
         max_page = max(page_titles.keys(), default=total_pages)
 
         while current_page <= max_page:
@@ -112,7 +115,26 @@ class ProfessorCourseService:
             "unit_code": doc_meta.get("unit_code"),
             "total_pages": total_pages,
             "total_lessons": len(lessons),
-            "lessons": lessons
+            "lessons": lessons,
+            "individual_slides": individual_slides
+        }
+
+    async def get_slide_raw_content(self, document_id: str, page_number: int) -> Dict[str, Any]:
+        """Fetches raw extracted text of an individual slide in < 50ms."""
+        client = get_supabase_admin_client()
+        chunks = client.table("document_chunks") \
+            .select("page_number, slide_title, content") \
+            .eq("document_id", document_id) \
+            .eq("page_number", page_number) \
+            .execute()
+        
+        raw_text = "\n".join([c.get("content", "").strip() for c in (chunks.data or []) if c.get("content")])
+        slide_title = chunks.data[0].get("slide_title") if chunks.data else f"Slide {page_number}"
+        return {
+            "document_id": document_id,
+            "page_number": page_number,
+            "slide_title": clean_text(slide_title),
+            "content": raw_text or f"[No selectable text found on Slide {page_number}]"
         }
 
     async def teach_lesson_batch(

@@ -21,6 +21,9 @@ import {
   HelpCircle,
   Menu,
   UploadCloud,
+  ListOrdered,
+  FileSpreadsheet,
+  RefreshCw,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/AuthContext";
@@ -48,6 +51,11 @@ interface LessonItem {
   topics: string[];
 }
 
+interface IndividualSlideItem {
+  page_number: number;
+  title: string;
+}
+
 interface SyllabusData {
   document_id: string;
   document_title: string;
@@ -55,6 +63,7 @@ interface SyllabusData {
   total_pages: number;
   total_lessons: number;
   lessons: LessonItem[];
+  individual_slides?: IndividualSlideItem[];
 }
 
 interface OfficeHoursQnA {
@@ -78,13 +87,16 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [activeLesson, setActiveLesson] = useState<LessonItem | null>(null);
   const [lectureMarkdown, setLectureMarkdown] = useState<string>("");
   const [rawSlidesPreview, setRawSlidesPreview] = useState<string>("");
-  const [isRawSlidesOpen, setIsRawSlidesOpen] = useState(false);
+  const [isRawSlidesOpen, setIsRawSlidesOpen] = useState(true);
   const [isLoadingSyllabus, setIsLoadingSyllabus] = useState(false);
   const [isLoadingLecture, setIsLoadingLecture] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearching, setIsSearching] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // View mode in left sidebar: "slides" (individual slide by slide) vs "lessons" (batches)
+  const [navMode, setNavMode] = useState<"slides" | "lessons">("slides");
+  const [slideSearchTerm, setSlideSearchTerm] = useState("");
+  const [jumpSlideInput, setJumpSlideInput] = useState("");
 
   // Real-time upload states
   const [isUploading, setIsUploading] = useState(false);
@@ -97,7 +109,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  // Fetch unit documents on open or session change
+  // Fetch unit documents with student auth token
   const fetchUnitDocs = async () => {
     try {
       const headers: Record<string, string> = {};
@@ -189,7 +201,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     }
   };
 
-  // Load syllabus whenever selectedDocId changes
+  // Load syllabus and all individual slides whenever selectedDocId changes
   useEffect(() => {
     if (!selectedDocId) return;
 
@@ -199,6 +211,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       setSyllabus(null);
       setActiveLesson(null);
       setLectureMarkdown("");
+      setRawSlidesPreview("");
       setOfficeHoursList([]);
 
       try {
@@ -210,8 +223,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
         const data: SyllabusData = json.data;
         setSyllabus(data);
 
-        // Automatically load Lesson 1
-        if (data.lessons && data.lessons.length > 0) {
+        // Automatically load Slide 1 or Lesson 1
+        if (data.individual_slides && data.individual_slides.length > 0) {
+          loadSingleSlide(1, data);
+        } else if (data.lessons && data.lessons.length > 0) {
           loadLesson(data.lessons[0], data.document_id);
         }
       } catch (err: any) {
@@ -224,7 +239,27 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     fetchSyllabus();
   }, [selectedDocId]);
 
-  // Load deep professor lecture for a specific lesson batch
+  // Load an individual slide directly
+  const loadSingleSlide = async (pageNumber: number, currentSyllabus?: SyllabusData) => {
+    const activeSyl = currentSyllabus || syllabus;
+    if (!activeSyl) return;
+
+    const slideMeta = activeSyl.individual_slides?.find((s) => s.page_number === pageNumber);
+    const title = slideMeta?.title || `Slide ${pageNumber}`;
+
+    const singleLesson: LessonItem = {
+      lesson_id: pageNumber,
+      title: title,
+      start_page: pageNumber,
+      end_page: pageNumber,
+      slide_count: 1,
+      topics: [title],
+    };
+
+    await loadLesson(singleLesson, activeSyl.document_id);
+  };
+
+  // Load deep professor lecture for a specific lesson or slide
   const loadLesson = async (lesson: LessonItem, docId: string) => {
     setActiveLesson(lesson);
     setIsLoadingLecture(true);
@@ -232,6 +267,20 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     setOfficeHoursList([]);
     setIsSidebarOpen(false); // Close drawer on mobile upon selection
 
+    // 1. Immediately fetch the raw slide text in < 100ms so user has instant content!
+    try {
+      const rawRes = await fetch(`${apiUrl}/api/professor/document/${docId}/slide/${lesson.start_page}`);
+      if (rawRes.ok) {
+        const rawJson = await rawRes.json();
+        if (rawJson.data?.content) {
+          setRawSlidesPreview(rawJson.data.content);
+        }
+      }
+    } catch (re) {
+      console.debug("Quick slide fetch skipped:", re);
+    }
+
+    // 2. Fetch the deep masterclass expansion from Azure OpenAI
     try {
       const res = await fetch(`${apiUrl}/api/professor/document/lesson`, {
         method: "POST",
@@ -245,54 +294,33 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       });
 
       if (!res.ok) {
-        throw new Error("Failed to load lecture for this lesson.");
+        throw new Error("Masterclass synthesis timed out or failed. Click Retry below.");
       }
 
       const json = await res.json();
       setLectureMarkdown(json.data.lecture_content);
-      setRawSlidesPreview(json.data.raw_slides_preview || "");
+      if (json.data.raw_slides_preview) {
+        setRawSlidesPreview(json.data.raw_slides_preview);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to generate deep lecture.");
+      setErrorMsg(err.message || "Failed to generate deep masterclass.");
     } finally {
       setIsLoadingLecture(false);
     }
   };
 
-  // Search across unit materials to construct curriculum
-  const handleSearchCurriculum = async (e: React.FormEvent) => {
+  // Jump to specific slide number handler
+  const handleJumpToSlide = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!searchQuery.trim()) return;
+    const pageNum = parseInt(jumpSlideInput.trim(), 10);
+    if (!pageNum || isNaN(pageNum) || !syllabus) return;
 
-    setIsSearching(true);
-    setErrorMsg(null);
-
-    try {
-      const res = await fetch(`${apiUrl}/api/professor/curriculum/search`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          unit_code: unitCode,
-          query: searchQuery.trim(),
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error("Failed to search course curriculum.");
-      }
-
-      const json = await res.json();
-      const data = json.data;
-      if (data.document_id) {
-        setSelectedDocId(data.document_id);
-      } else if (data.message) {
-        setErrorMsg(data.message);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Search failed.");
-    } finally {
-      setIsSearching(false);
-    }
+    const clamped = Math.max(1, minPage(pageNum, syllabus.total_pages));
+    loadSingleSlide(clamped);
+    setJumpSlideInput("");
   };
+
+  const minPage = (n: number, maxP: number) => (n > maxP ? maxP : n);
 
   // Submit student doubt in Office Hours
   const handleAskQuestion = async (e: React.FormEvent) => {
@@ -328,6 +356,13 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
   if (!isOpen) return null;
 
+  // Filter individual slides by search term
+  const filteredSlides = (syllabus?.individual_slides || []).filter((s) => {
+    if (!slideSearchTerm.trim()) return true;
+    const term = slideSearchTerm.toLowerCase();
+    return s.title.toLowerCase().includes(term) || s.page_number.toString() === term;
+  });
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-0 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
       <div className="relative flex flex-col h-full sm:h-[96vh] w-full max-w-7xl overflow-hidden rounded-none sm:rounded-2xl border border-indigo-500/30 bg-[#090d16] shadow-2xl">
@@ -358,7 +393,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-                Lesson-by-Lesson Abstraction from Slide 1 to End • Teaches in More Detail Than the Slides
+                Individual Slide-by-Slide & Lesson Abstraction • In Far Greater Detail Than The Slides
               </p>
             </div>
           </div>
@@ -383,15 +418,14 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
             />
           )}
 
-          {/* LEFT: Document Selector & Lesson-by-Lesson Syllabus */}
+          {/* LEFT PANE: Document Selector, Real-Time Upload & Slide-by-Slide Syllabus */}
           <aside
-            className={`fixed inset-y-0 left-0 z-40 flex h-full w-80 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 transition-transform duration-300 md:static md:translate-x-0 ${
+            className={`fixed inset-y-0 left-0 z-40 flex h-full w-84 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 transition-transform duration-300 md:static md:translate-x-0 ${
               isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
             }`}
           >
-            {/* Document Switcher & Real-Time Upload Dropdown */}
-            <div className="p-3.5 border-b border-slate-800 bg-[#0c1222]">
-              {/* Hidden File Input for Real-Time Upload */}
+            {/* Document Switcher & Real-Time Upload */}
+            <div className="p-3.5 border-b border-slate-800 bg-[#0c1222] space-y-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -400,9 +434,9 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 onChange={handleFileUpload}
               />
 
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center justify-between">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Target Book or Slide Deck:
+                  Target Book / Slides:
                 </label>
                 <span className="text-[10px] font-semibold text-indigo-400">
                   {documents.length} Available
@@ -414,7 +448,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 value={selectedDocId}
                 onChange={(e) => setSelectedDocId(e.target.value)}
                 disabled={isUploading}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none transition"
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none transition truncate"
               >
                 {documents.length === 0 ? (
                   <option value="">No books uploaded yet — upload below</option>
@@ -432,7 +466,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isUploading}
-                className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-950/30 hover:bg-indigo-900/40 p-2.5 text-xs font-semibold text-indigo-300 transition shadow-sm"
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-indigo-500/50 bg-indigo-950/30 hover:bg-indigo-900/40 p-2 text-xs font-semibold text-indigo-300 transition shadow-sm"
               >
                 {isUploading ? (
                   <>
@@ -447,91 +481,174 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 )}
               </button>
 
-              {/* Quick Topic Search Across Unit */}
-              <form onSubmit={handleSearchCurriculum} className="mt-3 flex items-center gap-1.5">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Or search topic across unit..."
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  disabled={!searchQuery.trim() || isSearching}
-                  className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50 transition"
-                  title="Search unit books and slides"
-                >
-                  {isSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Search className="h-3.5 w-3.5" />}
-                </button>
-              </form>
-            </div>
-
-            {/* Syllabus Lessons List (Slide 1 to End) */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-              <div className="flex items-center justify-between px-2 py-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Course Lessons
-                </span>
-                {syllabus && (
-                  <span className="rounded bg-indigo-950 border border-indigo-800/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
-                    {syllabus.total_lessons} Lessons • {syllabus.total_pages} Pages
-                  </span>
-                )}
-              </div>
-
-              {isLoadingSyllabus && (
-                <div className="p-6 text-center text-xs text-slate-400 space-y-2">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-400" />
-                  <p>Organizing slides into lesson batches...</p>
-                </div>
+              {/* Jump directly to Slide # Input */}
+              {syllabus && (
+                <form onSubmit={handleJumpToSlide} className="flex items-center gap-1.5 pt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    max={syllabus.total_pages}
+                    value={jumpSlideInput}
+                    onChange={(e) => setJumpSlideInput(e.target.value)}
+                    placeholder={`Jump to Slide # (1–${syllabus.total_pages})...`}
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!jumpSlideInput}
+                    className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 disabled:opacity-50 transition"
+                  >
+                    Go
+                  </button>
+                </form>
               )}
 
-              {syllabus?.lessons?.map((lesson) => {
-                const isSelected = activeLesson?.lesson_id === lesson.lesson_id;
-                return (
-                  <button
-                    key={lesson.lesson_id}
-                    onClick={() => loadLesson(lesson, syllabus.document_id)}
-                    className={`flex w-full flex-col items-start rounded-xl p-3 text-left transition ${
-                      isSelected
-                        ? "border border-indigo-500/50 bg-indigo-600/20 text-white shadow-md"
-                        : "border border-slate-800/60 bg-slate-900/40 hover:bg-slate-800/60 text-slate-400 hover:text-slate-200"
-                    }`}
-                  >
-                    <div className="flex w-full items-center justify-between">
-                      <span className={`text-[11px] font-bold ${isSelected ? "text-indigo-400" : "text-slate-300"}`}>
-                        Lesson {lesson.lesson_id}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        Slides {lesson.start_page}–{lesson.end_page}
-                      </span>
-                    </div>
-                    <span className="mt-1 text-xs font-semibold text-white line-clamp-1">
-                      {lesson.title}
-                    </span>
-                    {lesson.topics && lesson.topics.length > 0 && (
-                      <span className="mt-1 text-[10px] text-slate-500 line-clamp-1">
-                        {lesson.topics.join(" • ")}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+              {/* View Mode Switcher Tabs: Individual Slides vs Concept Batches */}
+              <div className="flex rounded-lg border border-slate-800 bg-slate-900/80 p-0.5 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setNavMode("slides")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold rounded-md transition ${
+                    navMode === "slides"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <ListOrdered className="h-3.5 w-3.5" />
+                  <span>Individual Slides</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNavMode("lessons")}
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold rounded-md transition ${
+                    navMode === "lessons"
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Layers className="h-3.5 w-3.5" />
+                  <span>Concept Batches</span>
+                </button>
+              </div>
             </div>
+
+            {/* Individual Slides List View */}
+            {navMode === "slides" && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-1">
+                {/* Search / Filter Slide Title */}
+                <div className="relative mb-2">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-500" />
+                  <input
+                    type="text"
+                    value={slideSearchTerm}
+                    onChange={(e) => setSlideSearchTerm(e.target.value)}
+                    placeholder="Filter slides by title or keyword..."
+                    className="w-full rounded-lg border border-slate-800 bg-slate-900/90 pl-8 pr-2.5 py-1.5 text-[11px] text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between px-1 py-0.5 mb-1 text-[10px] text-slate-500 font-bold uppercase tracking-wider">
+                  <span>Slide Number & Title</span>
+                  <span>{filteredSlides.length} Slides</span>
+                </div>
+
+                {isLoadingSyllabus && (
+                  <div className="p-6 text-center text-xs text-slate-400 space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-400" />
+                    <p>Fetching individual slides...</p>
+                  </div>
+                )}
+
+                {filteredSlides.map((slide) => {
+                  const isSelected = activeLesson?.start_page === slide.page_number && activeLesson?.end_page === slide.page_number;
+                  return (
+                    <button
+                      key={slide.page_number}
+                      onClick={() => loadSingleSlide(slide.page_number)}
+                      className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition ${
+                        isSelected
+                          ? "border border-indigo-500/60 bg-indigo-600/25 text-white font-semibold shadow-sm"
+                          : "border border-transparent bg-slate-900/40 hover:bg-slate-800/60 text-slate-300"
+                      }`}
+                    >
+                      <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded text-[11px] font-mono font-bold ${
+                        isSelected ? "bg-indigo-600 text-white" : "bg-slate-800 text-slate-400"
+                      }`}>
+                        {slide.page_number}
+                      </span>
+                      <span className="text-xs truncate flex-1">
+                        {slide.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Concept Batches View */}
+            {navMode === "lessons" && (
+              <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+                <div className="flex items-center justify-between px-2 py-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Lesson Batches
+                  </span>
+                  {syllabus && (
+                    <span className="rounded bg-indigo-950 border border-indigo-800/40 px-2 py-0.5 text-[10px] font-semibold text-indigo-300">
+                      {syllabus.total_lessons} Lessons
+                    </span>
+                  )}
+                </div>
+
+                {isLoadingSyllabus && (
+                  <div className="p-6 text-center text-xs text-slate-400 space-y-2">
+                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-400" />
+                    <p>Clustering slides into lesson batches...</p>
+                  </div>
+                )}
+
+                {syllabus?.lessons?.map((lesson) => {
+                  const isSelected = activeLesson?.lesson_id === lesson.lesson_id;
+                  return (
+                    <button
+                      key={lesson.lesson_id}
+                      onClick={() => loadLesson(lesson, syllabus.document_id)}
+                      className={`flex w-full flex-col items-start rounded-xl p-3 text-left transition ${
+                        isSelected
+                          ? "border border-indigo-500/50 bg-indigo-600/20 text-white shadow-md"
+                          : "border border-slate-800/60 bg-slate-900/40 hover:bg-slate-800/60 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className={`text-[11px] font-bold ${isSelected ? "text-indigo-400" : "text-slate-300"}`}>
+                          Lesson {lesson.lesson_id}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          Slides {lesson.start_page}–{lesson.end_page}
+                        </span>
+                      </div>
+                      <span className="mt-1 text-xs font-semibold text-white line-clamp-1">
+                        {lesson.title}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </aside>
 
-          {/* RIGHT: The Masterclass Lecture Hall */}
+          {/* RIGHT PANE: The Masterclass Lecture Hall */}
           <main className="flex-1 flex flex-col overflow-hidden bg-[#070b13]">
             {activeLesson && (
               <div className="border-b border-slate-800 bg-[#090e1a] px-4 py-3 sm:px-8 flex items-center justify-between gap-3 flex-wrap shrink-0">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-xs font-bold text-indigo-400 border border-indigo-500/20">
-                      Lesson {activeLesson.lesson_id} of {syllabus?.total_lessons}
+                      {activeLesson.start_page === activeLesson.end_page
+                        ? `Slide ${activeLesson.start_page} of ${syllabus?.total_pages}`
+                        : `Slides ${activeLesson.start_page}–${activeLesson.end_page}`}
                     </span>
                     <span className="text-xs font-medium text-slate-400">
-                      Slides {activeLesson.start_page}–{activeLesson.end_page} ({activeLesson.slide_count} slides)
+                      {syllabus?.document_title}
                     </span>
                   </div>
                   <h1 className="mt-1 text-base sm:text-lg font-extrabold text-white tracking-tight truncate">
@@ -539,55 +656,86 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                   </h1>
                 </div>
 
-                {/* Toggle Raw Slide Bullets */}
-                <button
-                  onClick={() => setIsRawSlidesOpen(!isRawSlidesOpen)}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
-                  title="View original bullet points from the slides"
-                >
-                  <FileText className="h-3.5 w-3.5 text-indigo-400" />
-                  <span>{isRawSlidesOpen ? "Hide Slide Bullets" : "Inspect Slide Bullets"}</span>
-                  {isRawSlidesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Retry Button if failed */}
+                  {errorMsg && (
+                    <button
+                      onClick={() => syllabus && loadLesson(activeLesson, syllabus.document_id)}
+                      className="flex items-center gap-1.5 rounded-lg bg-rose-600/30 border border-rose-500/40 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-600 hover:text-white transition"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" />
+                      <span>Retry Deep Lecture</span>
+                    </button>
+                  )}
+
+                  {/* Toggle Raw Slide Bullets */}
+                  <button
+                    onClick={() => setIsRawSlidesOpen(!isRawSlidesOpen)}
+                    className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-medium text-slate-200 hover:bg-slate-700 transition"
+                  >
+                    <FileText className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>{isRawSlidesOpen ? "Hide Slide Text" : "View Slide Text"}</span>
+                    {isRawSlidesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                  </button>
+                </div>
               </div>
             )}
 
             {/* Lecture Content Scroll Area */}
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6">
-              {/* Error Alert */}
-              {errorMsg && (
-                <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-xs text-rose-300 flex items-start gap-2.5">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
-                  <p>{errorMsg}</p>
-                </div>
-              )}
-
-              {/* Raw Slides Bullets Accordion */}
-              {isRawSlidesOpen && rawSlidesPreview && (
-                <div className="rounded-xl border border-slate-700/80 bg-slate-900/90 p-4 sm:p-5 shadow-inner animate-in fade-in duration-200">
-                  <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">
-                    <BookOpen className="h-4 w-4 text-indigo-400" />
-                    <span>Raw Slide Bullets (What the Author Stated):</span>
+              
+              {/* INSTANT Raw Slide Text (Always visible instantly - never blank!) */}
+              {rawSlidesPreview && isRawSlidesOpen && (
+                <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 shadow-inner">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                      <BookOpen className="h-4 w-4 text-indigo-400" />
+                      <span>Original Slide Bullets & Content (Instant Preview):</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {activeLesson?.start_page === activeLesson?.end_page
+                        ? `Page ${activeLesson?.start_page}`
+                        : `Pages ${activeLesson?.start_page}–${activeLesson?.end_page}`}
+                    </span>
                   </div>
-                  <pre className="max-h-48 overflow-y-auto whitespace-pre-wrap text-[11px] font-mono text-slate-300 p-3 rounded-lg bg-black/60 border border-slate-800">
+                  <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[11px] sm:text-xs font-mono text-slate-200 p-3.5 rounded-lg bg-black/70 border border-slate-800 leading-relaxed">
                     {rawSlidesPreview}
                   </pre>
-                  <p className="mt-2 text-[10px] text-slate-500 italic">
-                    Notice how brief these bullets are. The professor deconstructs what was left unsaid below.
+                  <p className="mt-2 text-[10px] text-slate-400 italic">
+                    💡 The Professor's comprehensive masterclass deconstructing these points in full technical depth is presented below.
                   </p>
                 </div>
               )}
 
               {/* Loading Masterclass State */}
               {isLoadingLecture && (
-                <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                  <Loader2 className="h-9 w-9 animate-spin text-indigo-400" />
+                <div className="rounded-xl border border-indigo-500/20 bg-indigo-950/15 p-8 text-center space-y-3">
+                  <Loader2 className="h-8 w-8 animate-spin mx-auto text-indigo-400" />
                   <p className="text-sm font-semibold text-white">
-                    Professor is delivering Masterclass on Slides {activeLesson?.start_page}–{activeLesson?.end_page}...
+                    Professor is delivering Deep Masterclass on{" "}
+                    {activeLesson?.start_page === activeLesson?.end_page
+                      ? `Slide ${activeLesson?.start_page}`
+                      : `Slides ${activeLesson?.start_page}–${activeLesson?.end_page}`}...
                   </p>
-                  <p className="text-xs text-slate-400 max-w-md text-center">
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
                     Unpacking theoretical mechanics, memory maps, C code, and Chiromo Section B exam calculations with GPT-4.1.
                   </p>
+                </div>
+              )}
+
+              {/* Error Alert with One-Click Retry */}
+              {errorMsg && (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-950/20 p-4 text-xs text-rose-300 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
+                    <span>{errorMsg}</span>
+                  </div>
+                  <button
+                    onClick={() => syllabus && activeLesson && loadLesson(activeLesson, syllabus.document_id)}
+                    className="rounded bg-rose-600 px-2.5 py-1 text-xs font-bold text-white hover:bg-rose-500 transition"
+                  >
+                    Retry Now
+                  </button>
                 </div>
               )}
 
@@ -624,7 +772,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     <div className="flex items-center gap-2">
                       <MessageSquare className="h-5 w-5 text-indigo-400" />
                       <h3 className="text-sm font-bold text-white tracking-tight">
-                        Interactive Professor Office Hours (Live Doubts for this Lesson)
+                        Interactive Professor Office Hours (Live Doubts for this Slide)
                       </h3>
                     </div>
 
@@ -649,7 +797,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                         onChange={(e) => setStudentQuestion(e.target.value)}
                         placeholder={
                           activeLesson
-                            ? `Ask the Professor anything regarding Slides ${activeLesson.start_page}–${activeLesson.end_page}...`
+                            ? `Ask the Professor anything regarding Slide ${activeLesson.start_page}...`
                             : "Ask the Professor a question..."
                         }
                         className="flex-1 rounded-xl border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
@@ -668,40 +816,44 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               )}
             </div>
 
-            {/* Footer Lesson Stepper */}
+            {/* Footer Slide Stepper */}
             {syllabus && activeLesson && (
               <footer className="h-16 border-t border-slate-800 bg-[#0c1222] px-4 sm:px-8 flex items-center justify-between shrink-0">
                 <button
                   onClick={() => {
-                    const prevIdx = activeLesson.lesson_id - 2;
-                    if (prevIdx >= 0) {
-                      loadLesson(syllabus.lessons[prevIdx], syllabus.document_id);
+                    const prevPage = activeLesson.start_page - 1;
+                    if (prevPage >= 1) {
+                      loadSingleSlide(prevPage);
                     }
                   }}
-                  disabled={activeLesson.lesson_id <= 1 || isLoadingLecture}
+                  disabled={activeLesson.start_page <= 1 || isLoadingLecture}
                   className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  <span>Previous Lesson</span>
+                  <span>Previous Slide</span>
                 </button>
 
-                <span className="text-xs text-slate-400 font-medium hidden sm:inline">
-                  Lesson {activeLesson.lesson_id} of {syllabus.total_lessons} • {syllabus.total_pages} Total Pages
-                </span>
+                <div className="text-xs text-slate-400 font-medium hidden sm:flex items-center gap-2">
+                  <span>
+                    Slide {activeLesson.start_page} of {syllabus.total_pages}
+                  </span>
+                  <span>•</span>
+                  <span className="text-indigo-400">{activeLesson.title}</span>
+                </div>
 
                 <button
                   onClick={() => {
-                    const nextIdx = activeLesson.lesson_id;
-                    if (nextIdx < syllabus.lessons.length) {
-                      loadLesson(syllabus.lessons[nextIdx], syllabus.document_id);
+                    const nextPage = activeLesson.end_page + 1;
+                    if (nextPage <= syllabus.total_pages) {
+                      loadSingleSlide(nextPage);
                     }
                   }}
-                  disabled={activeLesson.lesson_id >= syllabus.lessons.length || isLoadingLecture}
+                  disabled={activeLesson.end_page >= syllabus.total_pages || isLoadingLecture}
                   className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-indigo-500 disabled:opacity-40 transition"
                 >
                   <span>
-                    {activeLesson.lesson_id < syllabus.lessons.length
-                      ? `Next: Lesson ${activeLesson.lesson_id + 1} →`
+                    {activeLesson.end_page < syllabus.total_pages
+                      ? `Next: Slide ${activeLesson.end_page + 1} →`
                       : "Completed Entire Document"}
                   </span>
                   <ChevronRight className="h-4 w-4" />
