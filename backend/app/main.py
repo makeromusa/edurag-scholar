@@ -1,8 +1,18 @@
 import logging
+import socket
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import sentry_sdk
+
+# Resilient IPv4 routing for Windows / hybrid network environments
+try:
+    _orig_getaddrinfo = socket.getaddrinfo
+    def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    socket.getaddrinfo = _ipv4_getaddrinfo
+except Exception:
+    pass
 from app.core.config import settings
 from app.api.routes import router as api_router
 from app.workers.abstractor import start_scheduler

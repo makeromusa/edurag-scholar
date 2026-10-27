@@ -24,6 +24,12 @@ import {
   ListOrdered,
   FileSpreadsheet,
   RefreshCw,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Maximize2,
+  Minimize2,
+  Columns,
+  MoveHorizontal,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/AuthContext";
@@ -92,6 +98,47 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [isLoadingLecture, setIsLoadingLecture] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Dynamic Resizable & Collapsible Navigation Controls
+  const [sidebarWidth, setSidebarWidth] = useState<number>(280); // Default ultra-compact 280px (never 80%!)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isFullscreenLecture, setIsFullscreenLecture] = useState<boolean>(false);
+  const [lectureLoadingStage, setLectureLoadingStage] = useState<string>("Connecting to Professor Engine...");
+  const isResizingRef = useRef<boolean>(false);
+
+  // Drag resizer mouse listener
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizingRef.current) return;
+      const newWidth = Math.max(200, Math.min(550, e.clientX));
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      if (isResizingRef.current) {
+        isResizingRef.current = false;
+        document.body.style.cursor = "default";
+        document.body.style.userSelect = "auto";
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, []);
+
+  // Keyboard shortcut Ctrl+B or Cmd+B to toggle syllabus
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "b") {
+        e.preventDefault();
+        setIsSidebarCollapsed((prev) => !prev);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // View mode in left sidebar: "slides" (individual slide by slide) vs "lessons" (batches)
   const [navMode, setNavMode] = useState<"slides" | "lessons">("slides");
@@ -266,6 +313,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     setErrorMsg(null);
     setOfficeHoursList([]);
     setIsSidebarOpen(false); // Close drawer on mobile upon selection
+    setLectureLoadingStage("Fetching slide context (<50ms)...");
 
     // 1. Immediately fetch the raw slide text in < 100ms so user has instant content!
     try {
@@ -280,33 +328,58 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       console.debug("Quick slide fetch skipped:", re);
     }
 
-    // 2. Fetch the deep masterclass expansion from Azure OpenAI
-    try {
-      const res = await fetch(`${apiUrl}/api/professor/document/lesson`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          document_id: docId,
-          unit_code: unitCode,
-          start_page: lesson.start_page,
-          end_page: lesson.end_page,
-        }),
-      });
+    setLectureLoadingStage("Synthesizing deep theoretical mechanics & code with GPT-4.1...");
 
-      if (!res.ok) {
-        throw new Error("Masterclass synthesis timed out or failed. Click Retry below.");
-      }
+    // 2. Fetch the deep masterclass expansion from backend with timeout & retry
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 75000);
 
-      const json = await res.json();
-      setLectureMarkdown(json.data.lecture_content);
-      if (json.data.raw_slides_preview) {
-        setRawSlidesPreview(json.data.raw_slides_preview);
+    let fetchSuccess = false;
+    for (let attempt = 1; attempt <= 2 && !fetchSuccess; attempt++) {
+      try {
+        if (attempt === 2) {
+          setLectureLoadingStage("Finalizing lecture structure and Section B exam gotchas...");
+        }
+
+        const res = await fetch(`${apiUrl}/api/professor/document/lesson`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            document_id: docId,
+            unit_code: unitCode,
+            start_page: lesson.start_page,
+            end_page: lesson.end_page,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || "Server was busy generating masterclass.");
+        }
+
+        const json = await res.json();
+        setLectureMarkdown(json.data.lecture_content);
+        if (json.data.raw_slides_preview) {
+          setRawSlidesPreview(json.data.raw_slides_preview);
+        }
+        fetchSuccess = true;
+      } catch (err: any) {
+        if (attempt === 1 && err.name !== "AbortError") {
+          console.warn("Attempt 1 failed, retrying masterclass synthesis...", err);
+          await new Promise((r) => setTimeout(r, 1200));
+          continue;
+        }
+        const isTimeout = err.name === "AbortError";
+        setErrorMsg(
+          isTimeout
+            ? "Masterclass generation took longer than 75s. Raw slide content is loaded above — click 'Retry Deep Lecture' to re-run."
+            : err.message || "Failed to generate deep masterclass."
+        );
       }
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to generate deep masterclass.");
-    } finally {
-      setIsLoadingLecture(false);
     }
+    clearTimeout(timeoutId);
+    setIsLoadingLecture(false);
   };
 
   // Jump to specific slide number handler
@@ -365,7 +438,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-0 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative flex flex-col h-full sm:h-[96vh] w-full max-w-7xl overflow-hidden rounded-none sm:rounded-2xl border border-indigo-500/30 bg-[#090d16] shadow-2xl">
+      <div className={`relative flex flex-col h-full ${isFullscreenLecture ? "h-full w-full max-w-none rounded-none" : "sm:h-[96vh] w-full max-w-7xl rounded-none sm:rounded-2xl"} overflow-hidden border border-indigo-500/30 bg-[#090d16] shadow-2xl transition-all duration-200`}>
         
         {/* Top Header Bar */}
         <header className="flex h-16 w-full items-center justify-between border-b border-slate-800 bg-[#0c111e] px-4 sm:px-6 shrink-0">
@@ -377,6 +450,25 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               aria-label="Toggle Syllabus"
             >
               <Menu className="h-5 w-5" />
+            </button>
+
+            {/* Desktop Navigation Toggle Button */}
+            <button
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="hidden md:flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition shrink-0"
+              title={isSidebarCollapsed ? "Show Syllabus Navigation (Ctrl+B)" : "Hide Syllabus Navigation (Ctrl+B)"}
+            >
+              {isSidebarCollapsed ? (
+                <>
+                  <PanelLeftOpen className="h-4 w-4 text-indigo-400" />
+                  <span>Show Syllabus</span>
+                </>
+              ) : (
+                <>
+                  <PanelLeftClose className="h-4 w-4 text-slate-400" />
+                  <span>Hide Syllabus</span>
+                </>
+              )}
             </button>
 
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 shadow-md shrink-0">
@@ -398,13 +490,24 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Fullscreen / Focus Mode Toggle */}
+            <button
+              onClick={() => setIsFullscreenLecture(!isFullscreenLecture)}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              title={isFullscreenLecture ? "Exit Focus Mode" : "Full Screen Focus Mode"}
+            >
+              {isFullscreenLecture ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            </button>
+
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </header>
 
         {/* Studio Body: Left Syllabus Navigation + Right Lecture Hall */}
@@ -420,10 +523,57 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
           {/* LEFT PANE: Document Selector, Real-Time Upload & Slide-by-Slide Syllabus */}
           <aside
-            className={`fixed inset-y-0 left-0 z-40 flex h-full w-84 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 transition-transform duration-300 md:static md:translate-x-0 ${
-              isSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full"
+            style={{
+              width: isSidebarCollapsed ? 0 : `${sidebarWidth}px`,
+              minWidth: isSidebarCollapsed ? 0 : `${sidebarWidth}px`,
+              maxWidth: isSidebarCollapsed ? 0 : `${sidebarWidth}px`,
+              display: isSidebarCollapsed ? "none" : "flex",
+            }}
+            className={`fixed inset-y-0 left-0 z-40 h-full shrink-0 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 md:static ${
+              isSidebarOpen ? "translate-x-0 shadow-2xl flex" : "-translate-x-full md:flex"
             }`}
           >
+            {/* Sidebar Width Control Bar */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-[#080d19] border-b border-slate-800/80 text-[10px] text-slate-400 shrink-0">
+              <span className="font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-1 truncate">
+                <Columns className="h-3 w-3 text-indigo-400 shrink-0" />
+                <span>Syllabus ({sidebarWidth}px)</span>
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setSidebarWidth(240)}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-medium border transition ${
+                    sidebarWidth === 240
+                      ? "bg-indigo-600 text-white border-indigo-500"
+                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                  }`}
+                  title="Narrow width (240px)"
+                >
+                  240px
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarWidth(300)}
+                  className={`px-1.5 py-0.5 rounded text-[9px] font-medium border transition ${
+                    sidebarWidth === 300
+                      ? "bg-indigo-600 text-white border-indigo-500"
+                      : "bg-slate-800 text-slate-400 border-slate-700 hover:text-white"
+                  }`}
+                  title="Standard width (300px)"
+                >
+                  300px
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSidebarCollapsed(true)}
+                  className="p-1 rounded text-slate-400 hover:bg-slate-800 hover:text-white border border-transparent hover:border-slate-700 transition"
+                  title="Hide navigation panel (Ctrl+B)"
+                >
+                  <PanelLeftClose className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
             {/* Document Switcher & Real-Time Upload */}
             <div className="p-3.5 border-b border-slate-800 bg-[#0c1222] space-y-2">
               <input
@@ -636,8 +786,36 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
             )}
           </aside>
 
+          {/* DRAGGABLE RESIZER SPLITTER (Drag to adjust content vs navigation ratio) */}
+          {!isSidebarCollapsed && (
+            <div
+              onMouseDown={(e) => {
+                e.preventDefault();
+                isResizingRef.current = true;
+                document.body.style.cursor = "col-resize";
+                document.body.style.userSelect = "none";
+              }}
+              className="hidden md:flex w-2.5 hover:w-3 cursor-col-resize items-center justify-center bg-[#070b13] hover:bg-indigo-600/30 border-x border-slate-800/80 transition-all group z-30 select-none shrink-0"
+              title="Drag left/right to resize syllabus panel"
+            >
+              <div className="w-0.5 h-10 bg-slate-700 group-hover:bg-indigo-400 rounded-full transition-colors" />
+            </div>
+          )}
+
           {/* RIGHT PANE: The Masterclass Lecture Hall */}
-          <main className="flex-1 flex flex-col overflow-hidden bg-[#070b13]">
+          <main className="flex-1 min-w-0 flex flex-col overflow-hidden bg-[#070b13] relative">
+            {/* Floating button to restore syllabus if collapsed */}
+            {isSidebarCollapsed && (
+              <button
+                onClick={() => setIsSidebarCollapsed(false)}
+                className="hidden md:flex absolute top-3 left-4 z-30 items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-[#0d1527]/95 px-3 py-1.5 text-xs font-semibold text-indigo-300 shadow-xl backdrop-blur-md hover:bg-indigo-900/80 transition"
+                title="Show Syllabus & Batches (Ctrl+B)"
+              >
+                <PanelLeftOpen className="h-4 w-4 text-indigo-400" />
+                <span>Show Syllabus</span>
+              </button>
+            )}
+
             {activeLesson && (
               <div className="border-b border-slate-800 bg-[#090e1a] px-4 py-3 sm:px-8 flex items-center justify-between gap-3 flex-wrap shrink-0">
                 <div className="min-w-0">
@@ -647,7 +825,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                         ? `Slide ${activeLesson.start_page} of ${syllabus?.total_pages}`
                         : `Slides ${activeLesson.start_page}–${activeLesson.end_page}`}
                     </span>
-                    <span className="text-xs font-medium text-slate-400">
+                    <span className="text-xs font-medium text-slate-400 truncate max-w-xs">
                       {syllabus?.document_title}
                     </span>
                   </div>
@@ -716,6 +894,9 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     {activeLesson?.start_page === activeLesson?.end_page
                       ? `Slide ${activeLesson?.start_page}`
                       : `Slides ${activeLesson?.start_page}–${activeLesson?.end_page}`}...
+                  </p>
+                  <p className="text-xs font-medium text-indigo-300 animate-pulse">
+                    {lectureLoadingStage}
                   </p>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
                     Unpacking theoretical mechanics, memory maps, C code, and Chiromo Section B exam calculations with GPT-4.1.

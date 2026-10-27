@@ -39,7 +39,8 @@ class RagAgentRouter:
         self,
         system_instruction: str,
         user_prompt: str,
-        image_base64: Optional[str] = None
+        image_base64: Optional[str] = None,
+        max_tokens: Optional[int] = None
     ) -> str:
         """Universal multimodal text & vision generator: Primary Azure OpenAI (gpt-4.1-mini) with seamless Gemini fallback."""
         clean_b64 = image_base64
@@ -59,14 +60,18 @@ class RagAgentRouter:
                 else:
                     user_content = user_prompt
 
-                resp = self.azure_client.chat.completions.create(
-                    model=self.chat_model,
-                    messages=[
+                kwargs: Dict[str, Any] = {
+                    "model": self.chat_model,
+                    "messages": [
                         {"role": "system", "content": system_instruction},
                         {"role": "user", "content": user_content}
                     ],
-                    temperature=0.2
-                )
+                    "temperature": 0.2
+                }
+                if max_tokens:
+                    kwargs["max_tokens"] = max_tokens
+
+                resp = self.azure_client.chat.completions.create(**kwargs)
                 content = resp.choices[0].message.content
                 if content:
                     return content

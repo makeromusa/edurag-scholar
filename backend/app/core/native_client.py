@@ -3,6 +3,7 @@ import logging
 import os
 import subprocess
 import sys
+import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict, Any, Optional
 import requests
@@ -92,28 +93,40 @@ def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 80) -> List[
                 "content": {"parts": [{"text": clean_t}]},
                 "output_dimensionality": 1536
             })
-        try:
-            r = requests.post(url, json={"requests": requests_payload}, timeout=5)
-            if r.status_code == 200:
-                data = r.json()
-                embs = []
-                for emb in data.get("embeddings", []):
-                    vals = emb.get("values", [])
-                    embs.append(vals if len(vals) == 1536 else [0.0] * 1536)
-                if len(embs) == len(batch):
-                    return embs
-            else:
-                logger.warning(f"batchEmbedContents returned status {r.status_code}: {r.text[:150]}")
-        except Exception as e:
-            logger.warning(f"Batch embedding HTTP call failed: {e}")
+        for attempt in range(4):
+            try:
+                r = requests.post(url, json={"requests": requests_payload}, timeout=35)
+                if r.status_code == 200:
+                    data = r.json()
+                    embs = []
+                    for emb in data.get("embeddings", []):
+                        vals = emb.get("values", [])
+                        embs.append(vals if len(vals) == 1536 else [0.0] * 1536)
+                    if len(embs) == len(batch):
+                        return embs
+                elif r.status_code == 429:
+                    wait_time = 4 * (attempt + 1)
+                    logger.warning(f"Gemini embedding 429 rate limit hit, backing off {wait_time}s (attempt {attempt+1}/4)...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    logger.warning(f"batchEmbedContents returned status {r.status_code}: {r.text[:150]}")
+                    break
+            except Exception as e:
+                logger.warning(f"Batch embedding HTTP call failed (attempt {attempt+1}/4): {e}")
+                time.sleep(2)
 
         return [[0.0] * 1536] * len(batch)
 
     batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        batch_results = list(executor.map(process_single_batch, batches))
+    all_embeddings = []
+    for b_idx, b in enumerate(batches):
+        embs = process_single_batch(b)
+        all_embeddings.extend(embs)
+        if len(batches) > 1 and b_idx < len(batches) - 1:
+            time.sleep(0.5)
 
-    return [emb for b_res in batch_results for emb in b_res]
+    return all_embeddings
 
 
 def get_gemini_embedding_native(text: str) -> List[float]:
