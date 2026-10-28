@@ -197,13 +197,7 @@ def list_documents(unit_code: Optional[str] = None, authorization: Optional[str]
     res = query.order("uploaded_at", desc=True).limit(50).execute()
     
     docs = res.data or []
-    enriched = []
-    for d in docs:
-        c_count = client.table("document_chunks").select("id", count="exact").eq("document_id", d["id"]).execute()
-        enriched.append({
-            **d,
-            "chunks_indexed": c_count.count or 0
-        })
+    enriched = [{**d, "chunks_indexed": d.get("page_count", 0)} for d in docs]
     return {"documents": enriched}
 
 
@@ -315,9 +309,9 @@ async def upload_document(
                 "metadata": chunk.metadata
             })
 
-        # Insert chunks in clean batches of 250 (thread-safe, high throughput)
+        # Insert chunks in clean, safe batches of 50 to avoid request body limits
         logger.info(f"Inserting {len(records_to_insert)} vector chunks into Supabase...")
-        batch_size = 250
+        batch_size = 50
         for i in range(0, len(records_to_insert), batch_size):
             batch = records_to_insert[i:i+batch_size]
             client.table("document_chunks").insert(batch).execute()

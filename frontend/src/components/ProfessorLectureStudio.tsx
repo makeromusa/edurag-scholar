@@ -179,12 +179,19 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
         setDocuments(docList);
 
-        // Auto-select document
+        // Auto-select document: Prioritize complete slide decks & textbooks over brief 2-page outlines
         if (docList.length > 0) {
           if (initialDocumentId && docList.some((d) => d.id === initialDocumentId)) {
             setSelectedDocId(initialDocumentId);
           } else if (!selectedDocId || !docList.some((d) => d.id === selectedDocId)) {
-            setSelectedDocId(docList[0].id);
+            const preferred =
+              docList.find(
+                (d) =>
+                  d.title.toLowerCase().includes("merged") ||
+                  d.title.toLowerCase().includes("slides") ||
+                  d.page_count > 10
+              ) || docList[0];
+            setSelectedDocId(preferred.id);
           }
         }
       }
@@ -224,12 +231,17 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
         body: formData,
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.detail || "Failed to upload document.");
+      let uploadResult: any = {};
+      try {
+        uploadResult = await res.json();
+      } catch (e) {
+        uploadResult = { detail: `Server returned HTTP ${res.status}.` };
       }
 
-      const uploadResult = await res.json();
+      if (!res.ok) {
+        throw new Error(uploadResult.detail || "Failed to upload document.");
+      }
+
       const newDocId = uploadResult.document_id;
 
       // Refresh documents dropdown list
@@ -527,7 +539,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               maxWidth: isSidebarCollapsed ? 0 : `${sidebarWidth}px`,
               display: isSidebarCollapsed ? "none" : "flex",
             }}
-            className={`fixed inset-y-0 left-0 z-40 h-full shrink-0 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 md:static ${
+            className={`fixed inset-y-0 left-0 z-40 h-full shrink-0 flex-col border-r border-slate-800 bg-[#0a0f1d] text-slate-300 md:static md:translate-x-0 ${
               isSidebarOpen ? "translate-x-0 shadow-2xl flex" : "-translate-x-full md:flex"
             }`}
           >

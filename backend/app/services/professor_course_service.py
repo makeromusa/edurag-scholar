@@ -294,7 +294,7 @@ Deliver the full, deep professor masterclass expanding these slides in complete 
         lecture_markdown = await rag_router.generate_text(
             system_instruction=system_instruction,
             user_prompt=user_prompt,
-            max_tokens=2200
+            max_tokens=1600
         )
 
         return {

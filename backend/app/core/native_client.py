@@ -18,7 +18,7 @@ def generate_gemini_content(system_instruction: str, user_prompt: str, image_bas
     Uses native HTTP on Linux/Azure and PowerShell bridge on Windows to avoid OpenSSL quirks.
     """
     api_key = settings.GEMINI_API_KEY
-    model = "gemini-flash-lite-latest"
+    model = "gemini-1.5-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
     # If running on Linux (Azure App Service)

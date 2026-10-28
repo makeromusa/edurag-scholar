@@ -55,7 +55,13 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         body: formData,
       });
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = { detail: `Server responded with HTTP ${res.status}. If processing a 500+ page textbook, indexing takes ~20s — please retry.` };
+      }
+
       if (res.ok) {
         setStatusMsg({
           type: "success",
@@ -66,13 +72,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({
       } else {
         setStatusMsg({
           type: "error",
-          text: data.detail || "Failed to process document.",
+          text: data.detail || `Upload failed with HTTP ${res.status}.`,
         });
       }
     } catch (err: any) {
       setStatusMsg({
         type: "error",
-        text: err.message || "Network error. Make sure the backend is running.",
+        text: err.name === "AbortError"
+          ? "Upload timed out. For very large textbooks (500+ pages), the server is still indexing in the background."
+          : err.message || "Network error. Make sure the backend is running.",
       });
     } finally {
       setIsUploading(false);
