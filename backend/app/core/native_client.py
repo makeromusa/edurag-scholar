@@ -73,27 +73,29 @@ $res.candidates[0].content.parts[0].text
 
 def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 80) -> List[List[float]]:
     """
-    High-performance concurrent batch embedding via Gemini gemini-embedding-2 batchEmbedContents API.
-    Processes multiple batches simultaneously using ThreadPoolExecutor for sub-5s processing on 500+ pages.
+    High-performance concurrent batch embedding via Gemini batchEmbedContents API.
+    Processes multiple batches simultaneously using ThreadPoolExecutor with automatic fallback
+    from gemini-embedding-2 to gemini-embedding-001 for sub-5s processing on 500+ pages.
     """
     if not texts:
         return []
 
     api_key = settings.GEMINI_API_KEY
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:batchEmbedContents?key={api_key}"
 
     def process_single_batch(batch: List[str]) -> List[List[float]]:
-        requests_payload = []
-        for t in batch:
-            clean_t = (t or "").replace("\n", " ").strip()[:6000]
-            if not clean_t:
-                clean_t = "Academic study material content"
-            requests_payload.append({
-                "model": "models/gemini-embedding-2",
-                "content": {"parts": [{"text": clean_t}]},
-                "output_dimensionality": 1536
-            })
-        for attempt in range(4):
+        # Fast automatic fallback: Try gemini-embedding-2, if 429 or error, fallback to gemini-embedding-001
+        for model_name in ["gemini-embedding-2", "gemini-embedding-001"]:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:batchEmbedContents?key={api_key}"
+            requests_payload = []
+            for t in batch:
+                clean_t = (t or "").replace("\n", " ").strip()[:6000]
+                if not clean_t:
+                    clean_t = "Academic study material content"
+                requests_payload.append({
+                    "model": f"models/{model_name}",
+                    "content": {"parts": [{"text": clean_t}]},
+                    "output_dimensionality": 1536
+                })
             try:
                 r = requests.post(url, json={"requests": requests_payload}, timeout=35)
                 if r.status_code == 200:
@@ -105,53 +107,57 @@ def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 80) -> List[
                     if len(embs) == len(batch):
                         return embs
                 elif r.status_code == 429:
-                    wait_time = 4 * (attempt + 1)
-                    logger.warning(f"Gemini embedding 429 rate limit hit, backing off {wait_time}s (attempt {attempt+1}/4)...")
-                    time.sleep(wait_time)
+                    logger.warning(f"Gemini {model_name} 429 rate limit hit, immediately switching to alternate model...")
                     continue
                 else:
-                    logger.warning(f"batchEmbedContents returned status {r.status_code}: {r.text[:150]}")
-                    break
+                    logger.warning(f"batchEmbedContents with {model_name} returned status {r.status_code}: {r.text[:120]}")
+                    continue
             except Exception as e:
-                logger.warning(f"Batch embedding HTTP call failed (attempt {attempt+1}/4): {e}")
-                time.sleep(2)
+                logger.warning(f"Batch embedding HTTP call failed for {model_name}: {e}")
+                continue
 
         return [[0.0] * 1536] * len(batch)
 
     batches = [texts[i:i + batch_size] for i in range(0, len(texts), batch_size)]
-    all_embeddings = []
-    for b_idx, b in enumerate(batches):
-        embs = process_single_batch(b)
-        all_embeddings.extend(embs)
-        if len(batches) > 1 and b_idx < len(batches) - 1:
-            time.sleep(0.5)
+    if len(batches) <= 1:
+        return process_single_batch(batches[0]) if batches else []
+
+    # Process batches concurrently (max 2 parallel workers to avoid connection spikes)
+    with ThreadPoolExecutor(max_workers=min(len(batches), 2)) as executor:
+        results = list(executor.map(process_single_batch, batches))
+
+    all_embeddings: List[List[float]] = []
+    for res in results:
+        all_embeddings.extend(res)
 
     return all_embeddings
 
 
 def get_gemini_embedding_native(text: str) -> List[float]:
     """
-    Generates 1536-dimensional embeddings via Gemini gemini-embedding-2.
+    Generates 1536-dimensional embeddings via Gemini with automatic fallback from
+    gemini-embedding-2 to gemini-embedding-001.
     Gracefully returns zero vector fallback if API fails or quota exceeded.
     """
     api_key = settings.GEMINI_API_KEY
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:embedContent?key={api_key}"
     clean_text = (text or "").replace("\n", " ").strip()[:6000]
     if not clean_text:
         clean_text = "Academic study material content"
 
-    try:
-        payload = {
-            "content": {"parts": [{"text": clean_text}]},
-            "output_dimensionality": 1536
-        }
-        r = requests.post(url, json=payload, timeout=10)
-        if r.status_code == 200:
-            data = r.json()
-            if "embedding" in data and "values" in data["embedding"]:
-                return data["embedding"]["values"]
-        logger.warning(f"Gemini single embedding status {r.status_code}: {r.text[:150]}")
-        return [0.0] * 1536
-    except Exception as e:
-        logger.warning(f"Gemini single embedding call failed: {e}")
-        return [0.0] * 1536
+    payload = {
+        "content": {"parts": [{"text": clean_text}]},
+        "output_dimensionality": 1536
+    }
+    for model_name in ["gemini-embedding-2", "gemini-embedding-001"]:
+        try:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:embedContent?key={api_key}"
+            r = requests.post(url, json=payload, timeout=10)
+            if r.status_code == 200:
+                data = r.json()
+                if "embedding" in data and "values" in data["embedding"]:
+                    return data["embedding"]["values"]
+        except Exception as e:
+            logger.warning(f"Gemini single embedding with {model_name} failed: {e}")
+            continue
+
+    return [0.0] * 1536

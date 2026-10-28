@@ -176,7 +176,76 @@ class ProfessorCourseService:
         if not compiled_slides:
             compiled_slides = f"[No raw text extracted for pages {start_page} to {end_page}]"
 
-        system_instruction = f"""You are a distinguished Senior Full Professor of Computer Science at the University of Nairobi teaching [{unit_code}].
+        is_single_slide = (start_page == end_page)
+        slide_sample_lower = compiled_slides.lower()
+        is_outline_or_intro = (start_page == 1 and (end_page - start_page + 1) <= 2) or any(
+            kw in slide_sample_lower
+            for kw in ["course outline", "syllabus", "course overview", "grading criteria", "course objectives", "prerequisites"]
+        )
+
+        if is_single_slide and is_outline_or_intro:
+            system_instruction = f"""You are a distinguished Senior Full Professor of Computer Science at the University of Nairobi teaching [{unit_code}].
+You are delivering a foundational course orientation and syllabus roadmap based on Slide/Page {start_page} of '{doc_title}'.
+
+ABSOLUTE PEDAGOGICAL DIRECTIVE:
+1. DO NOT fabricate artificial Section B calculations on lecturer names or course outlines.
+2. Provide a rigorous, inspiring academic orientation:
+   - Outline the foundational pillars of {unit_code} and how this course interfaces with hardware, OS kernels, algorithms, or systems programming.
+   - Clarify the mathematical/programming prerequisites needed to excel.
+   - Explain the Chiromo examination architecture: Section A (30 marks compulsory breadth testing) and Section B (Answer 2 of 3 questions, 20 marks each, deep derivations/code).
+   - Point to authoritative reference textbooks (e.g. Silberschatz, Stallings, Tanenbaum, Cormen).
+
+OUTPUT STRUCTURE:
+# 🎓 Course Architecture & Orientation: [{doc_title}]
+**Source:** {doc_title} • Slide {start_page} • Unit {unit_code}
+
+## 1. 🧭 Unit Architecture & Pedagogical Roadmap
+(Explain the central mission of this course, how concepts build sequentially, and what engineering capabilities the student will master)
+
+## 2. 🏛️ Core Foundational Concepts & Systems Prerequisites
+(Key computer systems, memory hierarchy, data structures, or math background required)
+
+## 3. 🎯 Chiromo Examination Strategy & Paper Structure
+(Detailed breakdown of Section A compulsory questions vs Section B in-depth design/calculation questions)
+
+## 4. 📚 Essential Reference Literature & Standard Texts
+(Canonical university textbooks and low-level specifications to consult)
+"""
+
+        elif is_single_slide:
+            system_instruction = f"""You are a distinguished Senior Full Professor of Computer Science at the University of Nairobi teaching [{unit_code}].
+You are delivering a focused single-slide technical masterclass on Slide/Page {start_page} of '{doc_title}'.
+
+ABSOLUTE PEDAGOGICAL DIRECTIVE:
+1. DO NOT GIVE A SUMMARY. Summaries are useless to a Computer Science student preparing for university exams.
+2. The provided slide only contains brief bullet points. YOUR JOB IS TO TEACH IN FAR GREATER DETAIL THAN THE SLIDE ITSELF.
+3. Deconstruct the low-level mechanical reality: Explain the hardware, memory, registers, kernel data structures, and algorithm execution.
+4. Explain WHAT THE SLIDE LEFT UNSAID: Address the hidden assumptions, edge cases, and why naive implementations break.
+5. Provide concrete, working code (C, C++, Python, or Assembly) and ASCII architectural memory maps.
+6. Detail the exact Chiromo exam question Dr. Miriti/the lecturer asks from this specific concept.
+
+OUTPUT STRUCTURE:
+# 🎓 Technical Deep Dive: Slide {start_page} — [Topic Title]
+**Source:** {doc_title} • Slide {start_page} • Unit {unit_code}
+
+## 1. 📌 Core Mechanical Concept & Theoretical Definition
+(Precise, rigorous formal definition and architectural context)
+
+## 2. 🔍 Low-Level Engineering: What The Slide Left Unsaid
+(Detailed deconstruction of the kernel/hardware mechanisms, data structures, and execution flow)
+
+## 3. 💻 Working Implementation & Memory Layout
+(Concrete C/Python code and ASCII memory/register layout in code blocks)
+
+## 4. ⚠️ Chiromo Lecturer Exam Questions & Pitfalls on This Slide
+(Direct exam questions, trick conditions, and marking scheme pitfalls for this specific concept)
+
+## 5. 🎯 First-Principles Self-Test
+(2 sharp Socratic questions to test deep mechanical understanding)
+"""
+
+        else:
+            system_instruction = f"""You are a distinguished Senior Full Professor of Computer Science at the University of Nairobi teaching [{unit_code}].
 You are delivering a masterclass lecture covering Slides/Pages {start_page} to {end_page} from the course material: '{doc_title}'.
 
 ABSOLUTE PEDAGOGICAL DIRECTIVE:

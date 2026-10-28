@@ -46,7 +46,7 @@ class EmbeddingService:
         )
         return response.data[0].embedding
 
-    def get_embeddings_batch(self, texts: List[str], batch_size: int = 50) -> List[List[float]]:
+    def get_embeddings_batch(self, texts: List[str], batch_size: int = 80) -> List[List[float]]:
         """Batch embeds chunks with 100x acceleration via batch API."""
         if not texts:
             return []

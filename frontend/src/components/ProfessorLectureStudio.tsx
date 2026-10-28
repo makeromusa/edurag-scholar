@@ -388,12 +388,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     const pageNum = parseInt(jumpSlideInput.trim(), 10);
     if (!pageNum || isNaN(pageNum) || !syllabus) return;
 
-    const clamped = Math.max(1, minPage(pageNum, syllabus.total_pages));
+    const clamped = Math.max(1, Math.min(pageNum, syllabus.total_pages));
     loadSingleSlide(clamped);
     setJumpSlideInput("");
   };
-
-  const minPage = (n: number, maxP: number) => (n > maxP ? maxP : n);
 
   // Submit student doubt in Office Hours
   const handleAskQuestion = async (e: React.FormEvent) => {
@@ -864,23 +862,28 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               
               {/* INSTANT Raw Slide Text (Always visible instantly - never blank!) */}
               {rawSlidesPreview && isRawSlidesOpen && (
-                <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/30 via-slate-900 to-slate-900 p-4 sm:p-5 shadow-inner">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
-                      <BookOpen className="h-4 w-4 text-indigo-400" />
-                      <span>Original Slide Bullets & Content (Instant Preview):</span>
+                <div className="rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/40 via-slate-900 to-slate-900 p-4 sm:p-5 shadow-lg">
+                  <div className="flex items-center justify-between mb-2.5 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 rounded bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400">
+                        ⚡ Instant Slide Notes
+                      </span>
+                      <span className="text-xs font-bold text-indigo-300 uppercase tracking-wider">
+                        {activeLesson?.start_page === activeLesson?.end_page
+                          ? `Slide ${activeLesson?.start_page} Raw Text`
+                          : `Slides ${activeLesson?.start_page}–${activeLesson?.end_page} Raw Text`}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      {activeLesson?.start_page === activeLesson?.end_page
-                        ? `Page ${activeLesson?.start_page}`
-                        : `Pages ${activeLesson?.start_page}–${activeLesson?.end_page}`}
+                    <span className="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700">
+                      Page {activeLesson?.start_page} of {syllabus?.total_pages}
                     </span>
                   </div>
-                  <pre className="max-h-56 overflow-y-auto whitespace-pre-wrap text-[11px] sm:text-xs font-mono text-slate-200 p-3.5 rounded-lg bg-black/70 border border-slate-800 leading-relaxed">
+                  <pre className="max-h-60 overflow-y-auto whitespace-pre-wrap text-[11px] sm:text-xs font-mono text-slate-200 p-3.5 rounded-lg bg-black/80 border border-slate-800 leading-relaxed shadow-inner">
                     {rawSlidesPreview}
                   </pre>
-                  <p className="mt-2 text-[10px] text-slate-400 italic">
-                    💡 The Professor's comprehensive masterclass deconstructing these points in full technical depth is presented below.
+                  <p className="mt-2 text-[10px] text-slate-400 italic flex items-center gap-1.5">
+                    <span>💡</span>
+                    <span>The Professor's deep masterclass deconstructing these points in full theoretical depth is delivered below.</span>
                   </p>
                 </div>
               )}

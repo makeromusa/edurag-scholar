@@ -32,6 +32,9 @@ def extract_text_from_pdf(file_bytes: bytes, file_name: str) -> List[ExtractedPa
     """
     pages: List[ExtractedPage] = []
     doc = fitz.open(stream=file_bytes, filetype="pdf")
+    total_doc_pages = len(doc)
+    ocr_attempts = 0
+    max_ocr_attempts = 3 if total_doc_pages <= 15 else 0  # Only run vision OCR on short scanned handouts (<=15 pages)
     
     for i, page in enumerate(doc):
         page_num = i + 1
@@ -47,8 +50,9 @@ def extract_text_from_pdf(file_bytes: bytes, file_name: str) -> List[ExtractedPa
 
         is_scanned = len(text) < 40 and len(page.get_images()) > 0
         
-        # Automatic Vision OCR fallback for scanned slides / syllabus documents with minimal text
-        if len(text) < 25 and len(page.get_images()) > 0:
+        # Automatic Vision OCR fallback for scanned slides / syllabus documents with minimal text (capped to avoid stalls)
+        if len(text) < 25 and len(page.get_images()) > 0 and ocr_attempts < max_ocr_attempts:
+            ocr_attempts += 1
             try:
                 from app.core.config import settings
                 from openai import OpenAI

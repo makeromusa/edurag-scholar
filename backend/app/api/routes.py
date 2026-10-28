@@ -296,7 +296,7 @@ async def upload_document(
         chunk_texts = [c.content for c in chunks]
         
         logger.info(f"Embedding {len(chunk_texts)} chunks via Gemini batchEmbedContents...")
-        embeddings = embedding_service.get_embeddings_batch(chunk_texts, batch_size=50)
+        embeddings = embedding_service.get_embeddings_batch(chunk_texts, batch_size=80)
 
         records_to_insert = []
         for i, chunk in enumerate(chunks):
