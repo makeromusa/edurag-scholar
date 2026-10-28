@@ -11,6 +11,7 @@ import {
   Clock,
   Layers,
   Sparkles,
+  BookMarked,
   LogOut,
   LogIn,
   User as UserIcon,
@@ -33,6 +34,7 @@ interface SidebarProps {
   onOpenPastPapers: () => void;
   onOpenFlashcards: () => void;
   onOpenProfessorMode?: () => void;
+  onOpenVault?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -45,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPastPapers,
   onOpenFlashcards,
   onOpenProfessorMode,
+  onOpenVault,
   isOpen = false,
   onClose,
 }) => {
@@ -129,6 +132,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <Sparkles className="h-4 w-4 text-amber-400" />
             <span>Spaced Repetition (SM-2)</span>
           </button>
+          {onOpenVault && (
+            <button
+              onClick={() => {
+                onOpenVault();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-blue-500/30 bg-blue-950/20 px-3 py-2 text-xs font-medium text-blue-300 transition hover:bg-blue-900/40 hover:text-blue-200"
+            >
+              <BookMarked className="h-4 w-4 text-blue-400" />
+              <span>📚 Notes & Exam Vault</span>
+            </button>
+          )}
           {onOpenProfessorMode && (
             <button
               onClick={() => {

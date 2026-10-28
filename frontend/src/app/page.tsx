@@ -12,6 +12,7 @@ import { PastPaperModal } from "@/components/PastPaperModal";
 import { FlashcardModal } from "@/components/FlashcardModal";
 import { AuthModal } from "@/components/AuthModal";
 import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
+import { AcademicVaultModal } from "@/components/AcademicVaultModal";
 
 const DEFAULT_UNITS: Unit[] = [
   { code: "SMA 2114", name: "Differential and Integral Calculus", lecturer: "Dr. Okeyo", venue: "LG01" },
@@ -31,6 +32,7 @@ export default function Home() {
   const [isPastPapersOpen, setIsPastPapersOpen] = useState(false);
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
   const [isProfessorOpen, setIsProfessorOpen] = useState(false);
+  const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
   const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
   const [professorDocTitle, setProfessorDocTitle] = useState<string | undefined>(undefined);
@@ -96,6 +98,7 @@ export default function Home() {
         onOpenPastPapers={() => setIsPastPapersOpen(true)}
         onOpenFlashcards={() => setIsFlashcardsOpen(true)}
         onOpenProfessorMode={() => handleOpenProfessor()}
+        onOpenVault={() => setIsVaultOpen(true)}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
@@ -201,6 +204,16 @@ export default function Home() {
         unitCode={currentUnit.code}
         initialDocumentId={professorDocId}
         initialTopic={professorTopic}
+      />
+
+      {/* Centralized Academic Notes & Exam Vault */}
+      <AcademicVaultModal
+        units={units}
+        currentUnitCode={currentUnit.code}
+        isOpen={isVaultOpen}
+        onClose={() => setIsVaultOpen(false)}
+        onSelectUnit={(code) => setSelectedUnit(code)}
+        onTeachDocument={(docId, title) => handleOpenProfessor(title, docId, title)}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}
