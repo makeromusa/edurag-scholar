@@ -34,7 +34,7 @@ def extract_text_from_pdf(file_bytes: bytes, file_name: str) -> List[ExtractedPa
     doc = fitz.open(stream=file_bytes, filetype="pdf")
     total_doc_pages = len(doc)
     ocr_attempts = 0
-    max_ocr_attempts = 3 if total_doc_pages <= 15 else 0  # Only run vision OCR on short scanned handouts (<=15 pages)
+    max_ocr_attempts = total_doc_pages if total_doc_pages <= 10 else 3 if total_doc_pages <= 15 else 0  # Full OCR for exam papers (<=10 pages)
     
     for i, page in enumerate(doc):
         page_num = i + 1
