@@ -7,15 +7,12 @@ import {
   FileCheck2,
   FileText,
   Search,
-  Layers,
   GraduationCap,
-  ChevronLeft,
-  ChevronRight,
   ExternalLink,
   CheckCircle2,
-  Clock,
   Sparkles,
-  BookMarked
+  BookMarked,
+  Maximize2
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { Unit } from "./Sidebar";
@@ -29,6 +26,7 @@ interface IngestedDoc {
   file_size_bytes?: number;
   chunks_indexed: number;
   uploaded_at?: string;
+  storage_url?: string;
   category?: "exam" | "book" | "formula";
 }
 
@@ -55,17 +53,12 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [documents, setDocuments] = useState<IngestedDoc[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // In-App Document Reader State
-  const [readingDoc, setReadingDoc] = useState<IngestedDoc | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageContent, setPageContent] = useState<string>("");
-  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<IngestedDoc | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       setSelectedUnit(currentUnitCode);
-      setReadingDoc(null);
+      setPreviewDoc(null);
     }
   }, [isOpen, currentUnitCode]);
 
@@ -92,29 +85,6 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
     };
     fetchDocs();
   }, [isOpen, selectedUnit, session?.access_token]);
-
-  // Load individual page content when reading a document
-  useEffect(() => {
-    if (!readingDoc) return;
-    const fetchPage = async () => {
-      setIsLoadingPage(true);
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${apiUrl}/api/professor/document/${readingDoc.id}/slide/${currentPage}`);
-        if (res.ok) {
-          const data = await res.json();
-          setPageContent(data?.data?.raw_text || data?.data?.content || "No text available for this page.");
-        } else {
-          setPageContent("Could not load page content.");
-        }
-      } catch (e) {
-        setPageContent("Failed to load page text.");
-      } finally {
-        setIsLoadingPage(false);
-      }
-    };
-    fetchPage();
-  }, [readingDoc, currentPage]);
 
   if (!isOpen) return null;
 
@@ -149,9 +119,10 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
-  const handleOpenDoc = (doc: IngestedDoc) => {
-    setReadingDoc(doc);
-    setCurrentPage(1);
+  const handleOpenDocInNewTab = (doc: IngestedDoc) => {
+    if (doc.storage_url) {
+      window.open(doc.storage_url, "_blank", "noopener,noreferrer");
+    }
   };
 
   return (
@@ -171,7 +142,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
-                Categorized textbooks, lecture slide decks, formula sheets & past exam papers
+                Direct access to real original PDFs (textbooks, slides, formulas & solved past exams)
               </p>
             </div>
           </div>
@@ -194,7 +165,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                 key={u.code}
                 onClick={() => {
                   setSelectedUnit(u.code);
-                  setReadingDoc(null);
+                  setPreviewDoc(null);
                   if (onSelectUnit) onSelectUnit(u.code);
                 }}
                 className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
@@ -212,7 +183,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
         {/* Modal Main Content Area */}
         <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
           {/* Main Vault List */}
-          <div className={`flex-1 flex flex-col overflow-hidden ${readingDoc ? "hidden md:flex md:w-1/2 border-r border-slate-800" : "w-full"}`}>
+          <div className={`flex-1 flex flex-col overflow-hidden ${previewDoc ? "hidden md:flex md:w-1/2 border-r border-slate-800" : "w-full"}`}>
             {/* Filter Bar & Search */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/60 bg-slate-900/40 p-3 sm:px-5">
               {/* Category Pills */}
@@ -289,7 +260,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                 </div>
               ) : (
                 filteredDocs.map((doc) => {
-                  const isSelected = readingDoc?.id === doc.id;
+                  const isSelected = previewDoc?.id === doc.id;
                   const isExam = doc.category === "exam";
                   const isFormula = doc.category === "formula";
 
@@ -352,15 +323,28 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                         </div>
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between">
-                        <button
-                          onClick={() => handleOpenDoc(doc)}
-                          className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-xs font-semibold shadow-sm transition"
-                        >
-                          <BookOpen className="h-3.5 w-3.5" />
-                          <span>{isSelected ? "Currently Reading" : "Open & Read"}</span>
-                        </button>
+                      {/* Action Buttons: Real PDF opening */}
+                      <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          {doc.storage_url && (
+                            <button
+                              onClick={() => handleOpenDocInNewTab(doc)}
+                              className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-xs font-semibold shadow-sm transition"
+                              title="Open original visual PDF in native browser viewer or Adobe Acrobat"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              <span>Open Real PDF</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setPreviewDoc(doc)}
+                            className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 px-2 py-1 text-xs text-slate-300 transition"
+                            title="Preview PDF inside modal window"
+                          >
+                            <BookOpen className="h-3 w-3 text-blue-400" />
+                            <span>Preview</span>
+                          </button>
+                        </div>
 
                         {onTeachDocument && (
                           <button
@@ -368,7 +352,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                               onTeachDocument(doc.id, doc.title);
                               onClose();
                             }}
-                            className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-900/40 transition"
+                            className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-2 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-900/40 transition"
                           >
                             <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
                             <span>Teach in Studio</span>
@@ -382,71 +366,51 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
             </div>
           </div>
 
-          {/* In-Website Document Page Reader Panel */}
-          {readingDoc ? (
+          {/* In-Website Real PDF Native Previewer */}
+          {previewDoc ? (
             <div className="flex-1 flex flex-col bg-[#080c16] overflow-hidden">
               {/* Reader Header */}
-              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3">
+              <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-2.5">
                 <div className="min-w-0 pr-2">
-                  <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">
-                    Reading {readingDoc.category === "exam" ? "Past Paper" : "Document"}
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                    Original PDF Viewer
                   </span>
-                  <h3 className="text-xs font-bold text-white truncate max-w-sm" title={readingDoc.title}>
-                    {readingDoc.title}
+                  <h3 className="text-xs font-bold text-white truncate max-w-sm" title={previewDoc.title}>
+                    {previewDoc.title}
                   </h3>
                 </div>
 
-                <button
-                  onClick={() => setReadingDoc(null)}
-                  className="rounded-lg border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
-                >
-                  Close Reader
-                </button>
-              </div>
-
-              {/* Reader Pagination Controls */}
-              <div className="flex items-center justify-between border-b border-slate-800/60 bg-slate-900/30 px-4 py-2 text-xs">
-                <button
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage <= 1 || isLoadingPage}
-                  className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                  <span>Prev Page</span>
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <span className="text-slate-400">
-                    Page <strong className="text-white">{currentPage}</strong> of <strong className="text-slate-300">{readingDoc.page_count}</strong>
-                  </span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {previewDoc.storage_url && (
+                    <button
+                      onClick={() => handleOpenDocInNewTab(previewDoc)}
+                      className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
+                      title="Open full PDF in Adobe Acrobat / native browser PDF tab"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span>Open in Browser Tab / Adobe</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setPreviewDoc(null)}
+                    className="rounded-lg border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
+                  >
+                    Close
+                  </button>
                 </div>
-
-                <button
-                  onClick={() => setCurrentPage((p) => Math.min(readingDoc.page_count, p + 1))}
-                  disabled={currentPage >= readingDoc.page_count || isLoadingPage}
-                  className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition"
-                >
-                  <span>Next Page</span>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
               </div>
 
-              {/* Reader Text Viewport */}
-              <div className="flex-1 overflow-y-auto p-5 font-mono text-xs leading-relaxed text-slate-200">
-                {isLoadingPage ? (
-                  <div className="flex h-64 items-center justify-center text-xs text-slate-400 gap-2">
-                    <div className="h-4 w-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-                    <span>Loading Page {currentPage}...</span>
-                  </div>
+              {/* Native PDF Viewport via IFrame */}
+              <div className="flex-1 w-full h-full p-2 bg-[#0c111d]">
+                {previewDoc.storage_url ? (
+                  <iframe
+                    src={`${previewDoc.storage_url}#toolbar=1&navpanes=1`}
+                    title={previewDoc.title}
+                    className="w-full h-full rounded-xl border border-slate-800 bg-white shadow-inner"
+                  />
                 ) : (
-                  <div className="rounded-xl border border-slate-800 bg-[#0d1322] p-5 shadow-inner">
-                    <div className="mb-3 pb-2 border-b border-slate-800 flex items-center justify-between text-[11px] text-slate-400 font-sans">
-                      <span>{selectedUnit} Syllabus Content</span>
-                      <span>Page {currentPage} of {readingDoc.page_count}</span>
-                    </div>
-                    <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-200">
-                      {pageContent}
-                    </pre>
+                  <div className="flex h-full flex-col items-center justify-center p-6 text-center text-slate-400">
+                    <p className="text-xs">Connecting to PDF storage URL...</p>
                   </div>
                 )}
               </div>
@@ -456,7 +420,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
               <BookOpen className="h-12 w-12 text-slate-700 mb-3 stroke-[1.2]" />
               <h4 className="text-sm font-semibold text-slate-400">Select Any Document on the Left</h4>
               <p className="text-xs text-slate-600 max-w-xs mt-1">
-                Click <strong>"Open & Read"</strong> on any past exam paper, textbook, or lecture slide to read its full pages right here.
+                Click <strong>"Open Real PDF"</strong> to open directly in your browser or Adobe, or <strong>"Preview"</strong> to inspect it here.
               </p>
             </div>
           )}

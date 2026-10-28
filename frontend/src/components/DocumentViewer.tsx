@@ -10,14 +10,13 @@ import {
   RefreshCw,
   UploadCloud,
   ChevronLeft,
-  ChevronRight,
   BookOpen,
   FileCheck2,
   Sparkles,
   Layers,
-  Paperclip,
   GraduationCap,
   Trash2,
+  Maximize2
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -41,6 +40,7 @@ interface IngestedDoc {
   file_size_bytes?: number;
   chunks_indexed: number;
   uploaded_at?: string;
+  storage_url?: string;
   category?: "exam" | "book" | "formula";
 }
 
@@ -64,16 +64,13 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"all" | "books" | "exams" | "formulas">("all");
 
-  // In-App Document Reading States
-  const [readingDoc, setReadingDoc] = useState<IngestedDoc | null>(null);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageContent, setPageContent] = useState<string>("");
-  const [isLoadingPage, setIsLoadingPage] = useState(false);
+  // In-App Real PDF Preview State
+  const [previewDoc, setPreviewDoc] = useState<IngestedDoc | null>(null);
 
   const fetchDocuments = async () => {
     if (!selectedUnit) return;
     setIsLoadingDocs(true);
-    setReadingDoc(null);
+    setPreviewDoc(null);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
       const headers: Record<string, string> = {};
@@ -96,29 +93,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     fetchDocuments();
   }, [selectedUnit]);
 
-  // Load individual page content when reading a document
-  useEffect(() => {
-    if (!readingDoc) return;
-    const fetchPage = async () => {
-      setIsLoadingPage(true);
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-        const res = await fetch(`${apiUrl}/api/professor/document/${readingDoc.id}/slide/${currentPage}`);
-        if (res.ok) {
-          const data = await res.json();
-          setPageContent(data?.data?.raw_text || data?.data?.content || "No text available for this page.");
-        } else {
-          setPageContent("Could not load page content.");
-        }
-      } catch (e) {
-        setPageContent("Failed to load page text.");
-      } finally {
-        setIsLoadingPage(false);
-      }
-    };
-    fetchPage();
-  }, [readingDoc, currentPage]);
-
   const handleDeleteDocument = async (docId: string, title: string) => {
     if (!window.confirm(`Are you sure you want to delete "${title}" and purge all its vector chunks?`)) {
       return;
@@ -135,6 +109,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       });
       if (res.ok) {
         setDocuments((prev) => prev.filter((d) => d.id !== docId));
+        if (previewDoc?.id === docId) {
+          setPreviewDoc(null);
+        }
       } else {
         const err = await res.json().catch(() => ({}));
         alert(err.detail || "Failed to delete document.");
@@ -144,15 +121,19 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     }
   };
 
-  // Format bytes helper
-  const formatBytes = (bytes?: number) => {
-    if (!bytes) return "";
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  const handleOpenDocInNewTab = (doc: IngestedDoc) => {
+    if (doc.storage_url) {
+      window.open(doc.storage_url, "_blank", "noopener,noreferrer");
+    }
   };
 
-  // 1. If a citation is active, show the synchronized slide preview
+  // 1. If a citation is active, show the citation excerpt preview
   if (citation) {
+    // Find matching document if any
+    const matchingDoc = documents.find((d) =>
+      citation.file_name && d.title.toLowerCase().includes(citation.file_name.toLowerCase())
+    );
+
     return (
       <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
         {/* Viewer Header */}
@@ -177,17 +158,27 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             </span>
           </div>
 
-          {citation.url && (
-            <a
-              href={citation.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 rounded bg-blue-600/20 px-2 py-1 text-[11px] font-medium text-blue-400 hover:bg-blue-600/30"
-            >
-              <span>Open Source</span>
-              <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
+          <div className="flex items-center gap-2">
+            {citation.url ? (
+              <a
+                href={citation.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 rounded bg-blue-600/20 px-2 py-1 text-[11px] font-medium text-blue-400 hover:bg-blue-600/30"
+              >
+                <span>Open Source</span>
+                <ExternalLink className="h-3 w-3" />
+              </a>
+            ) : matchingDoc?.storage_url ? (
+              <button
+                onClick={() => handleOpenDocInNewTab(matchingDoc)}
+                className="flex items-center gap-1 rounded bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 text-[11px] font-medium transition"
+              >
+                <span>Open Real PDF</span>
+                <ExternalLink className="h-3 w-3" />
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {/* Slide Visual Card Preview */}
@@ -244,15 +235,15 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const countExams = categorizedDocs.filter((d) => d.category === "exam").length;
   const countFormulas = categorizedDocs.filter((d) => d.category === "formula").length;
 
-  // 2. In-App Document Reader View
-  if (readingDoc) {
+  // 2. Real Original PDF Embedded Viewer
+  if (previewDoc) {
     return (
-      <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
-        {/* Reader Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/80 px-4 py-3">
+      <div className="flex h-full w-full flex-col bg-[#080c16] border-l border-slate-800 text-slate-200">
+        {/* Viewer Top Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-3">
           <div className="flex items-center gap-2 min-w-0 pr-2">
             <button
-              onClick={() => setReadingDoc(null)}
+              onClick={() => setPreviewDoc(null)}
               className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
               title="Return to library list"
             >
@@ -260,75 +251,50 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
               <span>Back</span>
             </button>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold text-blue-400 uppercase tracking-wider block">
-                {readingDoc.category === "exam" ? "📝 Past Paper" : "📚 Course Material"}
+              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
+                {previewDoc.category === "exam" ? "📝 Real Past Paper" : "📚 Real Course Document"}
               </span>
-              <h3 className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs" title={readingDoc.title}>
-                {readingDoc.title}
+              <h3 className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs" title={previewDoc.title}>
+                {previewDoc.title}
               </h3>
             </div>
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {previewDoc.storage_url && (
+              <button
+                onClick={() => handleOpenDocInNewTab(previewDoc)}
+                className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
+                title="Open real PDF in native browser viewer or Adobe Acrobat"
+              >
+                <ExternalLink className="h-3 w-3" />
+                <span className="hidden sm:inline">Open in Tab / Adobe</span>
+                <span className="sm:hidden">Open</span>
+              </button>
+            )}
             {onTeachDocument && (
               <button
-                onClick={() => onTeachDocument(readingDoc.id, readingDoc.title)}
+                onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
                 className="hidden sm:flex items-center gap-1 rounded bg-indigo-600/30 border border-indigo-500/40 px-2 py-1 text-[10px] font-semibold text-indigo-300 hover:bg-indigo-600/50"
               >
                 <GraduationCap className="h-3 w-3" />
                 <span>Teach</span>
               </button>
             )}
-            <button
-              onClick={() => setReadingDoc(null)}
-              className="rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
-        {/* Reader Page Navigation Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 bg-slate-900/40 px-4 py-2 text-xs">
-          <button
-            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            disabled={currentPage <= 1 || isLoadingPage}
-            className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition"
-          >
-            <ChevronLeft className="h-3.5 w-3.5" />
-            <span>Prev</span>
-          </button>
-
-          <span className="text-[11px] text-slate-400">
-            Page <strong className="text-white">{currentPage}</strong> of <strong className="text-slate-300">{readingDoc.page_count}</strong>
-          </span>
-
-          <button
-            onClick={() => setCurrentPage((p) => Math.min(readingDoc.page_count, p + 1))}
-            disabled={currentPage >= readingDoc.page_count || isLoadingPage}
-            className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 disabled:opacity-40 transition"
-          >
-            <span>Next</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Page Content Display */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5">
-          {isLoadingPage ? (
-            <div className="flex h-64 items-center justify-center text-xs text-slate-400 gap-2">
-              <div className="h-4 w-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-              <span>Loading Page {currentPage}...</span>
-            </div>
+        {/* Real PDF Viewport */}
+        <div className="flex-1 w-full h-full p-2 bg-[#0c111d]">
+          {previewDoc.storage_url ? (
+            <iframe
+              src={`${previewDoc.storage_url}#toolbar=1&navpanes=1`}
+              title={previewDoc.title}
+              className="w-full h-full rounded-xl border border-slate-800 bg-white shadow-inner"
+            />
           ) : (
-            <div className="rounded-xl border border-slate-800 bg-[#0d1322] p-4 sm:p-5 shadow-inner">
-              <div className="mb-3 pb-2 border-b border-slate-800 flex items-center justify-between text-[10px] text-slate-400">
-                <span className="font-semibold text-slate-300">{selectedUnit} • Exact Page Content</span>
-                <span>Page {currentPage} of {readingDoc.page_count}</span>
-              </div>
-              <pre className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-200 selection:bg-blue-600/40">
-                {pageContent}
-              </pre>
+            <div className="flex h-full flex-col items-center justify-center p-6 text-center text-slate-400">
+              <p className="text-xs">Preparing document viewer...</p>
             </div>
           )}
         </div>
@@ -491,19 +457,27 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   )}
                 </div>
 
-                {/* Actions: Open & Read, Teach, Delete */}
+                {/* Actions: Open Real PDF, Preview, Teach, Delete */}
                 <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5">
+                    {doc.storage_url && (
+                      <button
+                        onClick={() => handleOpenDocInNewTab(doc)}
+                        className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
+                        title="Open real PDF in native browser viewer or Adobe Acrobat"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        <span>Open Real PDF</span>
+                      </button>
+                    )}
+
                     <button
-                      onClick={() => {
-                        setReadingDoc(doc);
-                        setCurrentPage(1);
-                      }}
-                      className="flex items-center gap-1 rounded-lg bg-blue-600/30 border border-blue-500/40 px-2.5 py-1 text-[11px] font-semibold text-blue-300 hover:bg-blue-600/50 transition"
-                      title="Open and read this document page-by-page"
+                      onClick={() => setPreviewDoc(doc)}
+                      className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 px-2 py-1 text-[10px] text-slate-300 transition"
+                      title="Preview PDF inside side pane"
                     >
-                      <BookOpen className="h-3 w-3" />
-                      <span>Open & Read</span>
+                      <BookOpen className="h-3 w-3 text-blue-400" />
+                      <span>Preview</span>
                     </button>
 
                     {onTeachDocument && isReady && (
@@ -513,7 +487,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                         title="Have the Professor deconstruct and teach this document"
                       >
                         <GraduationCap className="h-3 w-3 text-indigo-400" />
-                        <span>Teach</span>
+                        <span className="hidden sm:inline">Teach</span>
                       </button>
                     )}
                   </div>
