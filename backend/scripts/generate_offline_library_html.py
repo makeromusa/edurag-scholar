@@ -9,7 +9,7 @@ DOWNLOADS_DIR = r"C:\Users\HomePC\Downloads"
 USER_ID = "9bd58ed8-3c71-4b9a-be11-83813b71456f"
 supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SERVICE_ROLE_KEY"))
 
-resp = supabase.table("documents").select("id, unit_code, title, page_count, file_size_bytes").eq("uploaded_by", USER_ID).order("unit_code").execute()
+resp = supabase.table("documents").select("id, unit_code, title, page_count, file_size_bytes, storage_url").eq("uploaded_by", USER_ID).order("unit_code").execute()
 
 units_meta = {
     "SCS 3201": "Systems Analysis and Design (Kendall & Kendall)",
@@ -225,7 +225,7 @@ for u, name in units_meta.items():
                         <div class="doc-title" title="{b['title']}">{b['title']}</div>
                         <div class="doc-meta">{b['page_count']} Pages</div>
                     </div>
-                    <a href="{b['title']}" class="doc-link" target="_blank">Open PDF</a>
+                    <a href="{b.get('storage_url') or b['title']}" class="doc-link" target="_blank">Open Real PDF</a>
                 </div>
                 ''' for b in books]) if books else '<p style="font-size:12px; color:var(--text-sub);">No textbooks currently in this unit.</p>'}
             </div>
@@ -239,7 +239,7 @@ for u, name in units_meta.items():
                         <div class="doc-title" title="{e['title']}">{e['title']}</div>
                         <div class="doc-meta">{e['page_count']} Pages • Scanned OCR Verified</div>
                     </div>
-                    <a href="{e['title']}" class="doc-link" style="background:var(--emerald);" target="_blank">Open Exam</a>
+                    <a href="{e.get('storage_url') or e['title']}" class="doc-link" style="background:var(--emerald);" target="_blank">Open Real Exam</a>
                 </div>
                 ''' for e in exams]) if exams else '<p style="font-size:12px; color:var(--text-sub);">No past exams currently in this unit.</p>'}
             </div>
@@ -253,7 +253,7 @@ for u, name in units_meta.items():
                         <div class="doc-title" title="{f['title']}">{f['title']}</div>
                         <div class="doc-meta">{f['page_count']} Pages</div>
                     </div>
-                    <a href="{f['title']}" class="doc-link" style="background:var(--amber);" target="_blank">Open Sheet</a>
+                    <a href="{f.get('storage_url') or f['title']}" class="doc-link" style="background:var(--amber);" target="_blank">Open Real Sheet</a>
                 </div>
                 ''' for f in formulas]) if formulas else '<p style="font-size:12px; color:var(--text-sub);">No formula sheets in this unit.</p>'}
             </div>
