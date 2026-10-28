@@ -30,6 +30,7 @@ import {
   Minimize2,
   Columns,
   MoveHorizontal,
+  Trash2,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/AuthContext";
@@ -257,6 +258,40 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       setIsUploading(false);
       setUploadProgressText("");
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  // Delete selected document and purge its vector embeddings
+  const handleDeleteSelectedDoc = async () => {
+    if (!selectedDocId) return;
+    const docToDelete = documents.find((d) => d.id === selectedDocId);
+    const title = docToDelete?.title || "this document";
+    if (!window.confirm(`Are you sure you want to delete "${title}" and purge all its indexed vectors?`)) {
+      return;
+    }
+    try {
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${apiUrl}/api/documents/${selectedDocId}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (res.ok) {
+        setDocuments((prev) => prev.filter((d) => d.id !== selectedDocId));
+        setSelectedDocId("");
+        setSyllabus(null);
+        setActiveLesson(null);
+        setLectureMarkdown("");
+        setRawSlidesPreview("");
+        await fetchUnitDocs();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Failed to delete document.");
+      }
+    } catch (e: any) {
+      alert(`Error deleting document: ${e.message}`);
     }
   };
 
@@ -603,23 +638,36 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 </span>
               </div>
 
-              {/* Document Dropdown */}
-              <select
-                value={selectedDocId}
-                onChange={(e) => setSelectedDocId(e.target.value)}
-                disabled={isUploading}
-                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none transition truncate"
-              >
-                {documents.length === 0 ? (
-                  <option value="">No books uploaded yet — upload below</option>
-                ) : (
-                  documents.map((d) => (
-                    <option key={d.id} value={d.id}>
-                      {d.title} ({d.page_count} pages)
-                    </option>
-                  ))
+              {/* Document Dropdown with Quick Delete Action */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={selectedDocId}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  disabled={isUploading}
+                  className="flex-1 min-w-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-indigo-500 focus:outline-none transition truncate"
+                >
+                  {documents.length === 0 ? (
+                    <option value="">No books uploaded yet — upload below</option>
+                  ) : (
+                    documents.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        {d.title} ({d.page_count} pages)
+                      </option>
+                    ))
+                  )}
+                </select>
+
+                {selectedDocId && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteSelectedDoc}
+                    className="p-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-400 hover:text-rose-400 hover:border-rose-500/40 hover:bg-rose-950/30 transition shrink-0"
+                    title="Delete this document and purge all its vector chunks"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
-              </select>
+              </div>
 
               {/* Real-time File Upload Button */}
               <button

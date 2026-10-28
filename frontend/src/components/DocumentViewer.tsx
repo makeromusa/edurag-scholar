@@ -13,6 +13,7 @@ import {
   Layers,
   Paperclip,
   GraduationCap,
+  Trash2,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -81,6 +82,31 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   useEffect(() => {
     fetchDocuments();
   }, [selectedUnit]);
+
+  const handleDeleteDocument = async (docId: string, title: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${title}" and purge all its vector chunks?`)) {
+      return;
+    }
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      const res = await fetch(`${apiUrl}/api/documents/${docId}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (res.ok) {
+        setDocuments((prev) => prev.filter((d) => d.id !== docId));
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Failed to delete document.");
+      }
+    } catch (e: any) {
+      alert(`Error deleting document: ${e.message}`);
+    }
+  };
 
   // Format bytes helper
   const formatBytes = (bytes?: number) => {
@@ -271,10 +297,9 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   )}
                 </div>
 
-                {/* Teach Step-by-Step Button */}
-                {onTeachDocument && isReady && (
-                  <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
-                    <span className="text-[10px] text-slate-500">Autonomous Socratic Mode</span>
+                {/* Actions: Teach Step-by-Step & Delete Document */}
+                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                  {onTeachDocument && isReady ? (
                     <button
                       onClick={() => onTeachDocument(doc.id, doc.title)}
                       className="flex items-center gap-1.5 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-2.5 py-1 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-900/40 hover:text-indigo-200 transition"
@@ -283,8 +308,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                       <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
                       <span>👨‍🏫 Teach Step-by-Step</span>
                     </button>
-                  </div>
-                )}
+                  ) : <div />}
+
+                  <button
+                    onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                    className="flex items-center gap-1 text-[11px] text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 px-2 py-1 rounded transition"
+                    title="Delete document and purge all vector embeddings"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                    <span>Delete</span>
+                  </button>
+                </div>
               </div>
             );
           })

@@ -219,6 +219,42 @@ def get_document_status(doc_id: str):
     }
 
 
+@router.delete("/documents/{doc_id}")
+def delete_document(doc_id: str, authorization: Optional[str] = Header(None)):
+    """
+    Deletes an ingested PDF/document and purges all of its vector chunks from Supabase.
+    Enforces multi-tenant data isolation: students can delete their own documents.
+    """
+    client = get_supabase_admin_client()
+    user = get_user_from_header(authorization)
+    user_id = user["id"] if user else None
+
+    # Fetch document to verify ownership
+    doc_res = client.table("documents").select("id, title, unit_code, uploaded_by").eq("id", doc_id).execute()
+    if not doc_res.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    doc = doc_res.data[0]
+    doc_owner = doc.get("uploaded_by")
+
+    # If document has an owner, ensure requester is the owner
+    if doc_owner and user_id and doc_owner != user_id:
+        raise HTTPException(status_code=403, detail="Permission denied. You can only delete documents you uploaded.")
+
+    # 1. Purge all chunks from vector index
+    client.table("document_chunks").delete().eq("document_id", doc_id).execute()
+
+    # 2. Delete the document record
+    client.table("documents").delete().eq("id", doc_id).execute()
+
+    logger.info(f"Purged document '{doc.get('title')}' ({doc_id}) and all vector chunks.")
+    return {
+        "status": "success",
+        "message": f"Successfully deleted '{doc.get('title')}' and purged all vector embeddings.",
+        "document_id": doc_id
+    }
+
+
 @router.post("/documents/upload")
 async def upload_document(
     unit_code: str = Form(...),
