@@ -15,10 +15,10 @@ import {
   Sparkles,
   Layers,
   GraduationCap,
-  Trash2,
-  Maximize2
+  Trash2
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { getDirectPdfUrl } from "./AcademicVaultModal";
 
 export interface ActiveCitation {
   type: "local_slide" | "web";
@@ -72,7 +72,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     setIsLoadingDocs(true);
     setPreviewDoc(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const headers: Record<string, string> = {};
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -80,7 +80,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(selectedUnit)}`, { headers });
       if (res.ok) {
         const data = await res.json();
-        setDocuments(data.documents || []);
+        const rawDocs: IngestedDoc[] = data.documents || [];
+        const resolvedDocs = rawDocs.map((d) => ({
+          ...d,
+          storage_url: getDirectPdfUrl(d),
+        }));
+        setDocuments(resolvedDocs);
       }
     } catch (e) {
       console.error("Failed to load documents", e);
@@ -98,7 +103,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       return;
     }
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const headers: Record<string, string> = {};
       if (session?.access_token) {
         headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -121,18 +126,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
     }
   };
 
-  const handleOpenDocInNewTab = (doc: IngestedDoc) => {
-    if (doc.storage_url) {
-      window.open(doc.storage_url, "_blank", "noopener,noreferrer");
-    }
-  };
-
   // 1. If a citation is active, show the citation excerpt preview
   if (citation) {
-    // Find matching document if any
     const matchingDoc = documents.find((d) =>
       citation.file_name && d.title.toLowerCase().includes(citation.file_name.toLowerCase())
     );
+    const pdfUrl = matchingDoc ? getDirectPdfUrl(matchingDoc) : (citation.file_name ? getDirectPdfUrl({ title: citation.file_name }) : undefined);
 
     return (
       <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
@@ -169,14 +168,16 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                 <span>Open Source</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
-            ) : matchingDoc?.storage_url ? (
-              <button
-                onClick={() => handleOpenDocInNewTab(matchingDoc)}
-                className="flex items-center gap-1 rounded bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 text-[11px] font-medium transition"
+            ) : pdfUrl ? (
+              <a
+                href={pdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 rounded bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-sm transition"
               >
                 <span>Open Real PDF</span>
                 <ExternalLink className="h-3 w-3" />
-              </button>
+              </a>
             ) : null}
           </div>
         </div>
@@ -222,6 +223,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const categorizedDocs = documents.map((d) => ({
     ...d,
     category: categorizeDoc(d.title),
+    storage_url: getDirectPdfUrl(d),
   }));
 
   const filteredDocs = categorizedDocs.filter((d) => {
@@ -237,6 +239,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   // 2. Real Original PDF Embedded Viewer
   if (previewDoc) {
+    const previewPdfUrl = getDirectPdfUrl(previewDoc);
     return (
       <div className="flex h-full w-full flex-col bg-[#080c16] border-l border-slate-800 text-slate-200">
         {/* Viewer Top Header */}
@@ -261,17 +264,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
-            {previewDoc.storage_url && (
-              <button
-                onClick={() => handleOpenDocInNewTab(previewDoc)}
-                className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
-                title="Open real PDF in native browser viewer or Adobe Acrobat"
-              >
-                <ExternalLink className="h-3 w-3" />
-                <span className="hidden sm:inline">Open in Tab / Adobe</span>
-                <span className="sm:hidden">Open</span>
-              </button>
-            )}
+            <a
+              href={previewPdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-sm transition"
+              title="Open real PDF in native browser viewer or Adobe Acrobat"
+            >
+              <ExternalLink className="h-3 w-3" />
+              <span className="hidden sm:inline">Open in Tab / Adobe</span>
+              <span className="sm:hidden">Open</span>
+            </a>
             {onTeachDocument && (
               <button
                 onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
@@ -285,18 +288,12 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         </div>
 
         {/* Real PDF Viewport */}
-        <div className="flex-1 w-full h-full p-2 bg-[#0c111d]">
-          {previewDoc.storage_url ? (
-            <iframe
-              src={`${previewDoc.storage_url}#toolbar=1&navpanes=1`}
-              title={previewDoc.title}
-              className="w-full h-full rounded-xl border border-slate-800 bg-white shadow-inner"
-            />
-          ) : (
-            <div className="flex h-full flex-col items-center justify-center p-6 text-center text-slate-400">
-              <p className="text-xs">Preparing document viewer...</p>
-            </div>
-          )}
+        <div className="flex-1 w-full h-full p-2 bg-[#0c111d] flex flex-col">
+          <iframe
+            src={`${previewPdfUrl}#toolbar=1&navpanes=1`}
+            title={previewDoc.title}
+            className="w-full flex-1 rounded-xl border border-slate-800 bg-white shadow-inner"
+          />
         </div>
       </div>
     );
@@ -393,6 +390,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             const isReady = doc.is_processed && doc.chunks_indexed > 0;
             const isExam = doc.category === "exam";
             const isFormula = doc.category === "formula";
+            const docPdfUrl = getDirectPdfUrl(doc);
 
             return (
               <div
@@ -437,9 +435,17 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                         </span>
                         <span className="text-[10px] text-slate-500">{doc.page_count} pgs</span>
                       </div>
-                      <h4 className="text-xs font-semibold text-white mt-1 leading-snug truncate max-w-[240px] sm:max-w-xs" title={doc.title}>
+
+                      {/* Clickable title to open PDF directly */}
+                      <a
+                        href={docPdfUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs font-semibold text-white mt-1 leading-snug truncate max-w-[240px] sm:max-w-xs hover:text-blue-400 hover:underline cursor-pointer block"
+                        title={`Click to open real PDF: ${doc.title}`}
+                      >
                         {doc.title}
-                      </h4>
+                      </a>
                     </div>
                   </div>
 
@@ -457,20 +463,22 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                   )}
                 </div>
 
-                {/* Actions: Open Real PDF, Preview, Teach, Delete */}
-                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
+                {/* Actions: Guaranteed Open Real PDF, Preview, Teach, Delete */}
+                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    {doc.storage_url && (
-                      <button
-                        onClick={() => handleOpenDocInNewTab(doc)}
-                        className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
-                        title="Open real PDF in native browser viewer or Adobe Acrobat"
-                      >
-                        <ExternalLink className="h-3 w-3" />
-                        <span>Open Real PDF</span>
-                      </button>
-                    )}
+                    {/* Primary Open Real PDF Action */}
+                    <a
+                      href={docPdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
+                      title="Open real PDF in native browser viewer or Adobe Acrobat"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      <span>Open Real PDF</span>
+                    </a>
 
+                    {/* Preview inside side drawer */}
                     <button
                       onClick={() => setPreviewDoc(doc)}
                       className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 px-2 py-1 text-[10px] text-slate-300 transition"

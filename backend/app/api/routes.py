@@ -175,14 +175,15 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
 @router.get("/documents/list")
 def list_documents(unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
     """
-    Returns ingested documents with page counts and real-time processing status.
+    Returns ingested documents with page counts, storage URLs, and real-time processing status.
     Enforces user data isolation: Shows student's own documents + shared public course slides.
     """
+    import urllib.parse
     client = get_supabase_admin_client()
     user = get_user_from_header(authorization)
     user_id = user["id"] if user else None
 
-    query = client.table("documents").select("id, unit_code, title, page_count, is_processed, file_size_bytes, uploaded_at, uploaded_by")
+    query = client.table("documents").select("id, unit_code, title, page_count, is_processed, file_size_bytes, uploaded_at, uploaded_by, storage_url")
     if unit_code:
         query = query.eq("unit_code", unit_code)
     
@@ -197,8 +198,37 @@ def list_documents(unit_code: Optional[str] = None, authorization: Optional[str]
     res = query.order("uploaded_at", desc=True).limit(50).execute()
     
     docs = res.data or []
-    enriched = [{**d, "chunks_indexed": d.get("page_count", 0)} for d in docs]
+    SUPABASE_STORAGE_BASE = "https://xccrkalsujefsghtuirp.supabase.co/storage/v1/object/public/course-documents"
+    enriched = []
+    for d in docs:
+        storage_url = d.get("storage_url")
+        if not storage_url or not storage_url.startswith("http"):
+            storage_url = f"{SUPABASE_STORAGE_BASE}/{urllib.parse.quote(d.get('title', ''))}"
+        enriched.append({
+            **d,
+            "storage_url": storage_url,
+            "chunks_indexed": d.get("page_count", 0)
+        })
     return {"documents": enriched}
+
+
+@router.get("/documents/{doc_id}/raw")
+@router.get("/documents/{doc_id}/download")
+def download_document(doc_id: str):
+    """Directly redirects to or serves the authentic original binary PDF."""
+    import urllib.parse
+    from fastapi.responses import RedirectResponse
+    client = get_supabase_admin_client()
+    doc = client.table("documents").select("id, title, storage_url").eq("id", doc_id).execute()
+    if not doc.data:
+        raise HTTPException(status_code=404, detail="Document not found")
+    storage_url = doc.data[0].get("storage_url")
+    if storage_url and storage_url.startswith("http"):
+        return RedirectResponse(url=storage_url)
+    
+    SUPABASE_STORAGE_BASE = "https://xccrkalsujefsghtuirp.supabase.co/storage/v1/object/public/course-documents"
+    fallback_url = f"{SUPABASE_STORAGE_BASE}/{urllib.parse.quote(doc.data[0].get('title', ''))}"
+    return RedirectResponse(url=fallback_url)
 
 
 @router.get("/documents/{doc_id}/status")

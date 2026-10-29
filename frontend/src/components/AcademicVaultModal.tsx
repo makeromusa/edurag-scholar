@@ -12,12 +12,12 @@ import {
   CheckCircle2,
   Sparkles,
   BookMarked,
-  Maximize2
+  Download
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { Unit } from "./Sidebar";
 
-interface IngestedDoc {
+export interface IngestedDoc {
   id: string;
   unit_code: string;
   title: string;
@@ -38,6 +38,14 @@ interface AcademicVaultModalProps {
   onSelectUnit?: (unitCode: string) => void;
   onTeachDocument?: (docId: string, title: string) => void;
 }
+
+export const getDirectPdfUrl = (doc: { title: string; storage_url?: string }) => {
+  if (doc.storage_url && doc.storage_url.startsWith("http")) {
+    return doc.storage_url;
+  }
+  const SUPABASE_STORAGE_BASE = "https://xccrkalsujefsghtuirp.supabase.co/storage/v1/object/public/course-documents";
+  return `${SUPABASE_STORAGE_BASE}/${encodeURIComponent(doc.title)}`;
+};
 
 export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
   units,
@@ -67,7 +75,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
     const fetchDocs = async () => {
       setIsLoading(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
         const headers: Record<string, string> = {};
         if (session?.access_token) {
           headers["Authorization"] = `Bearer ${session.access_token}`;
@@ -75,7 +83,13 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
         const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(selectedUnit)}`, { headers });
         if (res.ok) {
           const data = await res.json();
-          setDocuments(data.documents || []);
+          const rawDocs: IngestedDoc[] = data.documents || [];
+          // Ensure storage_url is always populated
+          const resolvedDocs = rawDocs.map((d) => ({
+            ...d,
+            storage_url: getDirectPdfUrl(d),
+          }));
+          setDocuments(resolvedDocs);
         }
       } catch (e) {
         console.error("Failed to load vault documents", e);
@@ -99,6 +113,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
   const categorized = documents.map((d) => ({
     ...d,
     category: categorizeDoc(d.title),
+    storage_url: getDirectPdfUrl(d),
   }));
 
   const filteredDocs = categorized.filter((d) => {
@@ -117,12 +132,6 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
     if (!bytes) return "";
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
     return (bytes / (1024 * 1024)).toFixed(1) + " MB";
-  };
-
-  const handleOpenDocInNewTab = (doc: IngestedDoc) => {
-    if (doc.storage_url) {
-      window.open(doc.storage_url, "_blank", "noopener,noreferrer");
-    }
   };
 
   return (
@@ -263,6 +272,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                   const isSelected = previewDoc?.id === doc.id;
                   const isExam = doc.category === "exam";
                   const isFormula = doc.category === "formula";
+                  const pdfUrl = getDirectPdfUrl(doc);
 
                   return (
                     <div
@@ -310,38 +320,51 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                                 <span className="text-[10px] text-slate-500">• {formatBytes(doc.file_size_bytes)}</span>
                               )}
                             </div>
-                            <h4 className="text-xs font-semibold text-white mt-1 leading-snug line-clamp-2" title={doc.title}>
+
+                            {/* Clickable Title to directly open PDF */}
+                            <a
+                              href={pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-semibold text-white mt-1 leading-snug line-clamp-2 hover:text-blue-400 hover:underline cursor-pointer block"
+                              title={`Click to open real PDF: ${doc.title}`}
+                            >
                               {doc.title}
-                            </h4>
+                            </a>
                           </div>
                         </div>
 
-                        {/* Status Check */}
-                        <div className="flex items-center gap-1 rounded bg-slate-900 border border-slate-800 px-2 py-0.5 text-[10px] text-slate-400 shrink-0">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-400" />
-                          <span>{doc.chunks_indexed} chunks</span>
+                        {/* Status Check & Quick Direct Link */}
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="flex items-center gap-1 rounded bg-slate-900 border border-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
+                            <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                            <span>{doc.chunks_indexed} chunks</span>
+                          </div>
                         </div>
                       </div>
 
-                      {/* Action Buttons: Real PDF opening */}
+                      {/* Action Buttons: Guaranteed Open Real PDF, Preview & Teach */}
                       <div className="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between gap-2 flex-wrap">
-                        <div className="flex items-center gap-1.5">
-                          {doc.storage_url && (
-                            <button
-                              onClick={() => handleOpenDocInNewTab(doc)}
-                              className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-xs font-semibold shadow-sm transition"
-                              title="Open original visual PDF in native browser viewer or Adobe Acrobat"
-                            >
-                              <ExternalLink className="h-3 w-3" />
-                              <span>Open Real PDF</span>
-                            </button>
-                          )}
+                        <div className="flex items-center gap-2">
+                          {/* Direct Open PDF Button */}
+                          <a
+                            href={pdfUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
+                            title="Open authentic visual PDF in browser tab or Adobe Acrobat"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            <span>Open Real PDF</span>
+                          </a>
+
+                          {/* Preview Inside Modal Button */}
                           <button
                             onClick={() => setPreviewDoc(doc)}
-                            className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 px-2 py-1 text-xs text-slate-300 transition"
+                            className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 hover:text-white px-2.5 py-1.5 text-xs font-medium text-slate-300 transition"
                             title="Preview PDF inside modal window"
                           >
-                            <BookOpen className="h-3 w-3 text-blue-400" />
+                            <BookOpen className="h-3.5 w-3.5 text-blue-400" />
                             <span>Preview</span>
                           </button>
                         </div>
@@ -381,16 +404,17 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {previewDoc.storage_url && (
-                    <button
-                      onClick={() => handleOpenDocInNewTab(previewDoc)}
-                      className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-semibold shadow-sm transition"
-                      title="Open full PDF in Adobe Acrobat / native browser PDF tab"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      <span>Open in Browser Tab / Adobe</span>
-                    </button>
-                  )}
+                  <a
+                    href={getDirectPdfUrl(previewDoc)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 text-xs font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
+                    title="Open full PDF in Adobe Acrobat / native browser PDF tab"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open in Browser Tab / Adobe</span>
+                  </a>
+
                   <button
                     onClick={() => setPreviewDoc(null)}
                     className="rounded-lg border border-slate-700 bg-slate-800/60 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
@@ -401,18 +425,12 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
               </div>
 
               {/* Native PDF Viewport via IFrame */}
-              <div className="flex-1 w-full h-full p-2 bg-[#0c111d]">
-                {previewDoc.storage_url ? (
-                  <iframe
-                    src={`${previewDoc.storage_url}#toolbar=1&navpanes=1`}
-                    title={previewDoc.title}
-                    className="w-full h-full rounded-xl border border-slate-800 bg-white shadow-inner"
-                  />
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center p-6 text-center text-slate-400">
-                    <p className="text-xs">Connecting to PDF storage URL...</p>
-                  </div>
-                )}
+              <div className="flex-1 w-full h-full p-2 bg-[#0c111d] flex flex-col">
+                <iframe
+                  src={`${getDirectPdfUrl(previewDoc)}#toolbar=1&navpanes=1`}
+                  title={previewDoc.title}
+                  className="w-full flex-1 rounded-xl border border-slate-800 bg-white shadow-inner"
+                />
               </div>
             </div>
           ) : (
@@ -420,7 +438,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
               <BookOpen className="h-12 w-12 text-slate-700 mb-3 stroke-[1.2]" />
               <h4 className="text-sm font-semibold text-slate-400">Select Any Document on the Left</h4>
               <p className="text-xs text-slate-600 max-w-xs mt-1">
-                Click <strong>"Open Real PDF"</strong> to open directly in your browser or Adobe, or <strong>"Preview"</strong> to inspect it here.
+                Click <strong>"Open Real PDF"</strong> on any item to open directly in your browser or Adobe, or <strong>"Preview"</strong> to inspect it here.
               </p>
             </div>
           )}
