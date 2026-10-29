@@ -81,6 +81,9 @@ export const metadata: Metadata = {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
+  verification: {
+    google: "0x612K42qmMrLyXRgQUb-ZMbZ3q1OgUY4MjvGrNBFWg",
+  },
 };
 
 export default function RootLayout({
@@ -91,6 +94,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <head>
+        <meta name="google-site-verification" content="0x612K42qmMrLyXRgQUb-ZMbZ3q1OgUY4MjvGrNBFWg" />
         <meta name="application-name" content="EduRAG Scholar" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
