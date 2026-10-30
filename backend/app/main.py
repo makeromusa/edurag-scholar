@@ -18,6 +18,7 @@ except Exception:
 from app.core.config import settings
 from app.core.limiter import limiter, custom_rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from app.api.routes import router as api_router
 from app.routers.document_pipeline import router as pipeline_router
 from app.workers.abstractor import start_scheduler
@@ -61,6 +62,7 @@ app = FastAPI(
 # Application Security: Wire Global SlowAPI Limiter and Custom Error Handler
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # CORS Middleware for Next.js frontend communication (Localhost & Vercel)
 app.add_middleware(

@@ -46,6 +46,14 @@ class EmbeddingService:
         )
         return response.data[0].embedding
 
+    def embed_query(self, text: str) -> dict:
+        """Alias for compatibility across legacy and agent routes."""
+        try:
+            return {"embedding": self.get_embedding(text)}
+        except Exception as e:
+            logger.warning(f"Embedding query failed: {e}")
+            return {"embedding": []}
+
     def get_embeddings_batch(self, texts: List[str], batch_size: int = 80) -> List[List[float]]:
         """Batch embeds chunks with 100x acceleration via batch API."""
         if not texts:
