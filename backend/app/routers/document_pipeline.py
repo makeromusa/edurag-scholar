@@ -9,9 +9,10 @@ from pydantic import BaseModel
 from openai import OpenAI
 
 from app.core.config import settings
-from app.core.database import get_supabase_admin_client
+from app.core.database import get_supabase_admin_client, match_unit_chunks_rpc
 from app.ingestion.embedder import embedding_service
 from app.core.native_client import generate_gemini_content
+from app.agents.rag_router import rag_router
 from app.core.pdf_renderer import render_html_template, convert_html_to_pdf
 
 logger = logging.getLogger("edurag.document_pipeline")
@@ -87,21 +88,20 @@ async def solve_paper_endpoint(
         raise HTTPException(status_code=422, detail="Could not extract readable questions from uploaded PDF.")
 
     # Step 2: Query Supabase pgvector for relevant class notes context
-    client = get_supabase_admin_client()
     context_chunks = []
     try:
-        # Embed key parts of the exam questions
-        emb_res = embedding_service.embed_query(extracted_text[:1500])
-        query_vec = emb_res.get("embedding", [])
+        query_vec = embedding_service.get_embedding(extracted_text[:1500])
         if query_vec:
-            match_res = client.rpc("match_document_chunks", {
-                "query_embedding": query_vec,
-                "match_count": 8,
-                "filter_unit_code": unit_code
-            }).execute()
-            if match_res.data:
-                for c in match_res.data:
-                    context_chunks.append(f"[{c.get('document_title', 'Notes')} | p.{c.get('page_number', 1)}]: {c.get('chunk_text', '')}")
+            raw_matches = await match_unit_chunks_rpc(
+                unit_code=unit_code,
+                query_embedding=query_vec,
+                match_threshold=0.50,
+                match_count=8
+            )
+            for c in raw_matches:
+                chunk_body = c.get("content") or c.get("chunk_text") or ""
+                doc_title = c.get("document_title") or c.get("title") or "Class Notes"
+                context_chunks.append(f"[{doc_title} | p.{c.get('page_number', 1)}]: {chunk_body}")
     except Exception as e:
         logger.warning(f"Vector search failed in solve-paper: {e}")
 
@@ -214,18 +214,18 @@ async def run_exam_simulation_task(task_id: str, unit_code: str, semester: str, 
     try:
         client = get_supabase_admin_client()
         # Fetch up to 15 chunks of course materials + past papers for this unit
-        chunks_res = client.table("document_chunks").select("chunk_text, page_number, documents(title, category)").eq("unit_code", unit_code).limit(15).execute()
+        chunks_res = client.table("document_chunks").select("content, page_number, documents(title, file_type)").eq("unit_code", unit_code).limit(15).execute()
         
         syllabus_corpus = ""
         past_paper_templates = ""
         if chunks_res.data:
             for c in chunks_res.data:
-                category = (c.get("documents") or {}).get("category", "")
                 title = (c.get("documents") or {}).get("title", "Notes")
-                if "exam" in category or "exam" in title.lower():
-                    past_paper_templates += f"\n[PAST EXAM TEMPLATE: {title}]\n{c.get('chunk_text', '')[:400]}\n"
+                chunk_body = c.get("content", "")[:400]
+                if "exam" in title.lower() or "cat" in title.lower() or "paper" in title.lower():
+                    past_paper_templates += f"\n[PAST EXAM TEMPLATE: {title}]\n{chunk_body}\n"
                 else:
-                    syllabus_corpus += f"\n[SYLLABUS CONTENT: {title} (p.{c.get('page_number', 1)})]\n{c.get('chunk_text', '')[:400]}\n"
+                    syllabus_corpus += f"\n[SYLLABUS CONTENT: {title} (p.{c.get('page_number', 1)})]\n{chunk_body}\n"
 
         TASK_REGISTRY[task_id]["progress"] = "Synthesizing exam questions via Gemini 1.5 Pro / GPT-4o..."
 
@@ -284,8 +284,11 @@ Format the output strictly as a JSON object matching this schema:
   ]
 }}
 """
-        # Execute Gemini 1.5 Pro / GPT-4o call
-        raw_res = generate_gemini_content(sys_inst, user_p)
+        # Execute LLM generation via Dual-Engine Rag Router (Azure OpenAI / Gemini)
+        try:
+            raw_res = await rag_router.generate_text(sys_inst, user_p)
+        except Exception:
+            raw_res = generate_gemini_content(sys_inst, user_p)
         clean_res = raw_res.strip()
         if clean_res.startswith("```json"): clean_res = clean_res[7:]
         if clean_res.startswith("```"): clean_res = clean_res[3:]
