@@ -6,10 +6,13 @@ import io
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header, Request
 from pydantic import BaseModel
 from bson import ObjectId
 import fitz  # PyMuPDF
+
+from app.core.limiter import limiter
+from app.ingestion.security_validator import validate_file_security
 
 from app.core.database import get_supabase_admin_client
 from app.core.mongodb import (
@@ -173,7 +176,8 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
 
 @router.get("/documents")
 @router.get("/documents/list")
-def list_documents(unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
+@limiter.limit("120/minute")
+def list_documents(request: Request, unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
     """
     Returns ingested documents with page counts, storage URLs, and real-time processing status.
     Enforces user data isolation: Shows student's own documents + shared public course slides.
@@ -286,7 +290,9 @@ def delete_document(doc_id: str, authorization: Optional[str] = Header(None)):
 
 
 @router.post("/documents/upload")
+@limiter.limit("10/minute")
 async def upload_document(
+    request: Request,
     unit_code: str = Form(...),
     file: UploadFile = File(...),
     authorization: Optional[str] = Header(None)
@@ -302,7 +308,10 @@ async def upload_document(
     user_id = user["id"] if user else None
 
     file_bytes = await file.read()
-    file_name = file.filename or "unknown_doc"
+    
+    # Area 2: Security Validation (magic bytes, file size, filename sanitization)
+    _, safe_file_name = validate_file_security(file_bytes, file.filename or "unknown_doc")
+    file_name = safe_file_name
     file_type = "pdf" if file_name.endswith(".pdf") else "pptx" if file_name.endswith(".pptx") else "docx"
 
     try:
@@ -408,7 +417,8 @@ async def upload_document(
 
 
 @router.post("/chat")
-async def chat_with_unit(payload: ChatRequest, authorization: Optional[str] = Header(None)):
+@limiter.limit("30/minute")
+async def chat_with_unit(request: Request, payload: ChatRequest, authorization: Optional[str] = Header(None)):
     """
     RAG Chat endpoint strictly isolated to payload.unit_code.
     Supports multimodal queries (attached past papers, diagrams, screenshots, formulas).
@@ -428,6 +438,8 @@ async def chat_with_unit(payload: ChatRequest, authorization: Optional[str] = He
             if "," in raw_b64:
                 raw_b64 = raw_b64.split(",", 1)[1]
             file_bytes = base64.b64decode(raw_b64)
+            if len(file_bytes) > 20 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Security rejection: Attached file exceeds 20 MB size limit.")
             file_name = (payload.attached_file_name or "").lower()
 
             # Image attachment
@@ -436,6 +448,8 @@ async def chat_with_unit(payload: ChatRequest, authorization: Optional[str] = He
                     image_b64 = raw_b64
             # PDF attachment (past papers, lecture slides, assignments)
             elif file_name.endswith(".pdf"):
+                if b"%PDF-" not in file_bytes[:1024]:
+                    raise HTTPException(status_code=400, detail="Security rejection: Invalid PDF attachment. Missing %PDF- signature.")
                 doc = fitz.open(stream=file_bytes, filetype="pdf")
                 pages_text = []
                 for idx, page in enumerate(doc):
@@ -497,7 +511,8 @@ async def chat_with_unit(payload: ChatRequest, authorization: Optional[str] = He
 # --- Spaced Repetition (SM-2) Flashcard Subsystem ---
 
 @router.post("/flashcards/generate")
-async def generate_flashcards(payload: FlashcardGenerateRequest):
+@limiter.limit("15/minute")
+async def generate_flashcards(request: Request, payload: FlashcardGenerateRequest):
     """
     Generates high-yield exam flashcards for a unit and saves to MongoDB.
     """
@@ -616,7 +631,8 @@ async def review_flashcard(payload: FlashcardReviewRequest):
 # --- Mock Exam Simulator Subsystem ---
 
 @router.post("/mock-exams/generate")
-async def generate_mock_exam(payload: MockExamGenerateRequest):
+@limiter.limit("15/minute")
+async def generate_mock_exam(request: Request, payload: MockExamGenerateRequest):
     """
     Generates a timed 3-question UoN exam paper and stores it in MongoDB.
     """
@@ -644,7 +660,8 @@ Output clearly in Markdown with total marks and mark allocations per sub-part.
 
 
 @router.post("/mock-exams/evaluate")
-async def evaluate_mock_exam(payload: MockExamEvaluateRequest):
+@limiter.limit("15/minute")
+async def evaluate_mock_exam(request: Request, payload: MockExamEvaluateRequest):
     """
     Evaluates student's submitted answers against the UoN marking rubric and saves evaluation to MongoDB.
     """
@@ -703,7 +720,8 @@ async def trigger_briefing_now(background_tasks: BackgroundTasks):
 
 
 @router.post("/past-papers/analyze")
-async def analyze_past_paper_trends(payload: PastPaperAnalyzeRequest):
+@limiter.limit("15/minute")
+async def analyze_past_paper_trends(request: Request, payload: PastPaperAnalyzeRequest):
     """
     Predict & Trend Engine: Analyzes recurring exam themes and question frequency.
     """
@@ -720,7 +738,8 @@ Format clearly in Markdown with LaTeX math where appropriate.
 
 
 @router.post("/past-papers/solve")
-async def solve_past_paper_question(payload: PastPaperSolveRequest):
+@limiter.limit("15/minute")
+async def solve_past_paper_question(request: Request, payload: PastPaperSolveRequest):
     """
     Model Marking Scheme Solver: drafts answers formatted as UoN lecturers award marks.
     """

@@ -9,11 +9,15 @@ import sentry_sdk
 try:
     _orig_getaddrinfo = socket.getaddrinfo
     def _ipv4_getaddrinfo(host, port, family=0, type=0, proto=0, flags=0):
+        if host in ("testserver", "localhost", "127.0.0.1"):
+            return _orig_getaddrinfo(host, port, family, type, proto, flags)
         return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
     socket.getaddrinfo = _ipv4_getaddrinfo
 except Exception:
     pass
 from app.core.config import settings
+from app.core.limiter import limiter, custom_rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.api.routes import router as api_router
 from app.workers.abstractor import start_scheduler
 
@@ -52,6 +56,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Application Security: Wire Global SlowAPI Limiter and Custom Error Handler
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 
 # CORS Middleware for Next.js frontend communication (Localhost & Vercel)
 app.add_middleware(
