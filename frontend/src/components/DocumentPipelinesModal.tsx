@@ -57,7 +57,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
 
     const interval = setInterval(async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
         const res = await fetch(`${apiUrl}/api/v1/exams/status/${simulationTaskId}`);
         if (!res.ok) throw new Error("Status check failed");
         const data = await res.json();
@@ -94,7 +94,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
     setSolveStatusMessage("Extracting questions via Gemini 1.5 Flash, searching notes & generating full answers via GPT-4o...");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const formData = new FormData();
       formData.append("unit_code", selectedUnit);
       formData.append("file", uploadedFile);
@@ -138,7 +138,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
     setSimulationProgress("Dispatching asynchronous simulation task to FastAPI...");
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/v1/exams/simulate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,7 +163,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
   // --- Handler 3: Download Simulated Exam PDF ---
   const handleDownloadSimulatedPdf = () => {
     if (!simulationTaskId) return;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
     window.open(`${apiUrl}/api/v1/exams/download/${simulationTaskId}`, "_blank");
   };
 

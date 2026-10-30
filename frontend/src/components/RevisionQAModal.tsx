@@ -62,7 +62,7 @@ export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
     setPdfBase64(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/revision-qa/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -30,8 +30,8 @@ def convert_html_to_pdf(html_content: str, fallback_type: str = "answer_sheet", 
         logger.info("Rendering PDF via WeasyPrint...")
         pdf_bytes = HTML(string=html_content).write_pdf()
         return pdf_bytes
-    except (ImportError, OSError) as e:
-        logger.warning(f"WeasyPrint native library unavailable on this host ({e}). Utilizing high-res fallback PDF builder...")
+    except Exception as e:
+        logger.warning(f"WeasyPrint rendering unavailable or failed ({e}). Utilizing high-res ReportLab fallback builder...")
         if fallback_type == "answer_sheet":
             return _render_answer_sheet_reportlab(context or {})
         else:

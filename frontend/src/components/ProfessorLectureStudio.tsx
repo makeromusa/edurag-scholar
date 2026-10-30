@@ -155,7 +155,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [studentQuestion, setStudentQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
 
   // Fetch unit documents with student auth token
   const fetchUnitDocs = async () => {

@@ -19,7 +19,7 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
   const handleTriggerNow = async () => {
     setIsTriggering(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       await fetch(`${apiUrl}/api/briefings/trigger-now`, { method: "POST" });
       if (onRefresh) onRefresh();
     } catch (e) {

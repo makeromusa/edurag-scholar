@@ -40,7 +40,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
     const fetchDue = async () => {
       setIsLoading(true);
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
         const res = await fetch(`${apiUrl}/api/flashcards/due/${unitCode}`);
         const data = await res.json();
         setCards(data.due_cards || []);
@@ -64,7 +64,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
     if (!genTopic.trim()) return;
     setIsGenerating(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/flashcards/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -87,7 +87,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
   const handleReview = async (quality: number) => {
     if (!currentCard) return;
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       await fetch(`${apiUrl}/api/flashcards/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

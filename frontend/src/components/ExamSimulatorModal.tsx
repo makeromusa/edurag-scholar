@@ -77,7 +77,7 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
     setCurrentExamId(null);
     setExamData(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/mock-exams/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -107,7 +107,7 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
     if (!currentExamId) return;
     setIsDownloadingPdf(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(
         `${apiUrl}/api/mock-exams/${currentExamId}/pdf?include_answers=${answers}`,
         { method: "GET" }

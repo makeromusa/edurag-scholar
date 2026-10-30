@@ -32,7 +32,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setIsLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/past-papers/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,7 +52,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setIsLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/past-papers/solve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +72,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setMockPaper(null);
     setEvaluationResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/mock-exams/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,7 +94,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     if (!mockExamId || !studentSubmission.trim()) return;
     setIsLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/mock-exams/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

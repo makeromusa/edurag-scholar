@@ -203,15 +203,8 @@ def list_documents(request: Request, unit_code: Optional[str] = None, authorizat
     if unit_code:
         query = query.eq("unit_code", unit_code)
     
-    # User isolation + shared documents:
-    # If user is logged in, show their documents + any shared course documents (uploaded_by is null)
-    if user_id:
-        query = query.or_(f"uploaded_by.eq.{user_id},uploaded_by.is.null")
-    else:
-        # For guest / unauthenticated preview: show shared unit materials
-        query = query.is_("uploaded_by", "null")
-
-    res = query.order("uploaded_at", desc=True).limit(50).execute()
+    # Return all curated academic course materials, textbooks, and past papers for the selected unit
+    res = query.order("uploaded_at", desc=True).limit(100).execute()
     
     docs = res.data or []
     SUPABASE_STORAGE_BASE = "https://xccrkalsujefsghtuirp.supabase.co/storage/v1/object/public/course-documents"
