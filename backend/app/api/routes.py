@@ -29,6 +29,9 @@ from app.ingestion.chunker import chunk_extracted_pages
 from app.ingestion.embedder import embedding_service
 from app.agents.rag_router import rag_router
 from app.workers.abstractor import run_nightly_abstraction_job
+from app.core.exam_pdf_builder import build_simulated_exam_pdf
+from app.core.qa_pdf_builder import build_revision_qa_pdf
+from fastapi.responses import Response
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -70,6 +73,15 @@ class FlashcardReviewRequest(BaseModel):
 class MockExamGenerateRequest(BaseModel):
     unit_code: str
     difficulty: Optional[str] = "Chiromo Standard Exam"
+    exam_type: Optional[str] = "Final Examination" # Final Examination | CAT I | CAT II | Special Revision
+    include_answers: bool = True
+
+
+class RevisionQAGenerateRequest(BaseModel):
+    unit_code: str
+    question: str
+    topic: Optional[str] = None
+    target_marks: Optional[int] = 15
 
 
 class MockExamEvaluateRequest(BaseModel):
@@ -634,29 +646,316 @@ async def review_flashcard(payload: FlashcardReviewRequest):
 @limiter.limit("15/minute")
 async def generate_mock_exam(request: Request, payload: MockExamGenerateRequest):
     """
-    Generates a timed 3-question UoN exam paper and stores it in MongoDB.
+    Generates a full, complete, syllabus-grounded UoN exam paper with optional complete model answers
+    formatted in structured JSON for both interactive UI and instant high-res PDF generation.
     """
-    sys_inst = f"You are the chief examiner setting the final examination for UoN Chiromo unit [{payload.unit_code}]."
-    user_p = f"""Set a full, rigorous examination paper for [{payload.unit_code}] matching UoN standards.
-Structure:
-- Question 1 (Compulsory - 30 Marks): 3 sub-questions on core fundamental theory and definitions.
-- Question 2 (20 Marks): Architectural analysis, derivation, or pipeline design.
-- Question 3 (20 Marks): Scenario-based trade-offs, deadlock analysis, or algorithm implementation.
+    client = get_supabase_admin_client()
+    unit_res = client.table("units").select("name, lecturer").eq("code", payload.unit_code).execute()
+    unit_name = unit_res.data[0]["name"] if unit_res.data else "Computer Science"
+    lecturer = unit_res.data[0]["lecturer"] if unit_res.data else "Chief Examiner"
 
-Output clearly in Markdown with total marks and mark allocations per sub-part.
+    # Fetch real syllabus excerpts & past exam questions from Supabase pgvector/chunks
+    chunks_res = client.table("document_chunks").select("chunk_text, page_number, documents(title, category)").eq("unit_code", payload.unit_code).limit(10).execute()
+    syllabus_context = ""
+    if chunks_res.data:
+        for idx, c in enumerate(chunks_res.data[:6]):
+            doc_title = (c.get("documents") or {}).get("title") or "Lecture Notes"
+            syllabus_context += f"\n[SOURCE {idx+1}: {doc_title} (p. {c.get('page_number', 1)})]\n{c.get('chunk_text', '')[:350]}\n"
+
+    sys_inst = (
+        f"You are the senior University of Nairobi Chief Examiner for [{payload.unit_code}: {unit_name}]. "
+        f"Lecturer: {lecturer}. You must set a complete, rigorous 70-mark University Examination paper matching Chiromo standards. "
+        "Strict rule: You MUST output pure JSON only (no markdown code blocks, no backticks, no commentary)."
+    )
+
+    user_p = f"""Set a complete Chiromo Final Examination paper for {payload.unit_code}: {unit_name}.
+Grounding Syllabus Context from Prescribed Textbooks & Past Exams:
+{syllabus_context}
+
+Return a valid JSON object with EXACTLY this structure:
+{{
+  "unit_code": "{payload.unit_code}",
+  "unit_name": "{unit_name}",
+  "academic_year": "2025/2026",
+  "semester": "FIRST SEMESTER",
+  "time_allowed": "2 HOURS",
+  "instructions": "Answer Question ONE (Compulsory - 30 Marks) and any other TWO questions (20 Marks each).",
+  "questions": [
+    {{
+      "question_number": "QUESTION ONE",
+      "is_compulsory": true,
+      "total_marks": 30,
+      "stem": "Compulsory section covering fundamental theories, definitions, and short proofs.",
+      "sub_questions": [
+        {{
+          "label": "a)",
+          "text": "Detailed question testing foundational concepts...",
+          "marks": 10,
+          "model_answer": "Complete step-by-step model answer with formulas, technical terms, and derivations.",
+          "citation": "{unit_code} Course Outline & Core Texts"
+        }},
+        {{
+          "label": "b)",
+          "text": "Detailed question testing structural design or core mechanisms...",
+          "marks": 10,
+          "model_answer": "Full technical explanation addressing standard marking points.",
+          "citation": "{unit_code} Lecture Slides"
+        }},
+        {{
+          "label": "c)",
+          "text": "Scenario-based question or algorithmic derivation...",
+          "marks": 10,
+          "model_answer": "Comprehensive answer with edge cases and architectural trade-offs.",
+          "citation": "{unit_code} Prescribed Text"
+        }}
+      ]
+    }},
+    {{
+      "question_number": "QUESTION TWO",
+      "is_compulsory": false,
+      "total_marks": 20,
+      "stem": "In-depth architectural analysis, formal proof, or system pipeline derivation.",
+      "sub_questions": [
+        {{
+          "label": "a)",
+          "text": "Detailed technical analysis question...",
+          "marks": 10,
+          "model_answer": "Step-by-step model solution meeting 10-mark standard.",
+          "citation": "{unit_code} Prescribed Text"
+        }},
+        {{
+          "label": "b)",
+          "text": "Comparative trade-off or design problem...",
+          "marks": 10,
+          "model_answer": "Comprehensive comparison matrix and critical evaluation.",
+          "citation": "{unit_code} Core Reference"
+        }}
+      ]
+    }},
+    {{
+      "question_number": "QUESTION THREE",
+      "is_compulsory": false,
+      "total_marks": 20,
+      "stem": "Practical real-world engineering case study, deadlock/concurrency proof, or optimization challenge.",
+      "sub_questions": [
+        {{
+          "label": "a)",
+          "text": "Scenario-based problem solving question...",
+          "marks": 10,
+          "model_answer": "Full technical resolution and proof.",
+          "citation": "{unit_code} Reference Text"
+        }},
+        {{
+          "label": "b)",
+          "text": "Implementation constraints and pitfall defense...",
+          "marks": 10,
+          "model_answer": "Critical evaluation and step-by-step proof.",
+          "citation": "{unit_code} Reference Text"
+        }}
+      ]
+    }}
+  ]
+}}
 """
-    paper_text = await rag_router.generate_text(sys_inst, user_p)
+    raw_response = await rag_router.generate_text(sys_inst, user_p)
+    clean_json = raw_response.strip()
+    if clean_json.startswith("```json"):
+        clean_json = clean_json[7:]
+    if clean_json.startswith("```"):
+        clean_json = clean_json[3:]
+    if clean_json.endswith("```"):
+        clean_json = clean_json[:-3]
+    clean_json = clean_json.strip()
+
+    try:
+        exam_data = json.loads(clean_json)
+    except Exception as e:
+        logger.warning(f"Could not parse exam JSON: {e}. Fallback to structured text wrap.")
+        exam_data = {
+            "unit_code": payload.unit_code,
+            "unit_name": unit_name,
+            "academic_year": "2025/2026",
+            "semester": "FIRST SEMESTER",
+            "time_allowed": "2 HOURS",
+            "instructions": "Answer Question ONE and any other TWO questions.",
+            "questions": [
+                {
+                    "question_number": "QUESTION ONE",
+                    "is_compulsory": True,
+                    "total_marks": 30,
+                    "stem": "Full Examination Paper",
+                    "sub_questions": [
+                        {
+                            "label": "a)",
+                            "text": raw_response[:300],
+                            "marks": 15,
+                            "model_answer": "Refer to complete course slides.",
+                            "citation": payload.unit_code
+                        },
+                        {
+                            "label": "b)",
+                            "text": "Discuss the primary theoretical trade-offs in this unit.",
+                            "marks": 15,
+                            "model_answer": "Key trade-offs include memory vs latency and complexity vs maintainability.",
+                            "citation": payload.unit_code
+                        }
+                    ]
+                }
+            ]
+        }
+
+    # Store exam in MongoDB
     col = get_mock_exams_collection()
     doc = {
         "unit_code": payload.unit_code,
         "difficulty": payload.difficulty,
-        "paper_markdown": paper_text,
+        "exam_type": payload.exam_type,
+        "exam_data": exam_data,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_completed": False
     }
     res = await col.insert_one(doc)
     doc["_id"] = str(res.inserted_id)
     return {"status": "success", "exam": doc}
+
+
+@router.get("/mock-exams/{exam_id}/pdf")
+async def download_mock_exam_pdf(exam_id: str, include_answers: bool = True):
+    """
+    Renders and streams a complete, high-resolution, color-coded PDF of the simulated examination paper.
+    """
+    col = get_mock_exams_collection()
+    exam = await col.find_one({"_id": ObjectId(exam_id)})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Mock exam not found.")
+
+    exam_data = exam.get("exam_data")
+    if not exam_data:
+        raise HTTPException(status_code=400, detail="Exam does not contain structured question data.")
+
+    pdf_bytes = build_simulated_exam_pdf(exam_data, include_answers=include_answers)
+    unit_code = exam_data.get("unit_code", "UON").replace(" ", "_")
+    ans_flag = "With_Answers" if include_answers else "Questions_Only"
+    filename = f"UoN_{unit_code}_Exam_Simulation_{ans_flag}.pdf"
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+
+# --- Revision Question & Answer Companion Subsystem ---
+
+@router.post("/revision-qa/generate")
+@limiter.limit("20/minute")
+async def generate_revision_qa(request: Request, payload: RevisionQAGenerateRequest):
+    """
+    Takes any revision question fed by the student, grounds it strictly in notes/prescribed texts,
+    and returns a structured model answer, marking scheme, lecturer traps, and generates a downloadable PDF.
+    """
+    client = get_supabase_admin_client()
+    unit_res = client.table("units").select("name, lecturer").eq("code", payload.unit_code).execute()
+    unit_name = unit_res.data[0]["name"] if unit_res.data else "Academic Unit"
+
+    # RAG vector retrieval for this question
+    emb_res = embedding_service.embed_query(payload.question)
+    query_vector = emb_res.get("embedding", [])
+    
+    context_chunks = []
+    citations = []
+    if query_vector:
+        try:
+            match_res = client.rpc("match_document_chunks", {
+                "query_embedding": query_vector,
+                "match_count": 5,
+                "filter_unit_code": payload.unit_code
+            }).execute()
+            if match_res.data:
+                for c in match_res.data:
+                    context_chunks.append(f"[{c.get('document_title', 'Notes')} | p.{c.get('page_number', 1)}]: {c.get('chunk_text', '')}")
+                    citations.append({
+                        "document_title": c.get("document_title", "Notes"),
+                        "page_number": c.get("page_number", 1)
+                    })
+        except Exception as e:
+            logger.warning(f"Vector search failed: {e}")
+
+    notes_context_block = "\n\n".join(context_chunks) if context_chunks else f"Use standard University of Nairobi curriculum for {payload.unit_code}: {unit_name}."
+
+    sys_inst = (
+        f"You are the top subject-matter professor for University of Nairobi [{payload.unit_code}: {unit_name}]. "
+        "A student has fed a revision question. You must provide an authoritative, step-by-step model solution, "
+        "a point-by-point marking rubric, and warn them about common exam traps. "
+        "Strict rule: Return pure JSON only."
+    )
+
+    user_p = f"""REVISION QUESTION FED BY STUDENT:
+"{payload.question}"
+
+TARGET MARKS: {payload.target_marks} Marks
+UNIT: {payload.unit_code} - {unit_name}
+
+GROUNDING LECTURE NOTES & TEXTBOOK CHUNKS:
+{notes_context_block}
+
+Return a valid JSON object matching this schema:
+{{
+  "unit_code": "{payload.unit_code}",
+  "unit_name": "{unit_name}",
+  "topic": "{payload.topic or 'Exam Revision Problem'}",
+  "question": "{payload.question.replace('\"', '')}",
+  "model_answer": "Complete step-by-step academic proof, definitions, architectural trade-offs, and clear solutions meeting full {payload.target_marks}-mark expectations.",
+  "marking_rubric": [
+    {{"marks": "3 Marks", "criterion": "Precise academic definition and foundational formula."}},
+    {{"marks": "6 Marks", "criterion": "Step-by-step mathematical derivation or architectural mechanism."}},
+    {{"marks": "3 Marks", "criterion": "Critical analysis of edge cases or trade-offs."}},
+    {{"marks": "3 Marks", "criterion": "Correct final conclusions and real-world application."}}
+  ],
+  "common_pitfalls": "Key traps: 1. Confusing X with Y. 2. Forgetting boundary conditions. 3. Omitting state transition diagrams.",
+  "citations": [
+    {{"document_title": "{unit_name} Lecture Slides", "page_number": 1}}
+  ]
+}}
+"""
+    raw_response = await rag_router.generate_text(sys_inst, user_p)
+    clean_json = raw_response.strip()
+    if clean_json.startswith("```json"):
+        clean_json = clean_json[7:]
+    if clean_json.startswith("```"):
+        clean_json = clean_json[3:]
+    if clean_json.endswith("```"):
+        clean_json = clean_json[:-3]
+    clean_json = clean_json.strip()
+
+    try:
+        qa_data = json.loads(clean_json)
+        if citations:
+            qa_data["citations"] = citations
+    except Exception as e:
+        logger.warning(f"Could not parse QA JSON: {e}")
+        qa_data = {
+            "unit_code": payload.unit_code,
+            "unit_name": unit_name,
+            "topic": payload.topic or "Revision Problem",
+            "question": payload.question,
+            "model_answer": raw_response,
+            "marking_rubric": [{"marks": f"{payload.target_marks} Marks", "criterion": "Comprehensive technical coverage."}],
+            "common_pitfalls": "Avoid vague answers; quote exact definitions and proofs.",
+            "citations": citations
+        }
+
+    # Generate PDF in memory immediately
+    pdf_bytes = build_revision_qa_pdf(qa_data)
+    pdf_b64 = base64.b64encode(pdf_bytes).decode("utf-8")
+
+    return {
+        "status": "success",
+        "qa_data": qa_data,
+        "pdf_base64": pdf_b64
+    }
 
 
 @router.post("/mock-exams/evaluate")

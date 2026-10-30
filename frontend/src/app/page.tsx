@@ -13,6 +13,8 @@ import { FlashcardModal } from "@/components/FlashcardModal";
 import { AuthModal } from "@/components/AuthModal";
 import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
 import { AcademicVaultModal } from "@/components/AcademicVaultModal";
+import { ExamSimulatorModal } from "@/components/ExamSimulatorModal";
+import { RevisionQAModal } from "@/components/RevisionQAModal";
 import { Footer } from "@/components/Footer";
 import { OnboardingModal } from "@/components/OnboardingModal";
 
@@ -35,6 +37,8 @@ export default function Home() {
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
   const [isProfessorOpen, setIsProfessorOpen] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [isExamSimulatorOpen, setIsExamSimulatorOpen] = useState(false);
+  const [isRevisionQAOpen, setIsRevisionQAOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
   const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
@@ -102,6 +106,8 @@ export default function Home() {
         onOpenFlashcards={() => setIsFlashcardsOpen(true)}
         onOpenProfessorMode={() => handleOpenProfessor()}
         onOpenVault={() => setIsVaultOpen(true)}
+        onOpenExamSimulator={() => setIsExamSimulatorOpen(true)}
+        onOpenRevisionQA={() => setIsRevisionQAOpen(true)}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
@@ -224,6 +230,22 @@ export default function Home() {
         onClose={() => setIsVaultOpen(false)}
         onSelectUnit={(code) => setSelectedUnit(code)}
         onTeachDocument={(docId, title) => handleOpenProfessor(title, docId, title)}
+      />
+
+      {/* Autonomous Full Exam Simulator & PDF Suite */}
+      <ExamSimulatorModal
+        units={units}
+        currentUnitCode={selectedUnit}
+        isOpen={isExamSimulatorOpen}
+        onClose={() => setIsExamSimulatorOpen(false)}
+      />
+
+      {/* Revision Question & Expected Model Solution Companion Suite */}
+      <RevisionQAModal
+        units={units}
+        currentUnitCode={selectedUnit}
+        isOpen={isRevisionQAOpen}
+        onClose={() => setIsRevisionQAOpen(false)}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}

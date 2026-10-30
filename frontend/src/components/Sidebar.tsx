@@ -35,6 +35,8 @@ interface SidebarProps {
   onOpenFlashcards: () => void;
   onOpenProfessorMode?: () => void;
   onOpenVault?: () => void;
+  onOpenExamSimulator?: () => void;
+  onOpenRevisionQA?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -48,6 +50,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenFlashcards,
   onOpenProfessorMode,
   onOpenVault,
+  onOpenExamSimulator,
+  onOpenRevisionQA,
   isOpen = false,
   onClose,
 }) => {
@@ -112,16 +116,30 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <UploadCloud className="h-4 w-4" />
             <span>Upload Course Materials</span>
           </button>
-          <button
-            onClick={() => {
-              onOpenPastPapers();
-              if (onClose) onClose();
-            }}
-            className="flex w-full items-center gap-2.5 rounded-lg border border-slate-700/80 bg-slate-800/50 px-3 py-2 text-xs font-medium text-slate-200 transition hover:bg-slate-800 hover:text-white"
-          >
-            <FileCheck2 className="h-4 w-4 text-emerald-400" />
-            <span>Past Papers & Exam Suite</span>
-          </button>
+          {onOpenExamSimulator && (
+            <button
+              onClick={() => {
+                onOpenExamSimulator();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/50 hover:text-emerald-100 shadow-sm"
+            >
+              <FileCheck2 className="h-4 w-4 text-emerald-400" />
+              <span>📝 Exam Simulator & PDF Suite</span>
+            </button>
+          )}
+          {onOpenRevisionQA && (
+            <button
+              onClick={() => {
+                onOpenRevisionQA();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-900/40 hover:text-cyan-100 shadow-sm"
+            >
+              <Sparkles className="h-4 w-4 text-cyan-400" />
+              <span>📍 Q&A Solution Compendium</span>
+            </button>
+          )}
           <button
             onClick={() => {
               onOpenFlashcards();
