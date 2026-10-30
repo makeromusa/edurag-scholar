@@ -32,8 +32,8 @@ export default function TermsOfServicePage() {
             <Scale className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Terms of Service</h1>
-            <p className="text-xs text-slate-400">EduRAG Scholar • Academic Integrity & Fair Use Guidelines</p>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Student Fair Use & Freedom</h1>
+            <p className="text-xs text-slate-400">EduRAG Scholar • Engineered Exclusively for CS Year 2 Students</p>
           </div>
         </div>
 
@@ -41,23 +41,23 @@ export default function TermsOfServicePage() {
           <section>
             <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
               <Award className="h-4 w-4 text-blue-400" />
-              1. Educational Purpose & Scope
+              1. Student-First Purpose & Independence
             </h2>
             <p>
-              EduRAG Scholar is an educational AI research assistant designed to augment study, review lecture notes, and practice past examination problems for undergraduate students at the University of Nairobi. It is not an automated exam substitute or cheating device.
+              EduRAG Scholar was engineered by students, for students. Its primary mission is to help you master challenging concepts, practice un-transcribed past papers, generate realistic mock exams, and survive high-pressure coursework. The system operates autonomously with zero reporting, surveillance, or telemetric oversight back to lecturers or faculty departments.
             </p>
           </section>
 
           <section>
             <h2 className="text-base font-bold text-white mb-2 flex items-center gap-2">
               <AlertCircle className="h-4 w-4 text-blue-400" />
-              2. Academic Integrity & Prohibited Use
+              2. Absolute Privacy & User Autonomy
             </h2>
-            <p>By using this platform, you agree to uphold University of Nairobi Academic Regulations:</p>
+            <p>Your revision questions, past paper uploads, and generated answers belong entirely to you:</p>
             <ul className="list-disc list-inside mt-2 space-y-1 text-slate-400">
-              <li>You may <strong className="text-rose-400">NOT</strong> use this copilot during proctored examinations, quizzes, or supervised CAT sessions without explicit lecturer authorization.</li>
-              <li>You may not upload malicious code, executables, copyright-infringing commercial media, or confidential assessment keys.</li>
-              <li>Any automated scraping or brute force querying that disrupts server availability is strictly prohibited and subject to rate limiting and IP banning.</li>
+              <li>No question or uploaded document is ever shared with, audited by, or visible to university lecturers or administrative staff.</li>
+              <li>You have full freedom to generate unlimited revision answers, simulated exam papers, and model solutions on your terms.</li>
+              <li>You can purge your entire study vault, document chunks, and account at any moment with a single click.</li>
             </ul>
           </section>
 
