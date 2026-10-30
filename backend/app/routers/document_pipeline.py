@@ -213,14 +213,24 @@ async def run_exam_simulation_task(task_id: str, unit_code: str, semester: str, 
 
     try:
         client = get_supabase_admin_client()
-        # Fetch up to 15 chunks of course materials + past papers for this unit
-        chunks_res = client.table("document_chunks").select("chunk_text, page_number, documents(title, category)").eq("unit_code", unit_code).limit(15).execute()
+        # Fetch up to 15 chunks of course materials + past papers for this unit safely
+        chunks_res = None
+        try:
+            chunks_res = client.table("document_chunks").select("chunk_text, page_number, documents(title, file_type)").eq("unit_code", unit_code).limit(15).execute()
+        except Exception as ce:
+            logger.warning(f"Joined chunks query failed: {ce}. Querying standalone chunks...")
+            try:
+                chunks_res = client.table("document_chunks").select("chunk_text, page_number").eq("unit_code", unit_code).limit(15).execute()
+            except Exception:
+                chunks_res = None
         
         syllabus_corpus = ""
         past_paper_templates = ""
-        if chunks_res.data:
+        if chunks_res and chunks_res.data:
             for c in chunks_res.data:
-                title = (c.get("documents") or {}).get("title", "Notes")
+                title = "Course Notes"
+                if isinstance(c.get("documents"), dict):
+                    title = c["documents"].get("title") or "Course Notes"
                 chunk_body = (c.get("chunk_text") or c.get("content") or "")[:400]
                 if "exam" in title.lower() or "cat" in title.lower() or "paper" in title.lower():
                     past_paper_templates += f"\n[PAST EXAM TEMPLATE: {title}]\n{chunk_body}\n"
