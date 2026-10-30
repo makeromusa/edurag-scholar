@@ -638,6 +638,9 @@ async def review_flashcard(payload: FlashcardReviewRequest):
     return {"status": "updated", "sm2": sm2_result}
 
 
+# In-memory resilient exam registry for zero-latency retrieval and fallback
+LIVE_EXAM_REGISTRY: Dict[str, Any] = {}
+
 # --- Mock Exam Simulator Subsystem ---
 
 @router.post("/mock-exams/generate")
@@ -816,7 +819,7 @@ Return a valid JSON object with EXACTLY this structure:
             ]
         }
 
-    # Store exam in MongoDB with fallback ID
+    # Store exam in in-memory registry and MongoDB
     exam_id_str = str(uuid.uuid4())
     doc = {
         "_id": exam_id_str,
@@ -827,11 +830,13 @@ Return a valid JSON object with EXACTLY this structure:
         "created_at": datetime.now(timezone.utc).isoformat(),
         "is_completed": False
     }
+    LIVE_EXAM_REGISTRY[exam_id_str] = doc
     try:
         col = get_mock_exams_collection()
         res = await col.insert_one(dict(doc))
         if res and res.inserted_id:
             doc["_id"] = str(res.inserted_id)
+            LIVE_EXAM_REGISTRY[str(res.inserted_id)] = doc
     except Exception as mongo_err:
         logger.warning(f"MongoDB storage fallback: {mongo_err}")
     return {"status": "success", "exam": doc}
@@ -842,18 +847,19 @@ async def download_mock_exam_pdf(exam_id: str, include_answers: bool = True):
     """
     Renders and streams a complete, high-resolution, color-coded PDF of the simulated examination paper.
     """
-    col = get_mock_exams_collection()
-    exam = None
-    try:
-        from bson import ObjectId
-        exam = await col.find_one({"_id": ObjectId(exam_id)})
-    except Exception:
-        pass
+    exam = LIVE_EXAM_REGISTRY.get(exam_id)
     if not exam:
+        col = get_mock_exams_collection()
         try:
-            exam = await col.find_one({"_id": exam_id})
+            from bson import ObjectId
+            exam = await col.find_one({"_id": ObjectId(exam_id)})
         except Exception:
             pass
+        if not exam:
+            try:
+                exam = await col.find_one({"_id": exam_id})
+            except Exception:
+                pass
     if not exam:
         raise HTTPException(status_code=404, detail="Mock exam not found.")
 
