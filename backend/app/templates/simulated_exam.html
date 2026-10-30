@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>University of Nairobi - Final Examination Simulation</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 2cm 1.8cm 2cm 1.8cm;
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 9pt;
+      }
+      @bottom-left {
+        content: "FACULTY OF SCIENCE & TECHNOLOGY • CHIROMO CAMPUS";
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 8pt;
+        letter-spacing: 0.5px;
+      }
+    }
+
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      color: #000000;
+      line-height: 1.5;
+      margin: 0;
+      padding: 0;
+      font-size: 11pt;
+    }
+
+    .uon-header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .uon-header h1 {
+      font-size: 14pt;
+      margin: 0 0 4px 0;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .uon-header h2 {
+      font-size: 11pt;
+      margin: 0 0 4px 0;
+      font-weight: normal;
+    }
+
+    .uon-header h3 {
+      font-size: 10.5pt;
+      margin: 0 0 6px 0;
+      font-weight: normal;
+      font-style: italic;
+    }
+
+    .course-title {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 12px 0 8px 0;
+      text-transform: uppercase;
+      border-top: 1.5px solid #000;
+      border-bottom: 1.5px solid #000;
+      padding: 6px 0;
+    }
+
+    .exam-meta-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 16px;
+      font-size: 10pt;
+    }
+
+    .exam-meta-table td {
+      padding: 4px 0;
+      vertical-align: top;
+    }
+
+    .instructions-box {
+      border: 1px solid #000000;
+      padding: 8px 12px;
+      margin-bottom: 24px;
+      font-size: 10pt;
+      font-weight: bold;
+      background-color: #FAFAFA;
+    }
+
+    .question-block {
+      margin-bottom: 24px;
+      page-break-inside: avoid;
+    }
+
+    .question-heading {
+      font-size: 11pt;
+      font-weight: bold;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 0.5px dashed #666;
+      padding-bottom: 2px;
+    }
+
+    .question-stem {
+      margin-bottom: 8px;
+      font-style: italic;
+    }
+
+    .sub-question {
+      margin-left: 20px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sub-text {
+      flex: 1;
+      padding-right: 15px;
+    }
+
+    .marks-badge {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .end-banner {
+      text-align: center;
+      margin-top: 36px;
+      font-weight: bold;
+      font-size: 11pt;
+      letter-spacing: 1px;
+      border-top: 1px solid #000;
+      padding-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="uon-header">
+    <h1>UNIVERSITY OF NAIROBI</h1>
+    <h2>FACULTY OF SCIENCE AND TECHNOLOGY</h2>
+    <h2>DEPARTMENT OF COMPUTING AND INFORMATICS</h2>
+    <h3>UNIVERSITY EXAMINATIONS {{ academic_year | default("2025/2026") }}</h3>
+    <h3>SECOND YEAR EXAMINATIONS FOR THE DEGREE OF BACHELOR OF SCIENCE IN COMPUTER SCIENCE</h3>
+    <div class="course-title">{{ unit_code }}: {{ unit_name | default("COMPUTER SCIENCE EXAMINATION") }}</div>
+  </div>
+
+  <table class="exam-meta-table">
+    <tr>
+      <td style="width: 50%;"><strong>DATE:</strong> {{ exam_date | default("OCTOBER 2026") }}</td>
+      <td style="width: 50%; text-align: right;"><strong>TIME:</strong> {{ time_allowed | default("2 HOURS") }}</td>
+    </tr>
+    <tr>
+      <td><strong>TOTAL MARKS:</strong> 70 MARKS</td>
+      <td style="text-align: right;"><strong>SERIES:</strong> MAIN EXAMINATION</td>
+    </tr>
+  </table>
+
+  <div class="instructions-box">
+    INSTRUCTIONS: {{ instructions | default("Answer Question ONE (Compulsory - 30 Marks) and any other TWO Questions (20 Marks each).") }}
+  </div>
+
+  <div class="questions-section">
+    {% for q in questions %}
+    <div class="question-block">
+      <div class="question-heading">
+        <span>{{ q.question_number | default("QUESTION " ~ loop.index) }} {% if q.is_compulsory %}(COMPULSORY){% endif %}</span>
+        <span>[{{ q.total_marks }} MARKS]</span>
+      </div>
+
+      {% if q.stem %}
+      <div class="question-stem">{{ q.stem }}</div>
+      {% endif %}
+
+      {% for sub in q.sub_questions %}
+      <div class="sub-question">
+        <div class="sub-text"><strong>{{ sub.label }}</strong> {{ sub.text }}</div>
+        <div class="marks-badge">[{{ sub.marks }} Marks]</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="end-banner">
+    === END OF EXAMINATION PAPER ===
+  </div>
+
+</body>
+</html>

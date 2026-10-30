@@ -15,6 +15,7 @@ import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
 import { AcademicVaultModal } from "@/components/AcademicVaultModal";
 import { ExamSimulatorModal } from "@/components/ExamSimulatorModal";
 import { RevisionQAModal } from "@/components/RevisionQAModal";
+import { DocumentPipelinesModal } from "@/components/DocumentPipelinesModal";
 import { Footer } from "@/components/Footer";
 import { OnboardingModal } from "@/components/OnboardingModal";
 
@@ -39,6 +40,7 @@ export default function Home() {
   const [isVaultOpen, setIsVaultOpen] = useState(false);
   const [isExamSimulatorOpen, setIsExamSimulatorOpen] = useState(false);
   const [isRevisionQAOpen, setIsRevisionQAOpen] = useState(false);
+  const [isPipelinesOpen, setIsPipelinesOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
   const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
@@ -108,6 +110,7 @@ export default function Home() {
         onOpenVault={() => setIsVaultOpen(true)}
         onOpenExamSimulator={() => setIsExamSimulatorOpen(true)}
         onOpenRevisionQA={() => setIsRevisionQAOpen(true)}
+        onOpenPipelines={() => setIsPipelinesOpen(true)}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
@@ -246,6 +249,14 @@ export default function Home() {
         currentUnitCode={selectedUnit}
         isOpen={isRevisionQAOpen}
         onClose={() => setIsRevisionQAOpen(false)}
+      />
+
+      {/* Automated Exam & Answer PDF Pipelines (WeasyPrint / Jinja2 / BackgroundTasks) */}
+      <DocumentPipelinesModal
+        units={units}
+        initialUnit={selectedUnit}
+        isOpen={isPipelinesOpen}
+        onClose={() => setIsPipelinesOpen(false)}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}

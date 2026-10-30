@@ -37,6 +37,7 @@ interface SidebarProps {
   onOpenVault?: () => void;
   onOpenExamSimulator?: () => void;
   onOpenRevisionQA?: () => void;
+  onOpenPipelines?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -52,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenVault,
   onOpenExamSimulator,
   onOpenRevisionQA,
+  onOpenPipelines,
   isOpen = false,
   onClose,
 }) => {
@@ -106,6 +108,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Primary Actions */}
         <div className="space-y-1.5 p-3">
+          {onOpenPipelines && (
+            <button
+              onClick={() => {
+                onOpenPipelines();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg border border-purple-500/50 bg-gradient-to-r from-purple-950/40 to-blue-950/40 px-3 py-2.5 text-xs font-bold text-purple-200 transition hover:from-purple-900/60 hover:to-blue-900/60 hover:text-white shadow-md"
+            >
+              <Layers className="h-4 w-4 text-purple-400" />
+              <span>⚡ Automated Exam PDF Pipelines</span>
+            </button>
+          )}
           <button
             onClick={() => {
               onOpenUpload();

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>University Revision Paper - Complete Model Solutions</title>
+  <style>
+    @page {
+      size: letter;
+      margin: 1.5cm 1.5cm 2cm 1.5cm;
+      @bottom-right {
+        content: "Page " counter(page) " of " counter(pages);
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 8pt;
+        color: #64748B;
+      }
+      @bottom-left {
+        content: "EduRAG Scholar • Verified Academic Solutions";
+        font-family: 'Helvetica Neue', Arial, sans-serif;
+        font-size: 8pt;
+        color: #64748B;
+      }
+    }
+
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      color: #1E293B;
+      line-height: 1.6;
+      margin: 0;
+      padding: 0;
+      font-size: 10pt;
+    }
+
+    .header-banner {
+      border-bottom: 2px solid #1E3A8A;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .header-banner h1 {
+      margin: 0;
+      font-size: 15pt;
+      color: #0F172A;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .header-banner .subtitle {
+      font-size: 9pt;
+      color: #475569;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    .meta-card {
+      background-color: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-bottom: 22px;
+      font-size: 9pt;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .meta-card span {
+      display: inline-block;
+      margin-right: 18px;
+    }
+
+    .meta-card strong {
+      color: #0F172A;
+    }
+
+    .qa-block {
+      page-break-inside: avoid;
+      margin-bottom: 22px;
+    }
+
+    /* Requirement: CSS styling questions with a dark blue background and white text */
+    .question-card {
+      background-color: #0F172A;
+      color: #FFFFFF;
+      padding: 12px 16px;
+      border-radius: 6px 6px 0 0;
+      font-weight: bold;
+      font-size: 10pt;
+      line-height: 1.4;
+      display: flex;
+      align-items: flex-start;
+    }
+
+    .question-card .q-badge {
+      background-color: #2563EB;
+      color: #FFFFFF;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 8pt;
+      text-transform: uppercase;
+      margin-right: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    /* Requirement: Answers with a light grey background and a green left-border */
+    .answer-card {
+      background-color: #F8FAFC;
+      border-left: 4px solid #10B981;
+      border-right: 1px solid #E2E8F0;
+      border-bottom: 1px solid #E2E8F0;
+      border-radius: 0 0 6px 6px;
+      padding: 14px 18px;
+      font-size: 9.5pt;
+      color: #1E293B;
+    }
+
+    .answer-card p {
+      margin-top: 0;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .answer-card p:last-child {
+      margin-bottom: 0;
+    }
+
+    .answer-label {
+      font-size: 8pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #059669;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .citation-tag {
+      margin-top: 8px;
+      font-size: 8pt;
+      color: #0284C7;
+      font-style: italic;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 8pt;
+      color: #64748B;
+      margin-top: 30px;
+      padding-top: 12px;
+      border-top: 1px solid #E2E8F0;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-banner">
+    <h1>{{ title | default("University Revision Paper • Detailed Model Solutions") }}</h1>
+    <div class="subtitle">Unit: <b>{{ unit_code }}</b> • Grounded in Prescribed Class Notes & Textbooks</div>
+  </div>
+
+  <div class="meta-card">
+    <span><strong>Unit:</strong> {{ unit_code }}</span>
+    <span><strong>Source File:</strong> {{ source_filename | default("Uploaded Revision Paper.pdf") }}</span>
+    <span><strong>Generated:</strong> {{ generated_date }}</span>
+    <span><strong>Status:</strong> Complete Multi-Paragraph Working</span>
+  </div>
+
+  <div class="qa-container">
+    {% for item in qa_items %}
+    <div class="qa-block">
+      <div class="question-card">
+        <span class="q-badge">Question {{ loop.index }}</span>
+        <div>{{ item.question }}</div>
+      </div>
+      <div class="answer-card">
+        <div class="answer-label">Comprehensive Lecturer-Standard Solution & Working:</div>
+        {% for para in item.detailed_answer.split('\n\n') %}
+          {% if para.strip() %}
+            <p>{{ para.strip() }}</p>
+          {% endif %}
+        {% endfor %}
+        {% if item.citation %}
+          <div class="citation-tag">Grounded Reference: {{ item.citation }}</div>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="footer-note">
+    EduRAG Scholar Autonomous Academic System • Strict Prescribed Syllabus Adherence • End of Document
+  </div>
+
+</body>
+</html>
