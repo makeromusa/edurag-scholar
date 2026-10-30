@@ -13,6 +13,8 @@ import { FlashcardModal } from "@/components/FlashcardModal";
 import { AuthModal } from "@/components/AuthModal";
 import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
 import { AcademicVaultModal } from "@/components/AcademicVaultModal";
+import { Footer } from "@/components/Footer";
+import { OnboardingModal } from "@/components/OnboardingModal";
 
 const DEFAULT_UNITS: Unit[] = [
   { code: "SMA 2114", name: "Differential and Integral Calculus", lecturer: "Dr. Okeyo", venue: "LG01" },
@@ -33,6 +35,7 @@ export default function Home() {
   const [isFlashcardsOpen, setIsFlashcardsOpen] = useState(false);
   const [isProfessorOpen, setIsProfessorOpen] = useState(false);
   const [isVaultOpen, setIsVaultOpen] = useState(false);
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
   const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
   const [professorDocTitle, setProfessorDocTitle] = useState<string | undefined>(undefined);
@@ -104,7 +107,7 @@ export default function Home() {
       />
 
       {/* 2. Middle Main Studio */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="flex flex-1 flex-col overflow-y-auto min-w-0">
         {/* Top Header Bar with Unit Info & Single Auth Entry Point */}
         <Header
           currentUnit={currentUnit}
@@ -145,7 +148,7 @@ export default function Home() {
         </div>
 
         {/* Workstation: Split Screen on Desktop, Tabbed on Mobile */}
-        <div className="flex flex-1 overflow-hidden border-t border-slate-800/80">
+        <div className="flex flex-1 min-h-[580px] lg:min-h-[660px] overflow-hidden border-t border-slate-800/80">
           {/* Unit-Isolated RAG Chat */}
           <div
             className={`flex-1 h-full overflow-hidden ${
@@ -175,6 +178,13 @@ export default function Home() {
             />
           </div>
         </div>
+
+        {/* Global Directory, Legal & Academic Footer */}
+        <Footer
+          onSelectUnit={(code) => setSelectedUnit(code)}
+          onOpenVault={() => setIsVaultOpen(true)}
+          onOpenOnboarding={() => setIsOnboardingOpen(true)}
+        />
       </div>
 
       {/* Modals */}
@@ -218,6 +228,12 @@ export default function Home() {
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}
       <AuthModal />
+
+      {/* 3-Step Interactive Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+      />
     </main>
   );
 }

@@ -32,6 +32,10 @@ wheels/
 .installed.cfg
 *.egg
 
+backend/backups/*.json
+backend/backups/*.tar.gz
+backend/backups/*.sql
+
 # Node / Next.js
 frontend/node_modules/
 frontend/.next/

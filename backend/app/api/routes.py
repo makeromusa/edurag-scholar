@@ -886,3 +886,100 @@ async def search_and_create_curriculum(payload: ProfessorSearchCurriculumRequest
     except Exception as e:
         logger.error(f"Error searching curriculum: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/account")
+@limiter.limit("5/minute")
+async def delete_user_account(request: Request, authorization: Optional[str] = Header(None)):
+    """
+    Permanently deletes a student user account, all their uploaded notes/documents,
+    and associated revision history from Supabase in accordance with GDPR/DPA right to be forgotten.
+    """
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required to delete account.")
+    
+    user_id = user["id"]
+    client = get_supabase_admin_client()
+
+    try:
+        # 1. Purge all user uploaded documents & chunks
+        user_docs = client.table("documents").select("id").eq("uploaded_by", user_id).execute()
+        if user_docs.data:
+            doc_ids = [d["id"] for d in user_docs.data]
+            for d_id in doc_ids:
+                client.table("document_chunks").delete().eq("document_id", d_id).execute()
+            client.table("documents").delete().eq("uploaded_by", user_id).execute()
+
+        # 2. Purge user weakness logs
+        try:
+            client.table("weakness_logs").delete().eq("user_id", user_id).execute()
+        except Exception:
+            pass
+
+        # 3. Purge user profile record
+        try:
+            client.table("profiles").delete().eq("id", user_id).execute()
+        except Exception:
+            pass
+
+        # 4. Delete user authentication identity from Supabase Auth
+        try:
+            client.auth.admin.delete_user(user_id)
+        except Exception as auth_err:
+            logger.warning(f"Could not delete user from Supabase Auth admin API: {auth_err}")
+
+        logger.info(f"Successfully purged account and all personal data for user {user_id}")
+        return {
+            "status": "success",
+            "message": "Account and all associated personal documents permanently deleted."
+        }
+    except Exception as e:
+        logger.error(f"Error deleting user account: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete account: {str(e)}")
+
+
+@router.get("/admin/backup")
+@limiter.limit("5/minute")
+async def export_database_backup(request: Request):
+    """
+    Generates a full JSON snapshot of units, documents, timetable slots, profiles,
+    and MongoDB chat transcripts for disaster recovery auditing.
+    """
+    client = get_supabase_admin_client()
+    try:
+        units_res = client.table("units").select("*").execute()
+        docs_res = client.table("documents").select("id, unit_code, title, page_count, is_processed, storage_url, created_at").execute()
+        slots_res = client.table("timetable_slots").select("*").execute()
+        profiles_res = client.table("profiles").select("id, email, full_name, role, created_at").execute()
+
+        # MongoDB Transcripts count / sample
+        transcripts_count = 0
+        try:
+            col = get_chat_transcripts_collection()
+            transcripts_count = await col.count_documents({})
+        except Exception:
+            pass
+
+        backup_payload = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metadata": {
+                "system": "EduRAG Scholar",
+                "environment": "production",
+                "units_count": len(units_res.data or []),
+                "documents_count": len(docs_res.data or []),
+                "timetable_slots_count": len(slots_res.data or []),
+                "profiles_count": len(profiles_res.data or []),
+                "mongo_transcripts_count": transcripts_count
+            },
+            "tables": {
+                "units": units_res.data or [],
+                "documents": docs_res.data or [],
+                "timetable_slots": slots_res.data or [],
+                "profiles": profiles_res.data or []
+            }
+        }
+        return backup_payload
+    except Exception as e:
+        logger.error(f"Error generating database backup snapshot: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

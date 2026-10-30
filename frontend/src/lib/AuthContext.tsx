@@ -14,6 +14,8 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ error: any; data: any }>;
+  resetPasswordForEmail: (email: string) => Promise<{ error: any }>;
+  resendVerificationEmail: (email: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -27,6 +29,8 @@ const AuthContext = createContext<AuthContextType>({
   signInWithGoogle: async () => {},
   signInWithEmail: async () => ({ error: null }),
   signUpWithEmail: async () => ({ error: null, data: null }),
+  resetPasswordForEmail: async () => ({ error: null }),
+  resendVerificationEmail: async () => ({ error: null }),
   signOut: async () => {},
 });
 
@@ -105,6 +109,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error, data };
   };
 
+  const resetPasswordForEmail = async (email: string) => {
+    const redirectOrigin = typeof window !== "undefined" ? window.location.origin : "";
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectOrigin ? `${redirectOrigin}/` : undefined,
+    });
+    return { error };
+  };
+
+  const resendVerificationEmail = async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+    });
+    return { error };
+  };
+
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
@@ -127,6 +147,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         signInWithEmail,
         signUpWithEmail,
+        resetPasswordForEmail,
+        resendVerificationEmail,
         signOut,
       }}
     >
