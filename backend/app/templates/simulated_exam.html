@@ -122,6 +122,40 @@
       white-space: nowrap;
     }
 
+    .model-answer-box {
+      margin-left: 20px;
+      margin-top: 6px;
+      margin-bottom: 14px;
+      padding: 10px 14px;
+      background-color: #F0FDF4;
+      border-left: 4px solid #059669;
+      border-radius: 0 6px 6px 0;
+      font-size: 10pt;
+      color: #1E293B;
+      page-break-inside: avoid;
+    }
+
+    .model-answer-box .answer-label {
+      font-size: 8pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      color: #059669;
+      margin-bottom: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .model-answer-box p {
+      margin: 4px 0;
+      line-height: 1.5;
+    }
+
+    .citation-tag {
+      font-size: 8pt;
+      color: #0284C7;
+      font-style: italic;
+      margin-top: 4px;
+    }
+
     .end-banner {
       text-align: center;
       margin-top: 36px;
@@ -176,6 +210,19 @@
         <div class="sub-text"><strong>{{ sub.label }}</strong> {{ sub.text }}</div>
         <div class="marks-badge">[{{ sub.marks }} Marks]</div>
       </div>
+      {% if sub.model_answer %}
+      <div class="model-answer-box">
+        <div class="answer-label">Model Answer & Marking Scheme:</div>
+        {% for para in sub.model_answer.split('\n\n') %}
+          {% if para.strip() %}
+            <p>{{ para.strip() }}</p>
+          {% endif %}
+        {% endfor %}
+        {% if sub.citation %}
+          <div class="citation-tag">Grounded Reference: {{ sub.citation }}</div>
+        {% endif %}
+      </div>
+      {% endif %}
       {% endfor %}
     </div>
     {% endfor %}

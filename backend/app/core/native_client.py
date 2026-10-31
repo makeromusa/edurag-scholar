@@ -12,7 +12,12 @@ from app.core.config import settings
 logger = logging.getLogger(__name__)
 
 
-def generate_gemini_content(system_instruction: str, user_prompt: str, image_base64: Optional[str] = None) -> str:
+def generate_gemini_content(
+    system_instruction: str,
+    user_prompt: str,
+    image_base64: Optional[str] = None,
+    mime_type: str = "image/jpeg"
+) -> str:
     """
     Executes a Gemini generation call with optional multimodal image support.
     Uses native HTTP on Linux/Azure and PowerShell bridge on Windows to avoid OpenSSL quirks.
@@ -21,30 +26,31 @@ def generate_gemini_content(system_instruction: str, user_prompt: str, image_bas
     model = "gemini-1.5-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
 
-    # If running on Linux (Azure App Service)
-    if sys.platform != "win32":
-        try:
-            parts: List[Dict[str, Any]] = [{"text": user_prompt}]
-            if image_base64:
-                parts.append({
-                    "inline_data": {
-                        "mime_type": "image/jpeg",
-                        "data": image_base64
-                    }
-                })
+    # Direct HTTPS call across all platforms (Linux/Azure and Windows)
+    try:
+        parts: List[Dict[str, Any]] = [{"text": user_prompt}]
+        if image_base64:
+            parts.append({
+                "inline_data": {
+                    "mime_type": mime_type,
+                    "data": image_base64
+                }
+            })
 
-            payload = {
-                "system_instruction": {"parts": [{"text": system_instruction}]},
-                "contents": [{"parts": parts}]
-            }
-            r = requests.post(url, json=payload, timeout=25)
-            data = r.json()
+        payload = {
+            "system_instruction": {"parts": [{"text": system_instruction}]},
+            "contents": [{"parts": parts}]
+        }
+        r = requests.post(url, json=payload, timeout=40)
+        data = r.json()
+        if "candidates" in data and data["candidates"]:
             return data["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            logger.error(f"Linux direct Gemini generation failed: {e}")
-            return f"⚠️ Generation error: {e}"
+        logger.warning(f"Gemini API returned unexpected payload: {data}")
+    except Exception as e:
+        logger.warning(f"Direct Gemini call failed: {e}")
 
-    # Windows fallback via WinHTTP
+    # Windows fallback via WinHTTP if requests failed on Windows
+    if sys.platform == "win32":
     combined_prompt = f"{system_instruction}\n\n{user_prompt}".replace('"', '\\"').replace("'", "''")
     ps_script = f"""
 $headers = @{{

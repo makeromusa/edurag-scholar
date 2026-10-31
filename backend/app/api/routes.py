@@ -671,9 +671,27 @@ async def generate_mock_exam(payload: MockExamGenerateRequest):
     except Exception as ce:
         logger.warning(f"Could not load syllabus context for exam simulation: {ce}")
 
+    is_math = any(term in payload.unit_code.lower() for term in ["sma", "calculus", "math"])
+
+    calc_instruction = """
+CRITICAL CALCULUS & MATHEMATICS MARKING SCHEME REQUIREMENTS:
+For every calculation question, the 'model_answer' MUST show ALL working line-by-line:
+1. State the relevant formula, theorem, or integration rule explicitly.
+2. For integration by parts or substitution: state variables clearly (e.g. Let u = ..., dv = ... => du = ..., v = ...).
+3. Write every intermediate algebraic simplification line-by-line without skipping steps.
+4. For definite integrals, substitute upper and lower limits explicitly before giving the final result.
+5. Indefinite integrals must include '+ C'.
+""" if is_math else ""
+
     sys_inst = (
         f"You are the senior University of Nairobi Chief Examiner for [{payload.unit_code}: {unit_name}]. "
-        f"Lecturer: {lecturer}. You must set a complete, rigorous 70-mark University Examination paper matching Chiromo standards. "
+        f"Lecturer: {lecturer}. You must set a complete, rigorous 70-mark University Examination paper matching Chiromo standards.\n"
+        "CRITICAL MARKING RULES:\n"
+        "- DO NOT set every question to 10 marks.\n"
+        "- Follow authentic UON Chiromo marks distribution: sub-questions MUST have realistic varying marks (such as 3, 4, 5, 6, 7, 8 marks).\n"
+        "- Question ONE (Compulsory) total must equal EXACTLY 30 Marks (across 4 or 5 sub-questions).\n"
+        "- Questions TWO, THREE, and FOUR total must equal EXACTLY 20 Marks each (across 2 or 3 sub-questions).\n"
+        f"{calc_instruction}"
         "Strict rule: You MUST output pure JSON only (no markdown code blocks, no backticks, no commentary)."
     )
 
@@ -694,28 +712,42 @@ Return a valid JSON object with EXACTLY this structure:
       "question_number": "QUESTION ONE",
       "is_compulsory": true,
       "total_marks": 30,
-      "stem": "Compulsory section covering fundamental theories, definitions, and short proofs.",
+      "stem": "Compulsory section covering fundamental theories, definitions, short derivations, and core principles.",
       "sub_questions": [
         {{
           "label": "a)",
-          "text": "Detailed question testing foundational concepts...",
-          "marks": 10,
-          "model_answer": "Complete step-by-step model answer with formulas, technical terms, and derivations.",
+          "text": "Short definition, theorem statement, or foundational distinction...",
+          "marks": 4,
+          "model_answer": "Complete step-by-step definition and concise academic explanation.",
           "citation": "{payload.unit_code} Course Outline & Core Texts"
         }},
         {{
           "label": "b)",
-          "text": "Detailed question testing structural design or core mechanisms...",
-          "marks": 10,
-          "model_answer": "Full technical explanation addressing standard marking points.",
+          "text": "Analytical calculation or core mechanism explanation...",
+          "marks": 5,
+          "model_answer": "Full technical explanation addressing standard marking criteria.",
           "citation": "{payload.unit_code} Lecture Slides"
         }},
         {{
           "label": "c)",
-          "text": "Scenario-based question or algorithmic derivation...",
-          "marks": 10,
-          "model_answer": "Comprehensive answer with edge cases and architectural trade-offs.",
+          "text": "Mathematical derivation, algorithmic analysis, or formal proof...",
+          "marks": 6,
+          "model_answer": "Full step-by-step derivation with every intermediate step shown.",
           "citation": "{payload.unit_code} Prescribed Text"
+        }},
+        {{
+          "label": "d)",
+          "text": "System architecture problem solving or multi-step evaluation...",
+          "marks": 7,
+          "model_answer": "Comprehensive answer with edge cases and architectural trade-offs.",
+          "citation": "{payload.unit_code} Core Reference"
+        }},
+        {{
+          "label": "e)",
+          "text": "Rigorous application problem, computational challenge, or theorem verification...",
+          "marks": 8,
+          "model_answer": "Exhaustive model solution with complete lines of working.",
+          "citation": "{payload.unit_code} Syllabus Readings"
         }}
       ]
     }},
@@ -728,16 +760,23 @@ Return a valid JSON object with EXACTLY this structure:
         {{
           "label": "a)",
           "text": "Detailed technical analysis question...",
-          "marks": 10,
-          "model_answer": "Step-by-step model solution meeting 10-mark standard.",
+          "marks": 7,
+          "model_answer": "Step-by-step model solution with all intermediate logic clearly articulated.",
           "citation": "{payload.unit_code} Prescribed Text"
         }},
         {{
           "label": "b)",
-          "text": "Comparative trade-off or design problem...",
-          "marks": 10,
-          "model_answer": "Comprehensive comparison matrix and critical evaluation.",
+          "text": "Comparative trade-off or computational design problem...",
+          "marks": 7,
+          "model_answer": "Comprehensive comparison matrix, calculation, and critical evaluation.",
           "citation": "{payload.unit_code} Core Reference"
+        }},
+        {{
+          "label": "c)",
+          "text": "Practical design recommendations, constraints, or edge-case handling...",
+          "marks": 6,
+          "model_answer": "Thorough discussion and solution validation meeting Chiromo standards.",
+          "citation": "{payload.unit_code} Lecture Slides"
         }}
       ]
     }},
@@ -745,20 +784,56 @@ Return a valid JSON object with EXACTLY this structure:
       "question_number": "QUESTION THREE",
       "is_compulsory": false,
       "total_marks": 20,
-      "stem": "Practical real-world engineering case study, deadlock/concurrency proof, or optimization challenge.",
+      "stem": "Practical real-world engineering case study, complex derivations, or optimization challenge.",
       "sub_questions": [
         {{
           "label": "a)",
-          "text": "Scenario-based problem solving question...",
-          "marks": 10,
+          "text": "Scenario-based problem solving or theorem application...",
+          "marks": 6,
           "model_answer": "Full technical resolution and proof.",
           "citation": "{payload.unit_code} Reference Text"
         }},
         {{
           "label": "b)",
-          "text": "Implementation constraints and pitfall defense...",
-          "marks": 10,
-          "model_answer": "Critical evaluation and step-by-step proof.",
+          "text": "Implementation constraints, advanced derivations, and pitfall defense...",
+          "marks": 8,
+          "model_answer": "Detailed line-by-line computation and critical design defense.",
+          "citation": "{payload.unit_code} Reference Text"
+        }},
+        {{
+          "label": "c)",
+          "text": "Performance evaluation criteria and formal verification...",
+          "marks": 6,
+          "model_answer": "Rigorous final solution with verification of results.",
+          "citation": "{payload.unit_code} Prescribed Text"
+        }}
+      ]
+    }},
+    {{
+      "question_number": "QUESTION FOUR",
+      "is_compulsory": false,
+      "total_marks": 20,
+      "stem": "Advanced synthesis, comparative evaluation, and comprehensive mathematical modeling.",
+      "sub_questions": [
+        {{
+          "label": "a)",
+          "text": "Applied synthesis or multi-step integration/derivation...",
+          "marks": 8,
+          "model_answer": "Line-by-line solution with every intermediate simplification.",
+          "citation": "{payload.unit_code} Prescribed Text"
+        }},
+        {{
+          "label": "b)",
+          "text": "Formal modeling or system verification question...",
+          "marks": 6,
+          "model_answer": "Complete structured response addressing all marking points.",
+          "citation": "{payload.unit_code} Core Reference"
+        }},
+        {{
+          "label": "c)",
+          "text": "Practical design recommendations or solution proofs...",
+          "marks": 6,
+          "model_answer": "Rigorous final solution with verification of results.",
           "citation": "{payload.unit_code} Reference Text"
         }}
       ]
