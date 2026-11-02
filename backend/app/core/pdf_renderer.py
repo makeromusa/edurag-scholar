@@ -99,4 +99,5 @@ def _render_answer_sheet_reportlab(context: Dict[str, Any]) -> bytes:
 
 def _render_simulated_exam_reportlab(context: Dict[str, Any]) -> bytes:
     from app.core.exam_pdf_builder import build_simulated_exam_pdf
-    return build_simulated_exam_pdf(context, include_answers=False)
+    include_answers = context.get("include_answers", True)
+    return build_simulated_exam_pdf(context, include_answers=include_answers)

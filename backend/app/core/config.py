@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # Google Gemini API
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-flash-latest"
+    GEMINI_MODEL: str = "gemini-3.5-flash"
 
     # Tavily Search API
     TAVILY_API_KEY: str = ""

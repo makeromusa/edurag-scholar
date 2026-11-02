@@ -20,61 +20,71 @@ def generate_gemini_content(
 ) -> str:
     """
     Executes a Gemini generation call with optional multimodal image support.
-    Uses native HTTP on Linux/Azure and PowerShell bridge on Windows to avoid OpenSSL quirks.
+    Uses native HTTP requests across all platforms. Falls back to PowerShell
+    WinHTTP bridge on Windows only if the requests library call fails (text-only).
     """
     api_key = settings.GEMINI_API_KEY
-    model = "gemini-1.5-flash"
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+    preferred_model = settings.GEMINI_MODEL or "gemini-3.5-flash"
+    models_to_try = [preferred_model, "gemini-3.5-flash", "gemini-flash-latest"]
+    # Deduplicate while preserving priority
+    ordered_models = []
+    for m in models_to_try:
+        if m not in ordered_models:
+            ordered_models.append(m)
 
-    # Direct HTTPS call across all platforms (Linux/Azure and Windows)
-    try:
-        parts: List[Dict[str, Any]] = [{"text": user_prompt}]
-        if image_base64:
-            parts.append({
-                "inline_data": {
-                    "mime_type": mime_type,
-                    "data": image_base64
-                }
-            })
+    # Direct HTTPS call across all platforms (Linux/Azure and Windows) with multi-model resilience
+    for model in ordered_models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+        try:
+            parts: List[Dict[str, Any]] = [{"text": user_prompt}]
+            if image_base64:
+                parts.append({
+                    "inline_data": {
+                        "mime_type": mime_type,
+                        "data": image_base64
+                    }
+                })
 
-        payload = {
-            "system_instruction": {"parts": [{"text": system_instruction}]},
-            "contents": [{"parts": parts}]
-        }
-        r = requests.post(url, json=payload, timeout=40)
-        data = r.json()
-        if "candidates" in data and data["candidates"]:
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        logger.warning(f"Gemini API returned unexpected payload: {data}")
-    except Exception as e:
-        logger.warning(f"Direct Gemini call failed: {e}")
+            payload = {
+                "system_instruction": {"parts": [{"text": system_instruction}]},
+                "contents": [{"parts": parts}]
+            }
+            r = requests.post(url, json=payload, timeout=40)
+            data = r.json()
+            if "candidates" in data and data["candidates"]:
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            logger.warning(f"Gemini model {model} returned non-candidate response: {data}")
+        except Exception as e:
+            logger.warning(f"Direct Gemini call with {model} failed: {e}")
 
-    # Windows fallback via WinHTTP if requests failed on Windows
-    if sys.platform == "win32":
-    combined_prompt = f"{system_instruction}\n\n{user_prompt}".replace('"', '\\"').replace("'", "''")
-    ps_script = f"""
+    # Windows fallback via WinHTTP if requests failed on Windows (text-only, no image)
+    if sys.platform == "win32" and not image_base64:
+        combined_prompt = f"{system_instruction}\n\n{user_prompt}".replace('"', '\\"').replace("'", "''")
+        ps_script = f"""
 $headers = @{{
     'Content-Type' = 'application/json'
     'X-goog-api-key' = '{api_key}'
 }}
-$body = '{{\"contents\":[{{\"parts\":[{{\"text\":\"{combined_prompt}\"}}]}}]}}'
+$body = '{{"contents":[{{"parts":[{{"text":"{combined_prompt}"}}]}}]}}'
 $res = Invoke-RestMethod -Uri 'https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent' -Method Post -Headers $headers -Body $body -ContentType 'application/json'
 $res.candidates[0].content.parts[0].text
 """
-    try:
-        proc = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=40
-        )
-        if proc.returncode != 0:
-            logger.error(f"PowerShell WinHTTP call failed: {proc.stderr}")
-            return "⚠️ Error contacting Gemini via native bridge."
-        return proc.stdout.strip()
-    except Exception as e:
-        logger.error(f"Exception during native Gemini generation: {e}")
-        return f"⚠️ Generation error: {e}"
+        try:
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps_script],
+                capture_output=True,
+                text=True,
+                timeout=40
+            )
+            if proc.returncode != 0:
+                logger.error(f"PowerShell WinHTTP call failed: {proc.stderr}")
+                return "⚠️ Error contacting Gemini via native bridge."
+            return proc.stdout.strip()
+        except Exception as e:
+            logger.error(f"Exception during native Gemini generation: {e}")
+            return f"⚠️ Generation error: {e}"
+
+    return "⚠️ No LLM generation engine available."
 
 
 def get_gemini_embeddings_batch(texts: List[str], batch_size: int = 80) -> List[List[float]]:
