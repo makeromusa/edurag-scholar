@@ -663,11 +663,11 @@ async def generate_mock_exam(payload: MockExamGenerateRequest):
     # Fetch real syllabus excerpts & past exam questions from Supabase pgvector/chunks safely
     syllabus_context = ""
     try:
-        chunks_res = client.table("document_chunks").select("chunk_text, page_number").eq("unit_code", payload.unit_code).limit(10).execute()
+        chunks_res = client.table("document_chunks").select("content, page_number").eq("unit_code", payload.unit_code).limit(10).execute()
         if chunks_res and chunks_res.data:
             for idx, c in enumerate(chunks_res.data[:6]):
                 doc_title = f"{payload.unit_code} Course Notes"
-                syllabus_context += f"\n[SOURCE {idx+1}: {doc_title} (p. {c.get('page_number', 1)})]\n{c.get('chunk_text', '')[:350]}\n"
+                syllabus_context += f"\n[SOURCE {idx+1}: {doc_title} (p. {c.get('page_number', 1)})]\n{c.get('content', '')[:350]}\n"
     except Exception as ce:
         logger.warning(f"Could not load syllabus context for exam simulation: {ce}")
 

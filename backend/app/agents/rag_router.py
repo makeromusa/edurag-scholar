@@ -89,7 +89,8 @@ class RagAgentRouter:
                         {"role": "system", "content": system_instruction},
                         {"role": "user", "content": user_content}
                     ],
-                    "temperature": 0.2
+                    "temperature": 0.2,
+                    "timeout": 60.0
                 }
                 if max_tokens:
                     kwargs["max_tokens"] = max_tokens
