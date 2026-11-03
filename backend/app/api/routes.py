@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import uuid
@@ -908,10 +909,11 @@ Return a valid JSON object with EXACTLY this structure:
     LIVE_EXAM_REGISTRY[exam_id_str] = doc
     try:
         col = get_mock_exams_collection()
-        res = await col.insert_one(dict(doc))
-        if res and res.inserted_id:
-            doc["_id"] = str(res.inserted_id)
-            LIVE_EXAM_REGISTRY[str(res.inserted_id)] = doc
+        if col is not None:
+            res = await asyncio.wait_for(col.insert_one(dict(doc)), timeout=3.0)
+            if res and res.inserted_id:
+                doc["_id"] = str(res.inserted_id)
+                LIVE_EXAM_REGISTRY[str(res.inserted_id)] = doc
     except Exception as mongo_err:
         logger.warning(f"MongoDB storage fallback: {mongo_err}")
     return {"status": "success", "exam": doc}

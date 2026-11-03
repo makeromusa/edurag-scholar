@@ -28,6 +28,7 @@ jobs:
         cp -r backend/app deploy/
         cp backend/requirements.txt deploy/
         cp startup.sh deploy/
+        cp gunicorn.conf.py deploy/
         chmod +x deploy/startup.sh
         cd deploy
         zip -r ../release.zip .
