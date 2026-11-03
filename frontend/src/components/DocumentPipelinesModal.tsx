@@ -91,7 +91,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
     }
 
     setIsSolving(true);
-    setSolveStatusMessage("Extracting questions via Gemini 1.5 Flash, searching notes & generating full answers via GPT-4o...");
+    setSolveStatusMessage("Transcribing questions via Gemini Vision, searching notes & solving step-by-step via Dual-Engine Copilot...");
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
