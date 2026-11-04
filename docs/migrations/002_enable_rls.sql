@@ -1,109 +1,92 @@
 -- ============================================================================
--- EduRAG Scholar: Enable Row-Level Security (RLS) on all Public Tables
+-- EduRAG Scholar: Bulletproof Row-Level Security (RLS) Enablement
 -- Version: 002_enable_rls.sql
--- Description: Resolves Supabase Security Advisor "rls_disabled_in_public"
---              Protects database against unauthorized REST API tampering.
+-- Description: Automatically loops over all tables that exist in `public`,
+--              enables Row-Level Security on each one, and safely creates policies.
 -- ============================================================================
 
--- 1. Enable RLS on all 10 public tables
-ALTER TABLE IF EXISTS public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.units ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.timetable_slots ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.document_chunks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.past_papers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.chat_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.chat_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.weakness_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.daily_briefings ENABLE ROW LEVEL SECURITY;
+-- 1. Dynamically enable Row-Level Security on EVERY table present in the public schema
+DO $$
+DECLARE
+    tbl text;
+BEGIN
+    FOR tbl IN 
+        SELECT tablename 
+        FROM pg_tables 
+        WHERE schemaname = 'public'
+    LOOP
+        EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY;', tbl);
+        RAISE NOTICE 'Enabled RLS on public.%', tbl;
+    END LOOP;
+END $$;
 
--- Note: The FastAPI backend connects using `SUPABASE_SERVICE_ROLE_KEY`.
--- The Postgres `service_role` super-user automatically BYPASSES Row Level Security (BYPASSRLS).
--- The policies below govern access for anonymous (anon) and authenticated (student) users.
+-- 2. Safely create policies ONLY on tables that actually exist in your database
+DO $$
+BEGIN
+    -- PROFILES
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'profiles') THEN
+        DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
+        CREATE POLICY "Users can read own profile" ON public.profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+        
+        DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+        CREATE POLICY "Users can update own profile" ON public.profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+    END IF;
 
--- 2. Profiles Table: Users can only read & update their own profile
-DROP POLICY IF EXISTS "Users can read own profile" ON public.profiles;
-CREATE POLICY "Users can read own profile"
-    ON public.profiles FOR SELECT
-    TO authenticated
-    USING (auth.uid() = id);
+    -- UNITS (Public syllabus catalog)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'units') THEN
+        DROP POLICY IF EXISTS "Allow public read-only access to units" ON public.units;
+        CREATE POLICY "Allow public read-only access to units" ON public.units FOR SELECT TO anon, authenticated USING (true);
+    END IF;
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
-CREATE POLICY "Users can update own profile"
-    ON public.profiles FOR UPDATE
-    TO authenticated
-    USING (auth.uid() = id);
+    -- TIMETABLE SLOTS (Public lecture timetable)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'timetable_slots') THEN
+        DROP POLICY IF EXISTS "Allow public read-only access to timetable" ON public.timetable_slots;
+        CREATE POLICY "Allow public read-only access to timetable" ON public.timetable_slots FOR SELECT TO anon, authenticated USING (true);
+    END IF;
 
--- 3. Units & Timetable: Public read-only for syllabus & class schedule
-DROP POLICY IF EXISTS "Allow public read-only access to units" ON public.units;
-CREATE POLICY "Allow public read-only access to units"
-    ON public.units FOR SELECT
-    TO anon, authenticated
-    USING (true);
+    -- DOCUMENTS (Course documents metadata)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'documents') THEN
+        DROP POLICY IF EXISTS "Allow authenticated read access to documents" ON public.documents;
+        CREATE POLICY "Allow authenticated read access to documents" ON public.documents FOR SELECT TO authenticated USING (true);
+    END IF;
 
-DROP POLICY IF EXISTS "Allow public read-only access to timetable" ON public.timetable_slots;
-CREATE POLICY "Allow public read-only access to timetable"
-    ON public.timetable_slots FOR SELECT
-    TO anon, authenticated
-    USING (true);
+    -- DOCUMENT CHUNKS (Vector chunks for lecture slides/textbooks)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'document_chunks') THEN
+        DROP POLICY IF EXISTS "Allow authenticated read access to document chunks" ON public.document_chunks;
+        CREATE POLICY "Allow authenticated read access to document chunks" ON public.document_chunks FOR SELECT TO authenticated USING (true);
+    END IF;
 
--- 4. Documents & Past Papers: Read-only access for authenticated students
-DROP POLICY IF EXISTS "Allow authenticated read access to documents" ON public.documents;
-CREATE POLICY "Allow authenticated read access to documents"
-    ON public.documents FOR SELECT
-    TO authenticated
-    USING (true);
+    -- PAST PAPERS (Chiromo past papers)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'past_papers') THEN
+        DROP POLICY IF EXISTS "Allow authenticated read access to past papers" ON public.past_papers;
+        CREATE POLICY "Allow authenticated read access to past papers" ON public.past_papers FOR SELECT TO authenticated USING (true);
+    END IF;
 
-DROP POLICY IF EXISTS "Allow authenticated read access to document chunks" ON public.document_chunks;
-CREATE POLICY "Allow authenticated read access to document chunks"
-    ON public.document_chunks FOR SELECT
-    TO authenticated
-    USING (true);
+    -- CHAT SESSIONS (If present in Supabase)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'chat_sessions') THEN
+        DROP POLICY IF EXISTS "Students can only access own chat sessions" ON public.chat_sessions;
+        CREATE POLICY "Students can only access own chat sessions" ON public.chat_sessions FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
 
-DROP POLICY IF EXISTS "Allow authenticated read access to past papers" ON public.past_papers;
-CREATE POLICY "Allow authenticated read access to past papers"
-    ON public.past_papers FOR SELECT
-    TO authenticated
-    USING (true);
+    -- CHAT MESSAGES (If present in Supabase)
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'chat_messages') THEN
+        DROP POLICY IF EXISTS "Students can only access own chat messages" ON public.chat_messages;
+        CREATE POLICY "Students can only access own chat messages" ON public.chat_messages FOR ALL TO authenticated USING (
+            EXISTS (SELECT 1 FROM public.chat_sessions WHERE chat_sessions.id = chat_messages.session_id AND chat_sessions.user_id = auth.uid())
+        ) WITH CHECK (
+            EXISTS (SELECT 1 FROM public.chat_sessions WHERE chat_sessions.id = chat_messages.session_id AND chat_sessions.user_id = auth.uid())
+        );
+    END IF;
 
--- 5. Chat Sessions & Messages: Strict isolation per student user
-DROP POLICY IF EXISTS "Students can only access own chat sessions" ON public.chat_sessions;
-CREATE POLICY "Students can only access own chat sessions"
-    ON public.chat_sessions FOR ALL
-    TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    -- WEAKNESS LOGS
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'weakness_logs') THEN
+        DROP POLICY IF EXISTS "Students can only access own weakness logs" ON public.weakness_logs;
+        CREATE POLICY "Students can only access own weakness logs" ON public.weakness_logs FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
 
-DROP POLICY IF EXISTS "Students can only access own chat messages" ON public.chat_messages;
-CREATE POLICY "Students can only access own chat messages"
-    ON public.chat_messages FOR ALL
-    TO authenticated
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.chat_sessions
-            WHERE chat_sessions.id = chat_messages.session_id
-              AND chat_sessions.user_id = auth.uid()
-        )
-    )
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.chat_sessions
-            WHERE chat_sessions.id = chat_messages.session_id
-              AND chat_sessions.user_id = auth.uid()
-        )
-    );
-
--- 6. Weakness Logs & Daily Briefings: Strict student isolation
-DROP POLICY IF EXISTS "Students can only access own weakness logs" ON public.weakness_logs;
-CREATE POLICY "Students can only access own weakness logs"
-    ON public.weakness_logs FOR ALL
-    TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Students can only access own daily briefings" ON public.daily_briefings;
-CREATE POLICY "Students can only access own daily briefings"
-    ON public.daily_briefings FOR ALL
-    TO authenticated
-    USING (auth.uid() = user_id)
-    WITH CHECK (auth.uid() = user_id);
+    -- DAILY BRIEFINGS
+    IF EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = 'daily_briefings') THEN
+        DROP POLICY IF EXISTS "Students can only access own daily briefings" ON public.daily_briefings;
+        CREATE POLICY "Students can only access own daily briefings" ON public.daily_briefings FOR ALL TO authenticated USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
+    END IF;
+END $$;
