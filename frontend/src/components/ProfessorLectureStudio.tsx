@@ -31,6 +31,15 @@ import {
   Columns,
   MoveHorizontal,
   Trash2,
+  Headphones,
+  Volume2,
+  VolumeX,
+  Mic,
+  MicOff,
+  Play,
+  Pause,
+  RotateCcw,
+  Radio,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/AuthContext";
@@ -154,6 +163,22 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [officeHoursList, setOfficeHoursList] = useState<OfficeHoursQnA[]>([]);
   const [studentQuestion, setStudentQuestion] = useState("");
   const [isAsking, setIsAsking] = useState(false);
+
+  // Voice & Car-Commute Player State
+  const [isVoiceHUDOpen, setIsVoiceHUDOpen] = useState(false);
+  const [isPlayingVoice, setIsPlayingVoice] = useState(false);
+  const [isSynthesizingVoice, setIsSynthesizingVoice] = useState(false);
+  const [selectedVoice, setSelectedVoice] = useState("en-GB-RyanNeural");
+  const [isConversationalOral, setIsConversationalOral] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+  const [audioProgress, setAudioProgress] = useState<number>(0);
+  const [audioDuration, setAudioDuration] = useState<number>(0);
+  const [isListeningMic, setIsListeningMic] = useState(false);
+  const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [isVoiceAnswering, setIsVoiceAnswering] = useState(false);
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<any>(null);
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
 
@@ -481,6 +506,215 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       setErrorMsg(err.message || "Failed to get professor answer.");
     } finally {
       setIsAsking(false);
+    }
+  };
+
+  // Stop audio on unmount or modal close
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    };
+  }, []);
+
+  // MediaSession API setup for Car Lockscreen, Apple CarPlay & Bluetooth controls
+  useEffect(() => {
+    if (typeof window !== "undefined" && "mediaSession" in navigator && activeLesson) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: activeLesson.title,
+        artist: `👨‍🏫 Professor Masterclass (${unitCode})`,
+        album: syllabus?.document_title || "EduRAG Scholar",
+      });
+
+      navigator.mediaSession.setActionHandler("play", () => {
+        audioRef.current?.play();
+        setIsPlayingVoice(true);
+      });
+      navigator.mediaSession.setActionHandler("pause", () => {
+        audioRef.current?.pause();
+        setIsPlayingVoice(false);
+      });
+      navigator.mediaSession.setActionHandler("seekbackward", () => {
+        if (audioRef.current) audioRef.current.currentTime = Math.max(0, audioRef.current.currentTime - 15);
+      });
+      navigator.mediaSession.setActionHandler("seekforward", () => {
+        if (audioRef.current) audioRef.current.currentTime = Math.min(audioRef.current.duration || 0, audioRef.current.currentTime + 15);
+      });
+    }
+  }, [activeLesson, syllabus, unitCode]);
+
+  // Format seconds to mm:ss
+  const formatAudioTime = (seconds: number) => {
+    if (isNaN(seconds) || seconds <= 0) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  };
+
+  // Play / Pause Lecture Voice
+  const toggleLectureAudio = async () => {
+    if (!activeLesson || !syllabus) return;
+
+    if (audioRef.current && audioRef.current.src && !audioRef.current.ended) {
+      if (isPlayingVoice) {
+        audioRef.current.pause();
+        setIsPlayingVoice(false);
+        return;
+      } else {
+        try {
+          await audioRef.current.play();
+          setIsPlayingVoice(true);
+          return;
+        } catch (e) {
+          console.debug("Resume audio failed, will re-synthesize:", e);
+        }
+      }
+    }
+
+    setIsSynthesizingVoice(true);
+    setIsVoiceHUDOpen(true);
+
+    try {
+      const streamUrl = `${apiUrl}/api/professor/voice/stream-lecture?document_id=${syllabus.document_id}&start_page=${activeLesson.start_page}&end_page=${activeLesson.end_page}&voice=${selectedVoice}&conversational=${isConversationalOral}&_t=${Date.now()}`;
+
+      if (!audioRef.current) {
+        audioRef.current = new Audio();
+      }
+
+      const audio = audioRef.current;
+      audio.src = streamUrl;
+      audio.playbackRate = playbackSpeed;
+
+      audio.onplay = () => setIsPlayingVoice(true);
+      audio.onpause = () => setIsPlayingVoice(false);
+      audio.ontimeupdate = () => {
+        setAudioProgress(audio.currentTime);
+        setAudioDuration(audio.duration || 0);
+      };
+
+      audio.onended = () => {
+        setIsPlayingVoice(false);
+        // Continuous auto-advance in car mode
+        if (navMode === "lessons") {
+          const lessons = syllabus.lessons || [];
+          const curIdx = lessons.findIndex(
+            (l) => l.start_page === activeLesson.start_page && l.end_page === activeLesson.end_page
+          );
+          if (curIdx !== -1 && curIdx < lessons.length - 1) {
+            loadLesson(lessons[curIdx + 1], syllabus.document_id);
+          }
+        } else {
+          if (activeLesson.end_page < syllabus.total_pages) {
+            loadSingleSlide(activeLesson.end_page + 1);
+          }
+        }
+      };
+
+      await audio.play();
+      setIsPlayingVoice(true);
+    } catch (err: any) {
+      console.error("Audio playback error:", err);
+      setErrorMsg("Failed to start voice lecture. Please try again.");
+    } finally {
+      setIsSynthesizingVoice(false);
+    }
+  };
+
+  // Change playback speed
+  const handleSpeedChange = (speed: number) => {
+    setPlaybackSpeed(speed);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = speed;
+    }
+  };
+
+  // Student Voice Interjection (Mic)
+  const handleToggleVoiceMic = () => {
+    if (isListeningMic) {
+      recognitionRef.current?.stop();
+      setIsListeningMic(false);
+      return;
+    }
+
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      alert("Speech recognition is not supported in this browser. You can type your doubt in Office Hours below!");
+      return;
+    }
+
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+      setIsPlayingVoice(false);
+    }
+
+    const recognition = new SpeechRec();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => {
+      setIsListeningMic(true);
+      setVoiceTranscript("");
+    };
+
+    recognition.onresult = (e: any) => {
+      const text = Array.from(e.results)
+        .map((r: any) => (r as any)[0].transcript)
+        .join("");
+      setVoiceTranscript(text);
+    };
+
+    recognition.onerror = (e: any) => {
+      console.warn("Mic speech error:", e);
+      setIsListeningMic(false);
+    };
+
+    recognition.onend = async () => {
+      setIsListeningMic(false);
+      if (voiceTranscript.trim() && syllabus && activeLesson) {
+        await submitVoiceQuestion(voiceTranscript.trim());
+      }
+    };
+
+    recognition.start();
+  };
+
+  const submitVoiceQuestion = async (q: string) => {
+    if (!syllabus || !activeLesson) return;
+    setIsVoiceAnswering(true);
+    try {
+      const res = await fetch(`${apiUrl}/api/professor/voice/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          document_id: syllabus.document_id,
+          unit_code: unitCode,
+          start_page: activeLesson.start_page,
+          end_page: activeLesson.end_page,
+          question: q,
+          voice: selectedVoice,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setOfficeHoursList((prev) => [...prev, { question: q, answer: json.answer_text }]);
+        if (json.audio_base64) {
+          const answerAudio = new Audio(json.audio_base64);
+          answerAudio.playbackRate = playbackSpeed;
+          await answerAudio.play();
+        }
+      }
+    } catch (e) {
+      console.error("Voice question error:", e);
+    } finally {
+      setIsVoiceAnswering(false);
+      setVoiceTranscript("");
     }
   };
 
@@ -926,6 +1160,25 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Car & Commute Voice Lecture Toggle Button */}
+                  <button
+                    onClick={() => {
+                      setIsVoiceHUDOpen((prev) => !prev);
+                      if (!isPlayingVoice) {
+                        toggleLectureAudio();
+                      }
+                    }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-sm ${
+                      isPlayingVoice
+                        ? "bg-emerald-600 hover:bg-emerald-500 text-white animate-pulse"
+                        : "border border-indigo-500/40 bg-indigo-950/70 hover:bg-indigo-900/90 text-indigo-300"
+                    }`}
+                    title="Listen hands-free in car or while multi-tasking"
+                  >
+                    <Headphones className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>{isPlayingVoice ? "Playing Voice Lecture" : "🎧 Car & Voice Lecture"}</span>
+                  </button>
+
                   {/* Retry Button if failed */}
                   {errorMsg && (
                     <button
@@ -947,6 +1200,142 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     {isRawSlidesOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
                 </div>
+              </div>
+            )}
+
+            {/* CAR & COMMUTE VOICE LECTURE HUD (Autonomous Audio Stream & Interjection) */}
+            {isVoiceHUDOpen && activeLesson && (
+              <div className="border-b border-indigo-500/30 bg-gradient-to-r from-[#0b1329] via-[#0e172e] to-[#0b1329] p-3 sm:px-8 py-3.5 shadow-xl shrink-0 space-y-2.5">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={toggleLectureAudio}
+                      disabled={isSynthesizingVoice}
+                      className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg hover:bg-indigo-500 transition active:scale-95 disabled:opacity-50"
+                      title={isPlayingVoice ? "Pause Lecture" : "Play Lecture"}
+                    >
+                      {isSynthesizingVoice ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : isPlayingVoice ? (
+                        <Pause className="h-5 w-5 fill-current" />
+                      ) : (
+                        <Play className="h-5 w-5 fill-current ml-0.5" />
+                      )}
+                    </button>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] font-bold text-indigo-300 border border-indigo-500/30">
+                          <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />
+                          <span>CAR & COMMUTE STREAM</span>
+                        </span>
+                        <span className="text-[11px] font-medium text-slate-300">
+                          {formatAudioTime(audioProgress)} / {formatAudioTime(audioDuration)}
+                        </span>
+                      </div>
+                      <p className="text-xs font-semibold text-white truncate max-w-sm mt-0.5">
+                        {activeLesson.title}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Voice Controls: Speed + Voice Persona + Conversational Toggle */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Voice Persona Dropdown */}
+                    <select
+                      value={selectedVoice}
+                      onChange={(e) => {
+                        setSelectedVoice(e.target.value);
+                        if (isPlayingVoice) {
+                          audioRef.current?.pause();
+                          setIsPlayingVoice(false);
+                        }
+                      }}
+                      className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-slate-200 focus:border-indigo-500 focus:outline-none"
+                    >
+                      <option value="en-GB-RyanNeural">Prof. Sterling (British Scholar)</option>
+                      <option value="en-KE-ChilembaNeural">Prof. Omondi (UoN Chiromo Voice)</option>
+                      <option value="en-US-ChristopherNeural">Prof. Miller (Deep American)</option>
+                      <option value="en-GB-SoniaNeural">Prof. Catherine (Distinguished)</option>
+                    </select>
+
+                    {/* Conversational Lecture Toggle */}
+                    <button
+                      onClick={() => setIsConversationalOral(!isConversationalOral)}
+                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition ${
+                        isConversationalOral
+                          ? "bg-indigo-600/30 text-indigo-300 border-indigo-500/40"
+                          : "bg-slate-900 text-slate-400 border-slate-700"
+                      }`}
+                      title="Transform slides into a spoken oral lecture rather than reading notes"
+                    >
+                      {isConversationalOral ? "🗣️ Oral Masterclass" : "📄 Direct Notes"}
+                    </button>
+
+                    {/* Speed selector */}
+                    <div className="flex items-center rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]">
+                      {[1.0, 1.25, 1.5].map((spd) => (
+                        <button
+                          key={spd}
+                          onClick={() => handleSpeedChange(spd)}
+                          className={`px-2 py-1 rounded font-bold transition ${
+                            playbackSpeed === spd
+                              ? "bg-indigo-600 text-white shadow-sm"
+                              : "text-slate-400 hover:text-white"
+                          }`}
+                        >
+                          {spd}x
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Hands-Free Voice Interjection Mic */}
+                    <button
+                      onClick={handleToggleVoiceMic}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition shadow-md ${
+                        isListeningMic
+                          ? "bg-rose-600 text-white animate-pulse"
+                          : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                      }`}
+                      title="Tap to speak and interject with a question"
+                    >
+                      {isListeningMic ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+                      <span>{isListeningMic ? "Listening to You..." : "🎙️ Speak to Interject"}</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Progress bar scrub */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={audioDuration || 100}
+                    value={audioProgress || 0}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setAudioProgress(val);
+                      if (audioRef.current) audioRef.current.currentTime = val;
+                    }}
+                    className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-800 accent-indigo-500"
+                  />
+                </div>
+
+                {/* Real-time speech transcript feedback banner */}
+                {(isListeningMic || isVoiceAnswering || voiceTranscript) && (
+                  <div className="flex items-center gap-2 rounded-lg bg-indigo-950/80 border border-indigo-500/30 px-3 py-1.5 text-xs text-indigo-200 animate-in fade-in">
+                    {isVoiceAnswering ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-400" />
+                    ) : (
+                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping" />
+                    )}
+                    <span className="font-semibold text-white">
+                      {isVoiceAnswering
+                        ? "Professor is formulating your spoken answer..."
+                        : `You: "${voiceTranscript || "Speak your question now..."}"`}
+                    </span>
+                  </div>
+                )}
               </div>
             )}
 

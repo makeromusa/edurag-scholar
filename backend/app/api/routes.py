@@ -25,6 +25,7 @@ from app.core.mongodb import (
 from app.services.spaced_repetition import calculate_sm2_review
 from app.services.professor_service import professor_service, PEDAGOGICAL_STAGES
 from app.services.professor_course_service import professor_course_service
+from app.services.professor_voice_service import professor_voice_service
 from app.ingestion.extractor import extract_document_pages
 from app.ingestion.chunker import chunk_extracted_pages
 from app.ingestion.embedder import embedding_service
@@ -32,7 +33,7 @@ from app.agents.rag_router import rag_router
 from app.workers.abstractor import run_nightly_abstraction_job
 from app.core.exam_pdf_builder import build_simulated_exam_pdf
 from app.core.qa_pdf_builder import build_revision_qa_pdf
-from fastapi.responses import Response
+from fastapi.responses import Response, StreamingResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -126,6 +127,24 @@ class ProfessorAskRequest(BaseModel):
 class ProfessorSearchCurriculumRequest(BaseModel):
     unit_code: str
     query: str
+
+
+class ProfessorVoiceSynthesizeRequest(BaseModel):
+    text: str
+    voice: Optional[str] = None
+    unit_code: Optional[str] = None
+    conversational_mode: bool = False
+    start_page: Optional[int] = None
+    end_page: Optional[int] = None
+
+
+class ProfessorVoiceAskRequest(BaseModel):
+    document_id: str
+    unit_code: str
+    start_page: int
+    end_page: int
+    question: str
+    voice: Optional[str] = None
 
 
 # --- Endpoints ---
@@ -1320,6 +1339,131 @@ async def search_and_create_curriculum(payload: ProfessorSearchCurriculumRequest
         return {"status": "success", "data": result}
     except Exception as e:
         logger.error(f"Error searching curriculum: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# --- Professor Voice Subsystem (Phase 1) ---
+
+@router.get("/professor/voice/voices")
+def get_professor_voices():
+    """Returns available high-fidelity neural voices for professor lectures."""
+    return {
+        "status": "success",
+        "default": professor_voice_service.default_voice,
+        "voices": professor_voice_service.get_available_voices()
+    }
+
+
+@router.post("/professor/voice/synthesize")
+async def synthesize_lecture_audio(payload: ProfessorVoiceSynthesizeRequest):
+    """
+    Synthesizes lecture text or generates an oral conversational script
+    and returns high-fidelity neural MP3 audio.
+    """
+    try:
+        content_to_speak = payload.text
+        if payload.conversational_mode:
+            content_to_speak = await professor_voice_service.generate_conversational_script(
+                lecture_content=payload.text,
+                unit_code=payload.unit_code or "Computer Science",
+                start_page=payload.start_page or 1,
+                end_page=payload.end_page or 1
+            )
+
+        audio_bytes = await professor_voice_service.synthesize_speech_bytes(
+            text=content_to_speak,
+            voice=payload.voice
+        )
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={"Content-Disposition": "inline; filename=professor_lecture.mp3"}
+        )
+    except Exception as e:
+        logger.error(f"Error synthesizing lecture audio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/professor/voice/stream-lecture")
+async def stream_document_lecture_audio(
+    document_id: str,
+    start_page: int = Query(..., ge=1),
+    end_page: int = Query(..., ge=1),
+    voice: Optional[str] = None,
+    conversational: bool = False
+):
+    """
+    Direct GET streaming endpoint for HTML5 <audio src="..."> tag.
+    Allows instant playback, scrub bar control, and lockscreen integration.
+    """
+    try:
+        if start_page == end_page:
+            slide_data = await professor_course_service.get_slide_raw_content(document_id, start_page)
+            raw_text = slide_data.get("content", "")
+        else:
+            batch_data = await professor_course_service.get_batch_raw_content(document_id, start_page, end_page)
+            raw_text = batch_data.get("content", "")
+
+        client = get_supabase_admin_client()
+        doc_res = client.table("documents").select("unit_code, title").eq("id", document_id).execute()
+        unit_code = doc_res.data[0].get("unit_code", "Course") if doc_res.data else "Course"
+
+        if conversational:
+            spoken_script = await professor_voice_service.generate_conversational_script(
+                lecture_content=raw_text,
+                unit_code=unit_code,
+                start_page=start_page,
+                end_page=end_page
+            )
+        else:
+            spoken_script = raw_text
+
+        audio_bytes = await professor_voice_service.synthesize_speech_bytes(
+            text=spoken_script,
+            voice=voice
+        )
+        return Response(
+            content=audio_bytes,
+            media_type="audio/mpeg",
+            headers={
+                "Content-Disposition": "inline; filename=lecture.mp3",
+                "Cache-Control": "public, max-age=3600"
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error streaming lecture audio: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/professor/voice/ask")
+async def ask_professor_voice(payload: ProfessorVoiceAskRequest):
+    """
+    Interactive Voice Office Hours: Student speaks a doubt,
+    Professor answers conversationally and returns both spoken answer audio & text.
+    """
+    try:
+        answer_text = await professor_course_service.ask_lesson_question(
+            document_id=payload.document_id,
+            unit_code=payload.unit_code,
+            start_page=payload.start_page,
+            end_page=payload.end_page,
+            question=payload.question
+        )
+
+        audio_bytes = await professor_voice_service.synthesize_speech_bytes(
+            text=answer_text,
+            voice=payload.voice
+        )
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+        return {
+            "status": "success",
+            "question": payload.question,
+            "answer_text": answer_text,
+            "audio_base64": f"data:audio/mpeg;base64,{audio_base64}"
+        }
+    except Exception as e:
+        logger.error(f"Error in voice office hours: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
