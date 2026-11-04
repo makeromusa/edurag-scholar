@@ -776,7 +776,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-400 truncate">
-                Individual Slide-by-Slide & Lesson Abstraction • In Far Greater Detail Than The Slides
+                Individual Slide-by-Slide & Lesson Abstraction • In Far Greater Detail Than The Slides • 🎧 Voice Enabled
               </p>
             </div>
           </div>
