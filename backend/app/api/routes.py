@@ -7,7 +7,7 @@ import io
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Dict, Any
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header, Request
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Header, Request, Query
 from pydantic import BaseModel
 from bson import ObjectId
 import fitz  # PyMuPDF
@@ -1245,6 +1245,23 @@ async def get_individual_slide(document_id: str, page_number: int):
         return {"status": "success", "data": slide}
     except Exception as e:
         logger.error(f"Error fetching individual slide {page_number}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/professor/document/{document_id}/batch-raw")
+async def get_batch_raw_content(
+    document_id: str,
+    start_page: int = Query(..., ge=1),
+    end_page: int = Query(..., ge=1)
+):
+    """
+    Returns the compiled raw extracted text of a range/batch of slides in < 50ms.
+    """
+    try:
+        batch_raw = await professor_course_service.get_batch_raw_content(document_id, start_page, end_page)
+        return {"status": "success", "data": batch_raw}
+    except Exception as e:
+        logger.error(f"Error fetching batch raw content {start_page}–{end_page}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

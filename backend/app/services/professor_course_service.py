@@ -137,6 +137,32 @@ class ProfessorCourseService:
             "content": raw_text or f"[No selectable text found on Slide {page_number}]"
         }
 
+    async def get_batch_raw_content(self, document_id: str, start_page: int, end_page: int) -> Dict[str, Any]:
+        """Fetches compiled raw extracted text of an entire batch/range of slides in < 50ms."""
+        client = get_supabase_admin_client()
+        chunks = client.table("document_chunks") \
+            .select("page_number, slide_title, content") \
+            .eq("document_id", document_id) \
+            .gte("page_number", start_page) \
+            .lte("page_number", end_page) \
+            .order("page_number") \
+            .execute()
+
+        slide_texts = []
+        for c in (chunks.data or []):
+            p = c.get("page_number")
+            t = c.get("slide_title") or f"Slide {p}"
+            cnt = c.get("content", "").strip()
+            slide_texts.append(f"--- [Slide / Page {p}: {t}] ---\n{cnt}")
+
+        compiled = "\n\n".join(slide_texts)
+        return {
+            "document_id": document_id,
+            "start_page": start_page,
+            "end_page": end_page,
+            "content": compiled or f"[No selectable text found on Slides {start_page} to {end_page}]"
+        }
+
     async def teach_lesson_batch(
         self,
         document_id: str,
@@ -246,17 +272,19 @@ OUTPUT STRUCTURE:
 
         else:
             system_instruction = f"""You are a distinguished Senior Full Professor of Computer Science at the University of Nairobi teaching [{unit_code}].
-You are delivering a masterclass lecture covering Slides/Pages {start_page} to {end_page} from the course material: '{doc_title}'.
+You are delivering a comprehensive masterclass lecture covering Slides/Pages {start_page} to {end_page} from the course material: '{doc_title}'.
 
 ABSOLUTE PEDAGOGICAL DIRECTIVE:
-1. DO NOT GIVE A SUMMARY. Summaries are useless to a Computer Science student preparing for university exams.
-2. The provided slides only contain brief bullet points. YOUR JOB IS TO TEACH IN FAR GREATER DETAIL THAN THE SLIDES THEMSELVES.
-3. For every major concept in this slide batch:
-   - Deconstruct the low-level mechanical reality: Explain the hardware, memory, registers, kernel data structures, and algorithm execution.
-   - Explain WHAT THE SLIDE LEFT UNSAID: Address the hidden assumptions, the edge cases, and why naive implementations break.
-   - Provide concrete, working code (C, C++, Python, or Assembly) where applicable.
-   - Provide ASCII architectural diagrams, memory maps, or process state transition flows in code blocks (```text).
-   - Chiromo Exam Masterclass: Explain the exact Section B derivation, calculation, or tricky edge case Dr. Miriti/the lecturer will test from this batch of slides.
+1. DO NOT GIVE A SUMMARY OR SKIM OVER CONTENT. Summaries are useless to a Computer Science student preparing for university exams.
+2. The provided slides only contain brief bullet points. YOUR JOB IS TO COMPREHENSIVELY TEACH AND UNPACK EVERY SINGLE SLIDE IN THIS BATCH (from Slide {start_page} to Slide {end_page}).
+3. For EVERY individual slide in the range (from Slide {start_page} to Slide {end_page}):
+   - You MUST include a dedicated subsection: '### Slide X: [Slide Title] — Mechanical Deconstruction'
+   - Unpack every bullet point on that slide into low-level engineering reality: hardware registers, OS kernel mechanisms, memory layouts, and algorithmic execution.
+   - Explain WHAT THE SLIDE LEFT UNSAID: Address hidden assumptions, tricky edge cases, and why naive implementations break.
+   - Clarify how this slide connects mechanically to the preceding and following slides in this cluster.
+4. Provide concrete, compilable code (C, C++, Python, or Assembly) illustrating the core mechanics across this batch.
+5. Provide ASCII architectural diagrams, memory maps, or process state transition flows in code blocks (```text).
+6. Chiromo Exam Masterclass: Provide the exact Section B derivation, multi-step calculation, or tricky edge case Dr. Miriti/the lecturer tests from this cluster of slides, complete with step-by-step working and marking scheme pitfalls.
 
 Deliver a rigorous, illuminating, graduate-level academic lecture that transforms the student into a master of this topic.
 
@@ -266,19 +294,23 @@ Format your lecture clearly in Markdown with these structured sections:
 **Source:** {doc_title} • Slides {start_page}–{end_page} • Unit {unit_code}
 
 ## 1. 📌 Core Thesis & The Architectural Dilemma
-(Explain the fundamental problem that forced the invention of the concepts on these slides. Why do naive solutions fail?)
+(Explain the fundamental problem that forced the invention of the concepts across Slides {start_page} to {end_page}. Why do naive solutions fail?)
 
-## 2. 🔍 Deep Deconstruction: What The Slides Don't Tell You
-(Go through the concepts on Slides {start_page} to {end_page} in extreme technical depth. Unpack every bullet. Provide code, bitwise logic, and memory maps.)
+## 2. 🔍 Systematic Slide-by-Slide Deconstruction (Slides {start_page} to {end_page})
+(Go through EACH slide in order. For EVERY slide from {start_page} to {end_page}:
+### Slide [N]: [Slide Title] — Mechanical Deconstruction
+- Mechanical Deep Dive & Systems Interaction
+- What the Slide Left Unsaid & Hidden Edge Cases
+- Key Terminology, Constants & Formulas)
 
-## 3. 📐 Architectural Flow & Memory Layout
-(ASCII diagram showing data structures, memory layout, register states, or timeline traces)
+## 3. 📐 Unified Architectural Flow, Code & Memory Layout
+(Concrete compilable C/Python code and ASCII diagram showing data structures, memory layout, register states, or state transitions across this batch)
 
 ## 4. ⚠️ Chiromo Lecturer Exam Traps & Section B Calculations
-(The exact exam questions, numerical gotchas, proofs, and marking scheme pitfalls examiners use on these slides)
+(The exact Section B exam questions, numerical gotchas, proofs, and marking scheme pitfalls examiners use on these slides, with full step-by-step model working)
 
 ## 5. 🎯 Socratic Self-Check & Active Recall Questions
-(3 sharp, first-principles questions for the student to verify they understood the deep mechanics)
+(3 sharp, first-principles questions for the student to verify they understood the deep mechanics of this entire batch)
 """
 
         user_prompt = f"""DOCUMENT: {doc_title}
@@ -291,10 +323,13 @@ RAW LECTURE SLIDES / PAGES ({start_page} to {end_page}):
 
 Deliver the full, deep professor masterclass expanding these slides in complete technical depth."""
 
+        # 3500 tokens for rich comprehensive multi-slide batch expansion
+        token_limit = 2500 if is_single_slide else 3500
+
         lecture_markdown = await rag_router.generate_text(
             system_instruction=system_instruction,
             user_prompt=user_prompt,
-            max_tokens=1600
+            max_tokens=token_limit
         )
 
         return {
@@ -304,7 +339,7 @@ Deliver the full, deep professor masterclass expanding these slides in complete 
             "start_page": start_page,
             "end_page": end_page,
             "lecture_content": lecture_markdown,
-            "raw_slides_preview": compiled_slides[:1200]
+            "raw_slides_preview": compiled_slides
         }
 
     async def ask_lesson_question(

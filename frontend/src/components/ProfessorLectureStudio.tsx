@@ -364,7 +364,11 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
     // 1. Immediately fetch the raw slide text in < 100ms so user has instant content!
     try {
-      const rawRes = await fetch(`${apiUrl}/api/professor/document/${docId}/slide/${lesson.start_page}`);
+      const isBatch = lesson.start_page !== lesson.end_page;
+      const url = isBatch
+        ? `${apiUrl}/api/professor/document/${docId}/batch-raw?start_page=${lesson.start_page}&end_page=${lesson.end_page}`
+        : `${apiUrl}/api/professor/document/${docId}/slide/${lesson.start_page}`;
+      const rawRes = await fetch(url);
       if (rawRes.ok) {
         const rawJson = await rawRes.json();
         if (rawJson.data?.content) {
@@ -436,6 +440,14 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     if (!pageNum || isNaN(pageNum) || !syllabus) return;
 
     const clamped = Math.max(1, Math.min(pageNum, syllabus.total_pages));
+    if (navMode === "lessons") {
+      const batch = syllabus.lessons?.find((l) => l.start_page <= clamped && l.end_page >= clamped);
+      if (batch) {
+        loadLesson(batch, syllabus.document_id);
+        setJumpSlideInput("");
+        return;
+      }
+    }
     loadSingleSlide(clamped);
     setJumpSlideInput("");
   };
@@ -715,7 +727,12 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               <div className="flex rounded-lg border border-slate-800 bg-slate-900/80 p-0.5 mt-2">
                 <button
                   type="button"
-                  onClick={() => setNavMode("slides")}
+                  onClick={() => {
+                    setNavMode("slides");
+                    if (syllabus && activeLesson && activeLesson.start_page !== activeLesson.end_page) {
+                      loadSingleSlide(activeLesson.start_page, syllabus);
+                    }
+                  }}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold rounded-md transition ${
                     navMode === "slides"
                       ? "bg-indigo-600 text-white shadow-sm"
@@ -727,7 +744,22 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNavMode("lessons")}
+                  onClick={() => {
+                    setNavMode("lessons");
+                    if (syllabus?.lessons && syllabus.lessons.length > 0) {
+                      const curPage = activeLesson?.start_page || 1;
+                      const enclosingBatch =
+                        syllabus.lessons.find((l) => l.start_page <= curPage && l.end_page >= curPage) ||
+                        syllabus.lessons[0];
+                      if (
+                        enclosingBatch &&
+                        (activeLesson?.start_page !== enclosingBatch.start_page ||
+                          activeLesson?.end_page !== enclosingBatch.end_page)
+                      ) {
+                        loadLesson(enclosingBatch, syllabus.document_id);
+                      }
+                    }
+                  }}
                   className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 text-[11px] font-semibold rounded-md transition ${
                     navMode === "lessons"
                       ? "bg-indigo-600 text-white shadow-sm"
@@ -815,7 +847,8 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                 )}
 
                 {syllabus?.lessons?.map((lesson) => {
-                  const isSelected = activeLesson?.lesson_id === lesson.lesson_id;
+                  const isSelected =
+                    activeLesson?.start_page === lesson.start_page && activeLesson?.end_page === lesson.end_page;
                   return (
                     <button
                       key={lesson.lesson_id}
@@ -1041,7 +1074,9 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                         onChange={(e) => setStudentQuestion(e.target.value)}
                         placeholder={
                           activeLesson
-                            ? `Ask the Professor anything regarding Slide ${activeLesson.start_page}...`
+                            ? activeLesson.start_page === activeLesson.end_page
+                              ? `Ask the Professor anything regarding Slide ${activeLesson.start_page}...`
+                              : `Ask the Professor anything regarding Lesson Batch (Slides ${activeLesson.start_page}–${activeLesson.end_page})...`
                             : "Ask the Professor a question..."
                         }
                         className="flex-1 rounded-xl border border-slate-700 bg-slate-900/90 px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
@@ -1060,48 +1095,125 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               )}
             </div>
 
-            {/* Footer Slide Stepper */}
+            {/* Footer Stepper: Individual Slides vs Concept Batches */}
             {syllabus && activeLesson && (
               <footer className="h-16 border-t border-slate-800 bg-[#0c1222] px-4 sm:px-8 flex items-center justify-between shrink-0">
-                <button
-                  onClick={() => {
-                    const prevPage = activeLesson.start_page - 1;
-                    if (prevPage >= 1) {
-                      loadSingleSlide(prevPage);
-                    }
-                  }}
-                  disabled={activeLesson.start_page <= 1 || isLoadingLecture}
-                  className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span>Previous Slide</span>
-                </button>
+                {navMode === "lessons" ? (
+                  // BATCH LESSON STEPPER
+                  (() => {
+                    const lessons = syllabus.lessons || [];
+                    const currentIdx = lessons.findIndex(
+                      (l) => l.start_page === activeLesson.start_page && l.end_page === activeLesson.end_page
+                    );
+                    const effectiveIdx =
+                      currentIdx !== -1
+                        ? currentIdx
+                        : lessons.findIndex(
+                            (l) => l.start_page <= activeLesson.start_page && l.end_page >= activeLesson.start_page
+                          );
 
-                <div className="text-xs text-slate-400 font-medium hidden sm:flex items-center gap-2">
-                  <span>
-                    Slide {activeLesson.start_page} of {syllabus.total_pages}
-                  </span>
-                  <span>•</span>
-                  <span className="text-indigo-400">{activeLesson.title}</span>
-                </div>
+                    const hasPrev = effectiveIdx > 0;
+                    const hasNext = effectiveIdx !== -1 && effectiveIdx < lessons.length - 1;
+                    const prevLesson = hasPrev ? lessons[effectiveIdx - 1] : null;
+                    const nextLesson = hasNext ? lessons[effectiveIdx + 1] : null;
+                    const curLesson = effectiveIdx !== -1 ? lessons[effectiveIdx] : null;
 
-                <button
-                  onClick={() => {
-                    const nextPage = activeLesson.end_page + 1;
-                    if (nextPage <= syllabus.total_pages) {
-                      loadSingleSlide(nextPage);
-                    }
-                  }}
-                  disabled={activeLesson.end_page >= syllabus.total_pages || isLoadingLecture}
-                  className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-indigo-500 disabled:opacity-40 transition"
-                >
-                  <span>
-                    {activeLesson.end_page < syllabus.total_pages
-                      ? `Next: Slide ${activeLesson.end_page + 1} →`
-                      : "Completed Entire Document"}
-                  </span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+                    return (
+                      <>
+                        <button
+                          onClick={() => {
+                            if (prevLesson) {
+                              loadLesson(prevLesson, syllabus.document_id);
+                            }
+                          }}
+                          disabled={!hasPrev || isLoadingLecture}
+                          className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition"
+                          title={prevLesson ? `Previous: Lesson ${prevLesson.lesson_id}` : undefined}
+                        >
+                          <ChevronLeft className="h-4 w-4" />
+                          <span>
+                            {prevLesson
+                              ? `Prev: Lesson ${prevLesson.lesson_id} (Slides ${prevLesson.start_page}–${prevLesson.end_page})`
+                              : "First Batch"}
+                          </span>
+                        </button>
+
+                        <div className="text-xs text-slate-400 font-medium hidden sm:flex items-center gap-2">
+                          <span className="font-semibold text-indigo-400">
+                            {curLesson ? `Lesson ${curLesson.lesson_id} of ${syllabus.total_lessons}` : "Concept Batch"}
+                          </span>
+                          <span>•</span>
+                          <span>
+                            Slides {activeLesson.start_page}–{activeLesson.end_page}
+                          </span>
+                          <span>•</span>
+                          <span className="text-slate-300 font-semibold truncate max-w-xs">{activeLesson.title}</span>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (nextLesson) {
+                              loadLesson(nextLesson, syllabus.document_id);
+                            }
+                          }}
+                          disabled={!hasNext || isLoadingLecture}
+                          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-indigo-500 disabled:opacity-40 transition"
+                          title={nextLesson ? `Next: Lesson ${nextLesson.lesson_id}` : undefined}
+                        >
+                          <span>
+                            {nextLesson
+                              ? `Next: Lesson ${nextLesson.lesson_id} (Slides ${nextLesson.start_page}–${nextLesson.end_page}) →`
+                              : "Completed All Lessons"}
+                          </span>
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </>
+                    );
+                  })()
+                ) : (
+                  // INDIVIDUAL SLIDE STEPPER
+                  <>
+                    <button
+                      onClick={() => {
+                        const prevPage = activeLesson.start_page - 1;
+                        if (prevPage >= 1) {
+                          loadSingleSlide(prevPage);
+                        }
+                      }}
+                      disabled={activeLesson.start_page <= 1 || isLoadingLecture}
+                      className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3.5 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700 disabled:opacity-40 transition"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span>Previous Slide</span>
+                    </button>
+
+                    <div className="text-xs text-slate-400 font-medium hidden sm:flex items-center gap-2">
+                      <span>
+                        Slide {activeLesson.start_page} of {syllabus.total_pages}
+                      </span>
+                      <span>•</span>
+                      <span className="text-indigo-400 truncate max-w-xs">{activeLesson.title}</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const nextPage = activeLesson.end_page + 1;
+                        if (nextPage <= syllabus.total_pages) {
+                          loadSingleSlide(nextPage);
+                        }
+                      }}
+                      disabled={activeLesson.end_page >= syllabus.total_pages || isLoadingLecture}
+                      className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-indigo-500 disabled:opacity-40 transition"
+                    >
+                      <span>
+                        {activeLesson.end_page < syllabus.total_pages
+                          ? `Next: Slide ${activeLesson.end_page + 1} →`
+                          : "Completed Entire Document"}
+                      </span>
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </footer>
             )}
           </main>
