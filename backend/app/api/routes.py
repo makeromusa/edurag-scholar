@@ -1390,7 +1390,7 @@ async def stream_document_lecture_audio(
     start_page: int = Query(..., ge=1),
     end_page: int = Query(..., ge=1),
     voice: Optional[str] = None,
-    conversational: bool = False
+    conversational: bool = True
 ):
     """
     Direct GET streaming endpoint for HTML5 <audio src="..."> tag.

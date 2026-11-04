@@ -177,6 +177,14 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [voiceTranscript, setVoiceTranscript] = useState("");
   const [isVoiceAnswering, setIsVoiceAnswering] = useState(false);
 
+  // Live Autonomous Professor & Pacing State
+  const [isLiveTeachingMode, setIsLiveTeachingMode] = useState<boolean>(false);
+  const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<number>(0);
+  const [autoAdvanceTotal, setAutoAdvanceTotal] = useState<number>(60);
+  const [isAutoAdvanceActive, setIsAutoAdvanceActive] = useState<boolean>(false);
+  const [isTimerPaused, setIsTimerPaused] = useState<boolean>(false);
+  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -556,11 +564,15 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     return `${mins}:${secs < 10 ? "0" : ""}${secs}`;
   };
 
-  // Play / Pause Lecture Voice
-  const toggleLectureAudio = async () => {
+  // Play / Pause Lecture Voice with smart forcePlay capability
+  const toggleLectureAudio = async (forcePlay?: boolean) => {
     if (!activeLesson || !syllabus) return;
 
-    if (audioRef.current && audioRef.current.src && !audioRef.current.ended) {
+    // Reset understanding countdown if student triggers lecture audio
+    setIsAutoAdvanceActive(false);
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+
+    if (!forcePlay && audioRef.current && audioRef.current.src && !audioRef.current.ended) {
       if (isPlayingVoice) {
         audioRef.current.pause();
         setIsPlayingVoice(false);
@@ -580,7 +592,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     setIsVoiceHUDOpen(true);
 
     try {
-      const streamUrl = `${apiUrl}/api/professor/voice/stream-lecture?document_id=${syllabus.document_id}&start_page=${activeLesson.start_page}&end_page=${activeLesson.end_page}&voice=${selectedVoice}&conversational=${isConversationalOral}&_t=${Date.now()}`;
+      const streamUrl = `${apiUrl}/api/professor/voice/stream-lecture?document_id=${syllabus.document_id}&start_page=${activeLesson.start_page}&end_page=${activeLesson.end_page}&voice=${selectedVoice}&conversational=true&_t=${Date.now()}`;
 
       if (!audioRef.current) {
         audioRef.current = new Audio();
@@ -590,7 +602,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       audio.src = streamUrl;
       audio.playbackRate = playbackSpeed;
 
-      audio.onplay = () => setIsPlayingVoice(true);
+      audio.onplay = () => {
+        setIsPlayingVoice(true);
+        setIsAutoAdvanceActive(false);
+      };
       audio.onpause = () => setIsPlayingVoice(false);
       audio.ontimeupdate = () => {
         setAudioProgress(audio.currentTime);
@@ -599,20 +614,13 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
       audio.onended = () => {
         setIsPlayingVoice(false);
-        // Continuous auto-advance in car mode
-        if (navMode === "lessons") {
-          const lessons = syllabus.lessons || [];
-          const curIdx = lessons.findIndex(
-            (l) => l.start_page === activeLesson.start_page && l.end_page === activeLesson.end_page
-          );
-          if (curIdx !== -1 && curIdx < lessons.length - 1) {
-            loadLesson(lessons[curIdx + 1], syllabus.document_id);
-          }
-        } else {
-          if (activeLesson.end_page < syllabus.total_pages) {
-            loadSingleSlide(activeLesson.end_page + 1);
-          }
-        }
+        // Smart Socratic Understanding Window:
+        // 1 minute (60s) for individual slide, 2 minutes (120s) for concept batch
+        const wait = navMode === "lessons" ? 120 : 60;
+        setAutoAdvanceTotal(wait);
+        setAutoAdvanceTimer(wait);
+        setIsAutoAdvanceActive(true);
+        setIsTimerPaused(false);
       };
 
       await audio.play();
@@ -624,6 +632,65 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       setIsSynthesizingVoice(false);
     }
   };
+
+  // Autonomous advance handler when student understands (or timer expires)
+  const handleAutoAdvance = () => {
+    if (!syllabus || !activeLesson) return;
+    setIsAutoAdvanceActive(false);
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+
+    if (navMode === "lessons") {
+      const lessons = syllabus.lessons || [];
+      const curIdx = lessons.findIndex(
+        (l) => l.start_page === activeLesson.start_page && l.end_page === activeLesson.end_page
+      );
+      const effectiveIdx =
+        curIdx !== -1
+          ? curIdx
+          : lessons.findIndex((l) => l.start_page <= activeLesson.start_page && l.end_page >= activeLesson.start_page);
+
+      if (effectiveIdx !== -1 && effectiveIdx < lessons.length - 1) {
+        loadLesson(lessons[effectiveIdx + 1], syllabus.document_id);
+      }
+    } else {
+      if (activeLesson.end_page < syllabus.total_pages) {
+        loadSingleSlide(activeLesson.end_page + 1);
+      }
+    }
+  };
+
+  // Timer countdown loop
+  useEffect(() => {
+    if (!isAutoAdvanceActive || isTimerPaused) {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      return;
+    }
+
+    timerIntervalRef.current = setInterval(() => {
+      setAutoAdvanceTimer((prev) => {
+        if (prev <= 1) {
+          clearInterval(timerIntervalRef.current!);
+          handleAutoAdvance();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+    };
+  }, [isAutoAdvanceActive, isTimerPaused, activeLesson, syllabus, navMode]);
+
+  // When live teaching mode is on, automatically start teaching when a new slide/batch loads
+  useEffect(() => {
+    if (isLiveTeachingMode && activeLesson && !isLoadingLecture) {
+      const timer = setTimeout(() => {
+        toggleLectureAudio(true);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [activeLesson?.start_page, activeLesson?.end_page, isLiveTeachingMode, isLoadingLecture]);
 
   // Change playback speed
   const handleSpeedChange = (speed: number) => {
@@ -782,6 +849,37 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* Live Audio Teaching Mode Master Toggle */}
+            <button
+              onClick={() => {
+                const nextMode = !isLiveTeachingMode;
+                setIsLiveTeachingMode(nextMode);
+                if (nextMode) {
+                  setIsVoiceHUDOpen(true);
+                  toggleLectureAudio(true);
+                } else {
+                  if (audioRef.current) audioRef.current.pause();
+                  setIsPlayingVoice(false);
+                  setIsAutoAdvanceActive(false);
+                  if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+                }
+              }}
+              className={`flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-bold transition shadow-lg ${
+                isLiveTeachingMode
+                  ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-emerald-500/30 animate-pulse border border-emerald-400/50"
+                  : "border border-indigo-500/40 bg-indigo-950/70 hover:bg-indigo-900/90 text-indigo-300"
+              }`}
+              title="Autonomous real-time oral teaching with hands-free Q&A and 1-2 min auto-pacing"
+            >
+              <Radio className={`h-4 w-4 ${isLiveTeachingMode ? "text-white" : "text-emerald-400"}`} />
+              <span className="hidden sm:inline">
+                {isLiveTeachingMode ? "Live Audio Professor: ON" : "🎙️ Live Audio Professor"}
+              </span>
+              <span className="sm:hidden">
+                {isLiveTeachingMode ? "Live Audio: ON" : "🎙️ Live Audio"}
+              </span>
+            </button>
+
             {/* Fullscreen / Focus Mode Toggle */}
             <button
               onClick={() => setIsFullscreenLecture(!isFullscreenLecture)}
@@ -1204,12 +1302,12 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
             )}
 
             {/* CAR & COMMUTE VOICE LECTURE HUD (Autonomous Audio Stream & Interjection) */}
-            {isVoiceHUDOpen && activeLesson && (
-              <div className="border-b border-indigo-500/30 bg-gradient-to-r from-[#0b1329] via-[#0e172e] to-[#0b1329] p-3 sm:px-8 py-3.5 shadow-xl shrink-0 space-y-2.5">
+            {(isVoiceHUDOpen || isLiveTeachingMode) && activeLesson && (
+              <div className="border-b border-indigo-500/30 bg-gradient-to-r from-[#0b1329] via-[#0e172e] to-[#0b1329] p-3 sm:px-8 py-3.5 shadow-2xl shrink-0 space-y-2.5">
                 <div className="flex items-center justify-between flex-wrap gap-2">
                   <div className="flex items-center gap-3">
                     <button
-                      onClick={toggleLectureAudio}
+                      onClick={() => toggleLectureAudio()}
                       disabled={isSynthesizingVoice}
                       className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg hover:bg-indigo-500 transition active:scale-95 disabled:opacity-50"
                       title={isPlayingVoice ? "Pause Lecture" : "Play Lecture"}
@@ -1224,10 +1322,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     </button>
 
                     <div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="flex items-center gap-1 rounded bg-indigo-500/20 px-2 py-0.5 text-[10px] font-bold text-indigo-300 border border-indigo-500/30">
                           <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />
-                          <span>CAR & COMMUTE STREAM</span>
+                          <span>{isPlayingVoice ? "TEACHING NOW" : isAutoAdvanceActive ? "WAITING FOR DOUBTS" : "LIVE AUDIO"}</span>
                         </span>
                         <span className="text-[11px] font-medium text-slate-300">
                           {formatAudioTime(audioProgress)} / {formatAudioTime(audioDuration)}
@@ -1258,19 +1356,6 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                       <option value="en-US-ChristopherNeural">Prof. Miller (Deep American)</option>
                       <option value="en-GB-SoniaNeural">Prof. Catherine (Distinguished)</option>
                     </select>
-
-                    {/* Conversational Lecture Toggle */}
-                    <button
-                      onClick={() => setIsConversationalOral(!isConversationalOral)}
-                      className={`px-2 py-1.5 rounded-lg text-[10px] font-bold border transition ${
-                        isConversationalOral
-                          ? "bg-indigo-600/30 text-indigo-300 border-indigo-500/40"
-                          : "bg-slate-900 text-slate-400 border-slate-700"
-                      }`}
-                      title="Transform slides into a spoken oral lecture rather than reading notes"
-                    >
-                      {isConversationalOral ? "🗣️ Oral Masterclass" : "📄 Direct Notes"}
-                    </button>
 
                     {/* Speed selector */}
                     <div className="flex items-center rounded-lg border border-slate-700 bg-slate-900 p-0.5 text-[10px]">
@@ -1320,6 +1405,37 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     className="h-1.5 flex-1 cursor-pointer appearance-none rounded-lg bg-slate-800 accent-indigo-500"
                   />
                 </div>
+
+                {/* AUTONOMOUS PACING COUNTDOWN BANNER (1-min for slide, 2-min for batch) */}
+                {isAutoAdvanceActive && (
+                  <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-950/70 via-slate-900 to-slate-900 px-4 py-2.5 text-xs text-amber-200 animate-in fade-in shadow-inner flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-2.5 w-2.5 rounded-full bg-amber-400 animate-ping" />
+                      <span className="font-bold text-white">
+                        ⏳ Understanding Window:
+                      </span>
+                      <span>
+                        Advancing to next {navMode === "lessons" ? "Batch" : "Slide"} in{" "}
+                        <strong className="text-amber-300 font-mono text-sm">{formatAudioTime(autoAdvanceTimer)}</strong>
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setIsTimerPaused(!isTimerPaused)}
+                        className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 transition"
+                      >
+                        {isTimerPaused ? "▶️ Resume Pacing" : "⏸️ Pause Pacing"}
+                      </button>
+                      <button
+                        onClick={handleAutoAdvance}
+                        className="rounded-lg bg-amber-600 hover:bg-amber-500 px-3 py-1 text-[11px] font-bold text-white shadow-md transition"
+                      >
+                        Advance Now →
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Real-time speech transcript feedback banner */}
                 {(isListeningMic || isVoiceAnswering || voiceTranscript) && (
