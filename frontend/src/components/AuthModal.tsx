@@ -18,6 +18,9 @@ import {
   Search,
   Check,
   Sparkles,
+  Eye,
+  EyeOff,
+  Copy,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -56,6 +59,36 @@ export const AuthModal: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
+
+  // Google-Style Strong Password Generator
+  const generateStrongPassword = () => {
+    const chars = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%^&*-_";
+    let pwd = "";
+    if (typeof window !== "undefined" && window.crypto && window.crypto.getRandomValues) {
+      const randomValues = new Uint32Array(16);
+      window.crypto.getRandomValues(randomValues);
+      for (let i = 0; i < 16; i++) {
+        pwd += chars[randomValues[i] % chars.length];
+      }
+    } else {
+      for (let i = 0; i < 16; i++) {
+        pwd += chars[Math.floor(Math.random() * chars.length)];
+      }
+    }
+    setPassword(pwd);
+    setShowPassword(true);
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard) {
+        navigator.clipboard.writeText(pwd);
+        setPasswordCopied(true);
+        setTimeout(() => setPasswordCopied(false), 4500);
+      }
+    } catch (e) {
+      // Non-fatal
+    }
+  };
 
   // Step 2 Fields: Unit Enrolment
   const [systemUnits, setSystemUnits] = useState<AvailableUnit[]>(DEFAULT_UNITS);
@@ -219,10 +252,15 @@ export const AuthModal: React.FC = () => {
     try {
       const { error, data } = await signUpWithEmail(cleanEmail, password, fullName.trim());
       if (error) {
-        if (error.message?.toLowerCase().includes("already registered")) {
+        const errMsg = (error.message || "").toLowerCase();
+        if (errMsg.includes("already registered")) {
           setErrorMsg("This email is already registered. Please sign in instead.");
           setTab("signin");
           setSignupStep(1);
+        } else if (errMsg.includes("rate limit") || error.status === 429) {
+          setErrorMsg(
+            "Supabase Email Rate Limit Exceeded: Supabase restricts verification emails to 3-4 per hour on the free tier. Please wait a few minutes, sign in if you already have an account, or use Google login."
+          );
         } else {
           setErrorMsg(error.message || "Failed to create account.");
         }
@@ -475,6 +513,27 @@ export const AuthModal: React.FC = () => {
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
+            {errorMsg.toLowerCase().includes("rate limit") && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 pt-1 border-t border-rose-500/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("signin");
+                    setErrorMsg(null);
+                  }}
+                  className="rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-3 py-1 text-[11px] font-bold transition shadow-sm"
+                >
+                  Sign In to Account
+                </button>
+                <button
+                  type="button"
+                  onClick={signInWithGoogle}
+                  className="rounded-lg border border-slate-700 bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1 text-[11px] font-bold transition"
+                >
+                  Sign in with Google
+                </button>
+              </div>
+            )}
             {showResend && (
               <button
                 type="button"
@@ -579,14 +638,22 @@ export const AuthModal: React.FC = () => {
                 <div className="relative mt-1">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
                     required
                     minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 6 characters"
-                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 transition"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
               </div>
 
@@ -639,19 +706,46 @@ export const AuthModal: React.FC = () => {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-300">Create Password</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300">Create Password</label>
+                  <button
+                    type="button"
+                    onClick={generateStrongPassword}
+                    className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 hover:text-amber-300 transition group"
+                    title="Generate a high-security password like Google Chrome does"
+                  >
+                    <Sparkles className="h-3 w-3 text-amber-400 group-hover:scale-110 transition" />
+                    <span>Suggest Strong Password</span>
+                  </button>
+                </div>
                 <div className="relative mt-1">
                   <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                   <input
-                    type="password"
+                    type={showPassword ? "text" : "password"}
+                    id="new-password"
+                    autoComplete="new-password"
                     required
                     minLength={6}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="At least 6 characters"
-                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                    placeholder="At least 6 characters (or click suggest above)"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-10 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition font-mono"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 transition"
+                    title={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+                {passwordCopied && (
+                  <div className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 animate-in fade-in duration-150">
+                    <Check className="h-3 w-3" />
+                    <span>✓ Google-grade strong password generated & copied to clipboard!</span>
+                  </div>
+                )}
               </div>
 
               <button
