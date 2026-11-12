@@ -569,28 +569,53 @@ Format output strictly as a JSON array of objects:
         cards_data = json.loads(clean_json)
     except Exception:
         cards_data = [
-            {"question": f"Key concept in {payload.topic}", "answer": raw_response[:200], "exam_trap": "Review syllabus notes"}
+            {"question": f"Key concept in {payload.topic}", "answer": str(raw_response)[:200], "exam_trap": "Review syllabus notes"}
+        ]
+
+    if isinstance(cards_data, dict):
+        for k in ("cards", "flashcards", "data", "items"):
+            if k in cards_data and isinstance(cards_data[k], list):
+                cards_data = cards_data[k]
+                break
+        else:
+            cards_data = [cards_data]
+    if not isinstance(cards_data, list):
+        cards_data = [
+            {"question": f"Key concept in {payload.topic}", "answer": str(raw_response)[:200], "exam_trap": "Review syllabus notes"}
         ]
 
     inserted_cards = []
-    col = get_flashcards_collection()
+    col = None
+    try:
+        col = get_flashcards_collection()
+    except Exception as me:
+        logger.warning(f"Could not connect to MongoDB flashcards collection: {me}")
     now_iso = datetime.now(timezone.utc).isoformat()
 
-    for item in cards_data:
+    for idx, item in enumerate(cards_data):
+        if not isinstance(item, dict):
+            item = {"question": f"Question {idx+1}", "answer": str(item), "exam_trap": "Review course notes"}
+        card_id = str(uuid.uuid4())
         doc = {
+            "_id": card_id,
             "unit_code": payload.unit_code,
             "topic": payload.topic,
-            "question": item.get("question"),
-            "answer": item.get("answer"),
-            "exam_trap": item.get("exam_trap"),
+            "question": item.get("question", f"Question {idx+1}"),
+            "answer": item.get("answer", "Refer to course notes."),
+            "exam_trap": item.get("exam_trap", "Watch for key exam subtleties"),
             "repetitions": 0,
             "ease_factor": 2.5,
             "interval_days": 1,
             "next_review_at": now_iso,
             "created_at": now_iso
         }
-        res = await col.insert_one(doc)
-        doc["_id"] = str(res.inserted_id)
+        if col is not None:
+            try:
+                res = await asyncio.wait_for(col.insert_one(dict(doc)), timeout=3.0)
+                if res and res.inserted_id:
+                    doc["_id"] = str(res.inserted_id)
+            except Exception as mongo_err:
+                logger.warning(f"MongoDB flashcard insert warning: {mongo_err}")
         inserted_cards.append(doc)
 
     return {"status": "success", "cards": inserted_cards}
