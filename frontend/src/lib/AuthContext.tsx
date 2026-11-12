@@ -73,35 +73,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
+  const syncPendingGoogleUnits = useCallback(async (accessToken: string) => {
+    try {
+      if (typeof window === "undefined") return;
+      const raw = localStorage.getItem("edurag_pending_google_enrolled_units");
+      if (!raw) return;
+      const pendingUnits = JSON.parse(raw);
+      if (Array.isArray(pendingUnits) && pendingUnits.length > 0) {
+        // 1. Post any custom typed units
+        for (const u of pendingUnits) {
+          if (u && typeof u === "object" && u.code && u.name) {
+            try {
+              await fetch(`${API_BASE}/api/units`, {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${accessToken}`,
+                },
+                body: JSON.stringify({
+                  code: u.code,
+                  name: u.name,
+                  lecturer: u.lecturer || "Chiromo Faculty",
+                }),
+              });
+            } catch (e) {}
+          }
+        }
+        // 2. Enroll unit codes in profile
+        const codes = pendingUnits
+          .map((u: any) => (typeof u === "string" ? u.toUpperCase() : (u.code || "").toUpperCase()))
+          .filter(Boolean);
+
+        await fetch(`${API_BASE}/api/profiles/enroll`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ unit_codes: codes }),
+        });
+
+        localStorage.removeItem("edurag_pending_google_enrolled_units");
+      }
+    } catch (e) {
+      console.warn("Could not sync pending google enrolled units:", e);
+    }
+  }, []);
+
   const refreshProfile = useCallback(async () => {
     const { data: { session: s } } = await supabase.auth.getSession();
     if (s?.access_token) {
+      await syncPendingGoogleUnits(s.access_token);
       await fetchProfile(s.access_token);
     }
-  }, [fetchProfile]);
+  }, [fetchProfile, syncPendingGoogleUnits]);
 
   useEffect(() => {
     // 1. Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
       if (session?.access_token) {
-        fetchProfile(session.access_token);
+        await syncPendingGoogleUnits(session.access_token);
+        await fetchProfile(session.access_token);
       }
     });
 
     // 2. Listen for auth changes (sign in, sign out, token refresh)
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setIsLoading(false);
       if (session?.user) {
         setIsAuthModalOpen(false);
         if (session.access_token) {
-          fetchProfile(session.access_token);
+          await syncPendingGoogleUnits(session.access_token);
+          await fetchProfile(session.access_token);
         }
       } else {
         setProfile(null);
@@ -112,7 +162,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       subscription.unsubscribe();
     };
-  }, [fetchProfile]);
+  }, [fetchProfile, syncPendingGoogleUnits]);
 
   const openAuthModal = () => setIsAuthModalOpen(true);
   const closeAuthModal = () => setIsAuthModalOpen(false);
