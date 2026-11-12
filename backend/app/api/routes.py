@@ -1154,9 +1154,6 @@ OUTPUT:
         )
     except Exception as me:
         logger.warning(f"Could not update exam evaluation in MongoDB: {me}")
-            "is_completed": True
-        }}
-    )
     return {"status": "evaluated", "evaluation": evaluation_text}
 
 
