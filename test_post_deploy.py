@@ -102,12 +102,12 @@ async def run():
         except Exception as e:
             log("❌", "POST /api/mock-exams/generate", "ERR", str(e))
 
-        # 8. Mock exam evaluate (was 500 due to ObjectId mismatch)
+        # 8. Mock exam evaluate
         if exam_id:
             try:
                 r = await c.post(f"{BASE}/api/mock-exams/evaluate", json={
                     "exam_id": exam_id,
-                    "answers": {"q1": "Virtual memory allows processes to use more memory than physically available."}
+                    "student_submission": "Question 1: Virtual memory provides an abstraction of main memory using paging and segmentation to prevent fragmentation and enforce protection."
                 })
                 log("✅" if r.status_code == 200 else "❌", "POST /api/mock-exams/evaluate", r.status_code)
             except Exception as e:
