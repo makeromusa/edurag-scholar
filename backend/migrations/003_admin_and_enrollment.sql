@@ -5,30 +5,26 @@
 -- ============================================================
 
 -- 1. Extend profiles table
-ALTER TABLE profiles
+ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS is_admin      BOOLEAN   DEFAULT FALSE,
   ADD COLUMN IF NOT EXISTS enrolled_units TEXT[]   DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS full_name     TEXT;
 
--- 2. Set super admin
--- NOTE: Run AFTER makeromusa17@gmail.com has signed in at least once
--- (a profile row must exist). If the user doesn't exist yet, this UPDATE
--- will silently do nothing — re-run after first login.
-UPDATE profiles
+-- 2. Grant super admin privileges
+UPDATE public.profiles
 SET is_admin = TRUE
 WHERE email = 'makeromusa17@gmail.com';
 
--- 3. Extend units table
-ALTER TABLE units
+-- 3. Extend units table for custom student-typed units
+ALTER TABLE IF EXISTS public.units
   ADD COLUMN IF NOT EXISTS created_by      UUID,
   ADD COLUMN IF NOT EXISTS is_system_unit  BOOLEAN DEFAULT TRUE,
   ADD COLUMN IF NOT EXISTS status          TEXT    DEFAULT 'active';
 
--- Mark existing seeded units as system units
-UPDATE units SET is_system_unit = TRUE WHERE is_system_unit IS NULL;
+UPDATE public.units SET is_system_unit = TRUE WHERE is_system_unit IS NULL;
 
 -- 4. Create broadcasts table
-CREATE TABLE IF NOT EXISTS broadcasts (
+CREATE TABLE IF NOT EXISTS public.broadcasts (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   title       TEXT NOT NULL,
   body        TEXT NOT NULL,
@@ -39,7 +35,7 @@ CREATE TABLE IF NOT EXISTS broadcasts (
 );
 
 -- 5. Create admin_audit_log table
-CREATE TABLE IF NOT EXISTS admin_audit_log (
+CREATE TABLE IF NOT EXISTS public.admin_audit_log (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   admin_email TEXT,
   action      TEXT NOT NULL,
@@ -49,17 +45,23 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Grant service role access (required for admin client bypass of RLS)
-ALTER TABLE broadcasts        ENABLE ROW LEVEL SECURITY;
-ALTER TABLE admin_audit_log   ENABLE ROW LEVEL SECURITY;
+-- 6. Enable Row-Level Security (RLS)
+ALTER TABLE public.broadcasts      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.admin_audit_log ENABLE ROW LEVEL SECURITY;
 
--- Allow service role (used by backend admin client) full access
-CREATE POLICY IF NOT EXISTS "service_role_broadcasts" ON broadcasts
+-- 7. Safely configure RLS policies
+DROP POLICY IF EXISTS "service_role_broadcasts" ON public.broadcasts;
+CREATE POLICY "service_role_broadcasts" ON public.broadcasts
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
-CREATE POLICY IF NOT EXISTS "service_role_audit_log" ON admin_audit_log
+DROP POLICY IF EXISTS "service_role_audit_log" ON public.admin_audit_log;
+CREATE POLICY "service_role_audit_log" ON public.admin_audit_log
   FOR ALL TO service_role USING (true) WITH CHECK (true);
 
--- Public can read active broadcasts
-CREATE POLICY IF NOT EXISTS "public_read_active_broadcasts" ON broadcasts
+DROP POLICY IF EXISTS "public_read_active_broadcasts" ON public.broadcasts;
+CREATE POLICY "public_read_active_broadcasts" ON public.broadcasts
   FOR SELECT TO authenticated USING (is_active = TRUE);
+
+DROP POLICY IF EXISTS "anon_read_active_broadcasts" ON public.broadcasts;
+CREATE POLICY "anon_read_active_broadcasts" ON public.broadcasts
+  FOR SELECT TO anon USING (is_active = TRUE);
