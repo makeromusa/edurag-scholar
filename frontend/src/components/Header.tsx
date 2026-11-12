@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
-import { GraduationCap, LogOut, Menu, LogIn, UploadCloud, Trash2, ShieldAlert, Loader2, X, ChevronDown, User as UserIcon } from "lucide-react";
+import Link from "next/link";
+import { GraduationCap, LogOut, Menu, LogIn, UploadCloud, Trash2, ShieldAlert, Loader2, X, ChevronDown, User as UserIcon, Shield } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { Unit } from "./Sidebar";
 
@@ -20,7 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFlashcards,
   onToggleMobileSidebar,
 }) => {
-  const { user, session, signOut, openAuthModal, isLoading } = useAuth();
+  const { user, session, signOut, openAuthModal, isLoading, isAdmin } = useAuth();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -94,6 +95,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Controls: Quick Actions & Single Prominent Auth Button */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/30 hover:bg-amber-900/40 px-2.5 py-1.5 text-xs font-bold text-amber-300 transition shadow-sm"
+              title="Open Super Admin Dashboard"
+            >
+              <Shield className="h-3.5 w-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Admin Panel</span>
+            </Link>
+          )}
+
           <button
             onClick={onOpenUpload}
             className="hidden sm:flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-slate-700 hover:text-white"
@@ -137,10 +149,27 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="px-3 py-2 border-b border-slate-800/80 mb-1">
                     <p className="text-xs font-bold text-white truncate">{userDisplayName || "Scholar"}</p>
                     <p className="text-[11px] text-slate-400 truncate">{userEmail}</p>
-                    <span className="inline-block mt-1 text-[10px] font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 rounded px-1.5 py-0.5">
-                      RLS Protected Student
-                    </span>
+                    {isAdmin ? (
+                      <span className="inline-block mt-1 text-[10px] font-bold text-amber-300 bg-amber-950/60 border border-amber-500/30 rounded px-1.5 py-0.5">
+                        👑 Super Admin (EduRAG)
+                      </span>
+                    ) : (
+                      <span className="inline-block mt-1 text-[10px] font-medium text-emerald-400 bg-emerald-950/40 border border-emerald-500/20 rounded px-1.5 py-0.5">
+                        RLS Protected Student
+                      </span>
+                    )}
                   </div>
+
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      onClick={() => setIsAccountMenuOpen(false)}
+                      className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold text-amber-400 bg-amber-950/30 hover:bg-amber-900/40 border border-amber-500/30 transition mb-1"
+                    >
+                      <Shield className="h-4 w-4 text-amber-400" />
+                      <span>Admin Dashboard</span>
+                    </Link>
+                  )}
 
                   <button
                     onClick={() => {

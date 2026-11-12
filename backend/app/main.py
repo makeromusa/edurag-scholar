@@ -20,6 +20,7 @@ from app.core.limiter import limiter, custom_rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.api.routes import router as api_router
+from app.api.admin_routes import admin_router
 from app.routers.document_pipeline import router as pipeline_router
 from app.workers.abstractor import start_scheduler
 
@@ -79,6 +80,7 @@ app.add_middleware(
 
 # Register routes
 app.include_router(api_router, prefix="/api")
+app.include_router(admin_router, prefix="/api")
 app.include_router(pipeline_router)
 
 

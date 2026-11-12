@@ -162,6 +162,82 @@ def get_units():
     return {"units": res.data or []}
 
 
+@router.post("/units")
+async def create_unit(body: dict, authorization: Optional[str] = Header(None)):
+    """Allow an authenticated student to create a new unit (enrolled during signup)."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    code = (body.get("code") or "").strip().upper()
+    name = (body.get("name") or "").strip()
+    if not code or not name:
+        raise HTTPException(status_code=400, detail="Unit code and name are required.")
+    supabase = get_supabase_admin_client()
+    try:
+        # Upsert to avoid duplicate key errors
+        existing = supabase.table("units").select("id,code,name").ilike("code", code).execute()
+        if existing.data:
+            return {"unit": existing.data[0], "created": False}
+        row = {
+            "code": code,
+            "name": name,
+            "lecturer": body.get("lecturer") or "TBA",
+            "is_system_unit": False,
+            "status": "active",
+            "created_by": user["id"],
+        }
+        resp = supabase.table("units").insert(row).execute()
+        return {"unit": resp.data[0] if resp.data else row, "created": True}
+    except Exception as e:
+        logger.error(f"Create unit error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/profiles/me")
+async def get_my_profile(authorization: Optional[str] = Header(None)):
+    """Return the authenticated user's profile including is_admin and enrolled_units."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    supabase = get_supabase_admin_client()
+    try:
+        result = supabase.table("profiles").select("*").eq("id", user["id"]).maybe_single().execute()
+        profile = result.data or {}
+        SUPER_ADMIN_EMAIL = "makeromusa17@gmail.com"
+        if user["email"] == SUPER_ADMIN_EMAIL:
+            profile["is_admin"] = True
+        return {
+            "id": user["id"],
+            "email": user["email"],
+            "full_name": profile.get("full_name") or user.get("metadata", {}).get("full_name") or "",
+            "is_admin": profile.get("is_admin", False),
+            "enrolled_units": profile.get("enrolled_units") or [],
+        }
+    except Exception as e:
+        logger.error(f"Get profile error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/profiles/enroll")
+async def enroll_units(body: dict, authorization: Optional[str] = Header(None)):
+    """Save the student's enrolled unit codes."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    unit_codes = body.get("unit_codes") or []
+    if not isinstance(unit_codes, list):
+        raise HTTPException(status_code=400, detail="unit_codes must be a list.")
+    supabase = get_supabase_admin_client()
+    try:
+        # Normalize and deduplicate
+        codes = list(set(c.strip().upper() for c in unit_codes if c.strip()))[:8]
+        supabase.table("profiles").update({"enrolled_units": codes}).eq("id", user["id"]).execute()
+        return {"success": True, "enrolled_units": codes}
+    except Exception as e:
+        logger.error(f"Enroll units error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/timetable")
 def get_timetable():
     """Returns weekly teaching timetable slots."""

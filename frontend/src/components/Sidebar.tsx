@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   GraduationCap,
   BookOpen,
@@ -16,6 +17,7 @@ import {
   LogIn,
   User as UserIcon,
   X,
+  Shield,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -57,7 +59,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen = false,
   onClose,
 }) => {
-  const { user, signOut, openAuthModal } = useAuth();
+  const { user, signOut, openAuthModal, isAdmin } = useAuth();
 
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Asman Musa";
   const userEmail = user?.email || "asmanmakero@gmail.com";
@@ -241,6 +243,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
               Venue: LG01 Chiromo
             </div>
           </div>
+
+          {/* Super Admin Command Shortcut */}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => {
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center justify-between rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-orange-500/10 px-3 py-2 text-xs font-bold text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-500/30 mb-2"
+            >
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-amber-400" />
+                <span>Admin Command</span>
+              </div>
+              <span className="text-[10px] uppercase font-mono bg-amber-950/80 px-1.5 py-0.5 rounded text-amber-200 border border-amber-500/30">
+                Portal
+              </span>
+            </Link>
+          )}
 
           {/* User Account State */}
           {user ? (

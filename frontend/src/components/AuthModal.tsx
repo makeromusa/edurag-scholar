@@ -1,8 +1,41 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, Mail, Lock, User as UserIcon, AlertCircle, CheckCircle2, ArrowRight, Loader2, KeyRound, RefreshCw, ArrowLeft } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  Mail,
+  Lock,
+  User as UserIcon,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight,
+  ArrowLeft,
+  Loader2,
+  KeyRound,
+  RefreshCw,
+  Plus,
+  BookOpen,
+  Search,
+  Check,
+  Sparkles,
+} from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+
+interface AvailableUnit {
+  code: string;
+  name: string;
+  lecturer?: string;
+}
+
+const DEFAULT_UNITS: AvailableUnit[] = [
+  { code: "CSC 311", name: "Design & Analysis of Algorithms", lecturer: "Prof. Okeyo" },
+  { code: "CSC 313", name: "Computer Architecture & Organization", lecturer: "Dr. Wagacha" },
+  { code: "CSC 315", name: "Operating Systems Principles", lecturer: "Dr. Miriti" },
+  { code: "CSC 317", name: "Advanced Database Systems", lecturer: "Prof. Omwenga" },
+  { code: "CSC 323", name: "Software Engineering Principles", lecturer: "Dr. Chepken" },
+  { code: "CSC 325", name: "Artificial Intelligence Foundations", lecturer: "Dr. McOnyango" },
+  { code: "SMA 301", name: "Ordinary Differential Equations", lecturer: "Prof. Pokhariyal" },
+];
 
 export const AuthModal: React.FC = () => {
   const {
@@ -13,23 +46,61 @@ export const AuthModal: React.FC = () => {
     signUpWithEmail,
     resetPasswordForEmail,
     resendVerificationEmail,
+    refreshProfile,
   } = useAuth();
 
   const [tab, setTab] = useState<"signin" | "signup" | "forgot">("signin");
+  const [signupStep, setSignupStep] = useState<1 | 2>(1);
+
+  // Step 1 Fields
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+
+  // Step 2 Fields: Unit Enrolment
+  const [systemUnits, setSystemUnits] = useState<AvailableUnit[]>(DEFAULT_UNITS);
+  const [searchFilter, setSearchFilter] = useState("");
+  const [enrolledUnits, setEnrolledUnits] = useState<AvailableUnit[]>([
+    DEFAULT_UNITS[0],
+    DEFAULT_UNITS[1],
+  ]);
+
+  // Custom unit typed from scratch
+  const [customCode, setCustomCode] = useState("");
+  const [customName, setCustomName] = useState("");
+  const [customLecturer, setCustomLecturer] = useState("");
+  const [customUnitError, setCustomUnitError] = useState<string | null>(null);
+
+  // States
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showResend, setShowResend] = useState(false);
 
+  // Fetch available units from backend on mount
+  useEffect(() => {
+    if (!isAuthModalOpen) return;
+    const fetchUnits = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+        const res = await fetch(`${apiUrl}/api/units`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.units) && data.units.length > 0) {
+            setSystemUnits(data.units);
+          }
+        }
+      } catch (e) {
+        // Fallback to DEFAULT_UNITS
+      }
+    };
+    fetchUnits();
+  }, [isAuthModalOpen]);
+
   if (!isAuthModalOpen) return null;
 
-  const validateEmail = (val: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
-  };
+  const validateEmail = (val: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,7 +150,146 @@ export const AuthModal: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleStep1Next = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg(null);
+
+    const cleanEmail = email.trim();
+    if (!validateEmail(cleanEmail)) {
+      setErrorMsg("Please provide a valid university or personal email address.");
+      return;
+    }
+    if (password.length < 6) {
+      setErrorMsg("Password must be at least 6 characters long.");
+      return;
+    }
+    setSignupStep(2);
+  };
+
+  const handleAddCustomUnit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setCustomUnitError(null);
+
+    const code = customCode.trim().toUpperCase();
+    const name = customName.trim();
+    const lecturer = customLecturer.trim() || "Chiromo Faculty";
+
+    if (!code || !name) {
+      setCustomUnitError("Both Unit Code (e.g. CSC 421) and Unit Name are required.");
+      return;
+    }
+
+    if (enrolledUnits.some((u) => u.code.toUpperCase() === code)) {
+      setCustomUnitError(`Unit ${code} is already in your selected list.`);
+      return;
+    }
+
+    if (enrolledUnits.length >= 8) {
+      setCustomUnitError("Maximum 8 units can be enrolled at one time.");
+      return;
+    }
+
+    const newUnit: AvailableUnit = { code, name, lecturer };
+    setEnrolledUnits([...enrolledUnits, newUnit]);
+    setCustomCode("");
+    setCustomName("");
+    setCustomLecturer("");
+  };
+
+  const toggleUnitEnrolment = (unit: AvailableUnit) => {
+    if (enrolledUnits.some((u) => u.code.toUpperCase() === unit.code.toUpperCase())) {
+      setEnrolledUnits(enrolledUnits.filter((u) => u.code.toUpperCase() !== unit.code.toUpperCase()));
+    } else {
+      if (enrolledUnits.length >= 8) {
+        setErrorMsg("Maximum 8 units can be enrolled during signup.");
+        return;
+      }
+      setEnrolledUnits([...enrolledUnits, unit]);
+    }
+  };
+
+  const handleCompleteSignup = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setLoading(true);
+
+    const cleanEmail = email.trim();
+    const unitCodes = enrolledUnits.map((u) => u.code.toUpperCase());
+
+    try {
+      const { error, data } = await signUpWithEmail(cleanEmail, password, fullName.trim());
+      if (error) {
+        if (error.message?.toLowerCase().includes("already registered")) {
+          setErrorMsg("This email is already registered. Please sign in instead.");
+          setTab("signin");
+          setSignupStep(1);
+        } else {
+          setErrorMsg(error.message || "Failed to create account.");
+        }
+        setLoading(false);
+        return;
+      }
+
+      const token = data?.session?.access_token;
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+
+      // If session exists immediately, enroll custom units & profile units
+      if (token) {
+        // 1. Post custom units from scratch so they are saved to units table
+        for (const u of enrolledUnits) {
+          try {
+            await fetch(`${apiUrl}/api/units`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                code: u.code,
+                name: u.name,
+                lecturer: u.lecturer || "Chiromo Faculty",
+              }),
+            });
+          } catch (e) {
+            // Non-fatal
+          }
+        }
+
+        // 2. Save enrolled units to profile
+        try {
+          await fetch(`${apiUrl}/api/profiles/enroll`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ unit_codes: unitCodes }),
+          });
+          await refreshProfile();
+        } catch (e) {
+          // Non-fatal
+        }
+
+        closeAuthModal();
+      } else {
+        // Email confirmation is required by Supabase: persist in localStorage for first login
+        try {
+          localStorage.setItem("edurag_pending_enrolled_units", JSON.stringify(unitCodes));
+        } catch (e) {}
+
+        setSuccessMsg(
+          `Account created with ${unitCodes.length} enrolled units! A verification email has been sent to ${cleanEmail}. Please verify your email to log in.`
+        );
+        setShowResend(true);
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "An unexpected error occurred during signup.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -87,48 +297,28 @@ export const AuthModal: React.FC = () => {
 
     const cleanEmail = email.trim();
     if (!validateEmail(cleanEmail)) {
-      setErrorMsg("Please provide a valid university or personal email address.");
+      setErrorMsg("Please provide a valid email address.");
       return;
     }
-
     if (password.length < 6) {
       setErrorMsg("Password must be at least 6 characters long.");
       return;
     }
 
     setLoading(true);
-
     try {
-      if (tab === "signin") {
-        const { error } = await signInWithEmail(cleanEmail, password);
-        if (error) {
-          if (error.message?.toLowerCase().includes("email not confirmed")) {
-            setErrorMsg("Email not confirmed yet. Please verify your email before logging in.");
-            setShowResend(true);
-          } else if (error.message?.toLowerCase().includes("invalid login credentials")) {
-            setErrorMsg("Incorrect email or password. Please check your credentials or reset your password.");
-          } else {
-            setErrorMsg(error.message || "Failed to sign in. Check your credentials.");
-          }
+      const { error } = await signInWithEmail(cleanEmail, password);
+      if (error) {
+        if (error.message?.toLowerCase().includes("email not confirmed")) {
+          setErrorMsg("Email not confirmed yet. Please verify your email before logging in.");
+          setShowResend(true);
+        } else if (error.message?.toLowerCase().includes("invalid login credentials")) {
+          setErrorMsg("Incorrect email or password. Please check your credentials.");
         } else {
-          closeAuthModal();
+          setErrorMsg(error.message || "Failed to sign in. Check your credentials.");
         }
       } else {
-        const { error, data } = await signUpWithEmail(cleanEmail, password, fullName.trim());
-        if (error) {
-          if (error.message?.toLowerCase().includes("already registered")) {
-            setErrorMsg("This email is already registered. Please sign in instead.");
-            setTab("signin");
-          } else {
-            setErrorMsg(error.message || "Failed to create account.");
-          }
-        } else if (data?.user && !data.session) {
-          // Email confirmation is required by Supabase
-          setSuccessMsg(`Account created! A verification link has been sent to ${cleanEmail}. Please verify your email to log in.`);
-          setShowResend(true);
-        } else {
-          closeAuthModal();
-        }
+        closeAuthModal();
       }
     } catch (err: any) {
       setErrorMsg(err.message || "An unexpected error occurred.");
@@ -137,42 +327,61 @@ export const AuthModal: React.FC = () => {
     }
   };
 
+  const filteredUnits = systemUnits.filter((u) => {
+    const q = searchFilter.toLowerCase();
+    return u.code.toLowerCase().includes(q) || u.name.toLowerCase().includes(q);
+  });
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-slate-800 bg-[#0c111d] p-6 shadow-2xl sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+      <div
+        className={`relative w-full overflow-hidden rounded-2xl border border-slate-800 bg-[#0a0f1d] p-5 sm:p-7 shadow-2xl transition-all duration-300 max-h-[92vh] flex flex-col ${
+          tab === "signup" && signupStep === 2 ? "max-w-2xl" : "max-w-md"
+        }`}
+      >
         {/* Close Button */}
         <button
           onClick={closeAuthModal}
-          className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+          className="absolute right-4 top-4 z-10 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
 
         {/* Brand Header */}
-        <div className="text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600/20 text-blue-400 border border-blue-500/30 mb-3">
-            {tab === "forgot" ? <KeyRound className="h-6 w-6" /> : <UserIcon className="h-6 w-6" />}
+        <div className="text-center shrink-0">
+          <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600/30 to-violet-600/20 text-blue-400 border border-blue-500/30 mb-2.5 shadow-inner">
+            {tab === "forgot" ? (
+              <KeyRound className="h-5 w-5" />
+            ) : tab === "signup" && signupStep === 2 ? (
+              <BookOpen className="h-5 w-5 text-violet-400" />
+            ) : (
+              <UserIcon className="h-5 w-5 text-blue-400" />
+            )}
           </div>
-          <h2 className="text-xl font-bold text-white tracking-tight">
+          <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
             {tab === "signin"
               ? "Welcome Back to EduRAG"
-              : tab === "signup"
+              : tab === "forgot"
+              ? "Reset Your Password"
+              : signupStep === 1
               ? "Create Your Scholar Account"
-              : "Reset Your Password"}
+              : "Academic Unit Enrolment"}
           </h2>
-          <p className="mt-1 text-xs text-slate-400">
+          <p className="mt-0.5 text-xs text-slate-400">
             {tab === "signin"
-              ? "Access your unit-isolated lecture notes, flashcards & past papers"
-              : tab === "signup"
-              ? "Set up your personal academic copilot with isolated storage"
-              : "Enter your registered email to receive a secure recovery link"}
+              ? "Sign in to access your unit lecture notes, exams & flashcards"
+              : tab === "forgot"
+              ? "Enter your registered email to receive a password recovery link"
+              : signupStep === 1
+              ? "Step 1 of 2: Scholar identity & security credentials"
+              : "Step 2 of 2: Select courses or type custom units from scratch (up to 8)"}
           </p>
         </div>
 
-        {/* Tab Switcher (Visible only when not in forgot mode) */}
-        {tab !== "forgot" ? (
-          <div className="mt-6 flex rounded-xl border border-slate-800 bg-slate-900/60 p-1">
+        {/* Tab Switcher (Step 1 only) */}
+        {tab !== "forgot" && signupStep === 1 && (
+          <div className="mt-4 flex rounded-xl border border-slate-800 bg-slate-900/60 p-1 shrink-0">
             <button
               type="button"
               onClick={() => {
@@ -181,7 +390,7 @@ export const AuthModal: React.FC = () => {
                 setSuccessMsg(null);
                 setShowResend(false);
               }}
-              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 tab === "signin" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
               }`}
             >
@@ -191,41 +400,43 @@ export const AuthModal: React.FC = () => {
               type="button"
               onClick={() => {
                 setTab("signup");
+                setSignupStep(1);
                 setErrorMsg(null);
                 setSuccessMsg(null);
                 setShowResend(false);
               }}
-              className={`flex-1 rounded-lg py-2 text-xs font-semibold transition ${
+              className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${
                 tab === "signup" ? "bg-blue-600 text-white shadow-sm" : "text-slate-400 hover:text-white"
               }`}
             >
               Create Account
             </button>
           </div>
-        ) : (
-          <div className="mt-4">
-            <button
-              type="button"
-              onClick={() => {
-                setTab("signin");
-                setErrorMsg(null);
-                setSuccessMsg(null);
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition font-medium"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Back to Sign In</span>
-            </button>
+        )}
+
+        {/* Step Indicator when in signup */}
+        {tab === "signup" && (
+          <div className="mt-3 flex items-center justify-center gap-2 shrink-0">
+            <span
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                signupStep === 1 ? "w-8 bg-blue-500" : "w-2.5 bg-blue-500/40"
+              }`}
+            />
+            <span
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                signupStep === 2 ? "w-8 bg-violet-500" : "w-2.5 bg-slate-700"
+              }`}
+            />
           </div>
         )}
 
-        {/* 1-Click Google OAuth (Only for sign in/up) */}
-        {tab !== "forgot" && (
-          <div className="mt-5">
+        {/* 1-Click Google OAuth (Only on Step 1) */}
+        {tab !== "forgot" && signupStep === 1 && (
+          <div className="mt-4 shrink-0">
             <button
               type="button"
               onClick={signInWithGoogle}
-              className="flex w-full items-center justify-center gap-3 rounded-xl border border-slate-700 bg-white hover:bg-slate-100 text-slate-900 px-4 py-2.5 text-xs font-bold shadow-md transition active:scale-[0.99]"
+              className="flex w-full items-center justify-center gap-2.5 rounded-xl border border-slate-700 bg-white hover:bg-slate-100 text-slate-900 px-4 py-2 text-xs font-bold shadow-md transition active:scale-[0.99]"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24">
                 <path
@@ -247,23 +458,20 @@ export const AuthModal: React.FC = () => {
               </svg>
               <span>Continue with Google</span>
             </button>
-          </div>
-        )}
 
-        {/* Divider */}
-        {tab !== "forgot" && (
-          <div className="relative my-5 flex items-center justify-center">
-            <div className="w-full border-t border-slate-800"></div>
-            <span className="absolute bg-[#0c111d] px-3 text-[11px] font-medium text-slate-500 uppercase tracking-wider">
-              or with email
-            </span>
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="w-full border-t border-slate-800"></div>
+              <span className="absolute bg-[#0a0f1d] px-2.5 text-[10px] font-medium text-slate-500 uppercase tracking-wider">
+                or with email
+              </span>
+            </div>
           </div>
         )}
 
         {/* Feedback Alerts */}
         {errorMsg && (
-          <div className="mb-4 flex flex-col gap-2 rounded-xl border border-rose-500/30 bg-rose-950/20 p-3 text-xs text-rose-300">
-            <div className="flex items-start gap-2.5">
+          <div className="mt-3 shrink-0 flex flex-col gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/20 p-2.5 text-xs text-rose-300">
+            <div className="flex items-start gap-2">
               <AlertCircle className="h-4 w-4 shrink-0 text-rose-400 mt-0.5" />
               <span>{errorMsg}</span>
             </div>
@@ -282,82 +490,80 @@ export const AuthModal: React.FC = () => {
         )}
 
         {successMsg && (
-          <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3 text-xs text-emerald-300">
+          <div className="mt-3 shrink-0 flex items-start gap-2 rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-2.5 text-xs text-emerald-300">
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400 mt-0.5" />
             <span>{successMsg}</span>
           </div>
         )}
 
-        {/* Forms: Signin / Signup OR Forgot Password */}
-        {tab === "forgot" ? (
-          <form onSubmit={handlePasswordReset} className="mt-4 space-y-3.5">
-            <div>
-              <label className="text-xs font-semibold text-slate-300">Registered Email Address</label>
-              <div className="relative mt-1">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@uon.ac.ke or gmail.com"
-                  className="w-full rounded-xl border border-slate-800 bg-[#090d16] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
-                />
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <span>Send Password Reset Link</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </>
-              )}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleSubmit} className="space-y-3.5">
-            {tab === "signup" && (
+        {/* Main Body */}
+        <div className="mt-3 overflow-y-auto pr-1 flex-1">
+          {tab === "forgot" ? (
+            /* Forgot Password Form */
+            <form onSubmit={handlePasswordReset} className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-slate-300">Full Name (optional)</label>
+                <label className="text-xs font-semibold text-slate-300">Registered Email Address</label>
                 <div className="relative mt-1">
-                  <UserIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
                   <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Asman Musa"
-                    className="w-full rounded-xl border border-slate-800 bg-[#090d16] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@uon.ac.ke or gmail.com"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
                   />
                 </div>
               </div>
-            )}
 
-            <div>
-              <label className="text-xs font-semibold text-slate-300">Email Address</label>
-              <div className="relative mt-1">
-                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="student@uon.ac.ke or gmail.com"
-                  className="w-full rounded-xl border border-slate-800 bg-[#090d16] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
-                />
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Send Password Reset Link</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setTab("signin");
+                  setErrorMsg(null);
+                  setSuccessMsg(null);
+                }}
+                className="w-full text-center text-xs text-slate-400 hover:text-white transition pt-2"
+              >
+                Back to Sign In
+              </button>
+            </form>
+          ) : tab === "signin" ? (
+            /* Sign In Form */
+            <form onSubmit={handleSignInSubmit} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@uon.ac.ke or gmail.com"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div>
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-semibold text-slate-300">Password</label>
-                {tab === "signin" && (
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300">Password</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -369,38 +575,271 @@ export const AuthModal: React.FC = () => {
                   >
                     Forgot password?
                   </button>
+                </div>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+              >
+                {loading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <span>Sign In to Account</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
+          ) : signupStep === 1 ? (
+            /* Sign Up Step 1: Credentials */
+            <form onSubmit={handleStep1Next} className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Full Name</label>
+                <div className="relative mt-1">
+                  <UserIcon className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="e.g. Asman Musa"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Email Address</label>
+                <div className="relative mt-1">
+                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="student@uon.ac.ke or personal email"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300">Create Password</label>
+                <div className="relative mt-1">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
+                  <input
+                    type="password"
+                    required
+                    minLength={6}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="At least 6 characters"
+                    className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99]"
+              >
+                <span>Continue to Unit Enrolment</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </form>
+          ) : (
+            /* Sign Up Step 2: Advanced Unit Enrolment (Select + Type From Scratch) */
+            <div className="space-y-4">
+              {/* Selected Units Summary Chips */}
+              <div className="rounded-xl border border-slate-800/80 bg-[#050812] p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-violet-400" />
+                    <span className="text-xs font-bold text-white">Your Enrolled Courses</span>
+                  </div>
+                  <span className="text-[11px] font-semibold text-violet-300 bg-violet-950/60 border border-violet-500/30 px-2 py-0.5 rounded-full">
+                    {enrolledUnits.length} / 8 Units Selected
+                  </span>
+                </div>
+
+                {enrolledUnits.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic py-1">
+                    No units chosen yet. Select from Chiromo courses below or type your units from scratch.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                    {enrolledUnits.map((u) => (
+                      <span
+                        key={u.code}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-violet-500/40 bg-violet-950/40 px-2.5 py-1 text-[11px] font-medium text-violet-200 shadow-sm"
+                      >
+                        <span className="font-bold text-violet-100">{u.code}</span>
+                        <span className="text-slate-400 max-w-[120px] truncate">{u.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleUnitEnrolment(u)}
+                          className="text-violet-400 hover:text-rose-400 transition ml-0.5"
+                          title="Remove unit"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
-              <div className="relative mt-1">
-                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" />
-                <input
-                  type="password"
-                  required
-                  minLength={6}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full rounded-xl border border-slate-800 bg-[#090d16] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
-                />
+
+              {/* Advanced: Type Unit from Scratch */}
+              <div className="rounded-xl border border-blue-500/20 bg-blue-950/10 p-3.5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="flex h-5 w-5 items-center justify-center rounded-md bg-blue-600/30 text-blue-400 text-xs font-bold">
+                    +
+                  </div>
+                  <h4 className="text-xs font-bold text-white">Type a Custom Unit from Scratch</h4>
+                </div>
+                <p className="text-[11px] text-slate-400 mb-2.5">
+                  Taking a new course, elective, or postgraduate unit? Enter the code and title directly to initialize isolated AI memory.
+                </p>
+
+                {customUnitError && (
+                  <div className="mb-2 text-[11px] text-rose-300 bg-rose-950/30 border border-rose-500/30 rounded-lg p-2">
+                    {customUnitError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <input
+                      type="text"
+                      value={customCode}
+                      onChange={(e) => setCustomCode(e.target.value)}
+                      placeholder="Code (e.g. CSC 421)"
+                      className="w-full rounded-lg border border-slate-800 bg-[#060a14] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none font-semibold uppercase"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <input
+                      type="text"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="Course Title (e.g. Distributed Cloud Computing)"
+                      className="w-full rounded-lg border border-slate-800 bg-[#060a14] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-2 flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={customLecturer}
+                    onChange={(e) => setCustomLecturer(e.target.value)}
+                    placeholder="Lecturer / Professor (optional)"
+                    className="flex-1 rounded-lg border border-slate-800 bg-[#060a14] px-2.5 py-1.5 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCustomUnit}
+                    className="flex items-center gap-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-1.5 text-xs font-bold text-white transition shrink-0"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Add Unit</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Chiromo Curriculum Units (Select / Filter) */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-300">Select Existing Chiromo Units</label>
+                  <div className="relative w-44">
+                    <Search className="absolute left-2 top-1.5 h-3 w-3 text-slate-500" />
+                    <input
+                      type="text"
+                      value={searchFilter}
+                      onChange={(e) => setSearchFilter(e.target.value)}
+                      placeholder="Filter units..."
+                      className="w-full rounded-lg border border-slate-800 bg-[#060a14] py-1 pl-7 pr-2 text-[11px] text-white placeholder-slate-500 focus:border-violet-500 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-36 overflow-y-auto pr-1">
+                  {filteredUnits.map((u) => {
+                    const isSelected = enrolledUnits.some((e) => e.code.toUpperCase() === u.code.toUpperCase());
+                    return (
+                      <button
+                        key={u.code}
+                        type="button"
+                        onClick={() => toggleUnitEnrolment(u)}
+                        className={`flex items-start justify-between rounded-xl border p-2 text-left transition ${
+                          isSelected
+                            ? "border-violet-500/60 bg-violet-950/30 text-white shadow-sm"
+                            : "border-slate-800/80 bg-[#060a14] text-slate-300 hover:border-slate-700 hover:bg-[#0c1220]"
+                        }`}
+                      >
+                        <div className="min-w-0 pr-2">
+                          <p className="text-xs font-bold text-violet-300 truncate">{u.code}</p>
+                          <p className="text-[11px] text-slate-300 truncate">{u.name}</p>
+                          {u.lecturer && <p className="text-[10px] text-slate-500 truncate">{u.lecturer}</p>}
+                        </div>
+                        <div
+                          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded ${
+                            isSelected ? "bg-violet-600 text-white" : "border border-slate-700 bg-slate-900"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3 w-3" />}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Navigation Actions */}
+              <div className="flex items-center justify-between gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setSignupStep(1)}
+                  className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800 px-3.5 py-2 text-xs font-semibold text-slate-300 transition"
+                >
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  <span>Back</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCompleteSignup}
+                  disabled={loading || enrolledUnits.length === 0}
+                  className="flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
+                >
+                  {loading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <span>Complete Registration & Launch</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
               </div>
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 py-2.5 text-xs font-bold text-white shadow-lg transition active:scale-[0.99] disabled:opacity-50"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <>
-                  <span>{tab === "signin" ? "Sign In to Account" : "Create Account & Verify"}</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </>
-              )}
-            </button>
-          </form>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
