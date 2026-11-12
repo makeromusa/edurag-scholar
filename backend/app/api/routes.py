@@ -164,27 +164,26 @@ def get_units():
 
 @router.post("/units")
 async def create_unit(body: dict, authorization: Optional[str] = Header(None)):
-    """Allow an authenticated student to create a new unit (enrolled during signup)."""
+    """Allow creating a new unit (from signup, custom typing, or admin)."""
     user = get_user_from_header(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="Authentication required.")
     code = (body.get("code") or "").strip().upper()
     name = (body.get("name") or "").strip()
     if not code or not name:
         raise HTTPException(status_code=400, detail="Unit code and name are required.")
     supabase = get_supabase_admin_client()
     try:
-        # Upsert to avoid duplicate key errors
-        existing = supabase.table("units").select("id,code,name").ilike("code", code).execute()
+        # Check if already exists
+        existing = supabase.table("units").select("id,code,name,lecturer,venue").ilike("code", code).execute()
         if existing.data:
             return {"unit": existing.data[0], "created": False}
         row = {
             "code": code,
             "name": name,
-            "lecturer": body.get("lecturer") or "TBA",
+            "lecturer": body.get("lecturer") or "Chiromo Faculty",
+            "venue": body.get("venue") or "Chiromo Campus",
             "is_system_unit": False,
             "status": "active",
-            "created_by": user["id"],
+            "created_by": user["id"] if user else None,
         }
         resp = supabase.table("units").insert(row).execute()
         return {"unit": resp.data[0] if resp.data else row, "created": True}
@@ -286,15 +285,29 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
 @router.get("/documents/list")
 def list_documents(unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
     """
-    Returns ingested documents with page counts, storage URLs, and real-time processing status.
-    Guarantees zero-500 execution: all course documents are universally available to students.
+    Returns ingested documents with user privacy isolation:
+    - Super Admin (makeromusa17@gmail.com) sees all documents.
+    - Other authenticated students only see their own uploaded documents + system course documents (uploaded_by IS NULL).
+    - Unauthenticated guests only see system course documents (uploaded_by IS NULL).
     """
     import urllib.parse
     try:
+        user = get_user_from_header(authorization)
         client = get_supabase_admin_client()
-        query = client.table("documents").select("id, unit_code, title, file_type, page_count, is_processed, file_size_bytes, uploaded_at, uploaded_by, storage_url")
+        query = client.table("documents").select(
+            "id, unit_code, title, file_type, page_count, is_processed, file_size_bytes, uploaded_at, uploaded_by, storage_url"
+        )
         if unit_code:
             query = query.eq("unit_code", unit_code)
+        
+        # Privacy isolation:
+        is_super_admin = user and user.get("email") == "makeromusa17@gmail.com"
+        if not is_super_admin:
+            if user:
+                user_id = str(user["id"])
+                query = query.or_(f"uploaded_by.eq.{user_id},uploaded_by.is.null")
+            else:
+                query = query.is_("uploaded_by", "null")
         
         try:
             res = query.order("uploaded_at", desc=True).limit(100).execute()

@@ -238,9 +238,23 @@ export const AuthModal: React.FC = () => {
 
     const newUnit: AvailableUnit = { code, name, lecturer };
     setEnrolledUnits([...enrolledUnits, newUnit]);
+    setSystemUnits((prev) => {
+      if (prev.some((u) => u.code.toUpperCase() === code)) return prev;
+      return [...prev, newUnit];
+    });
     setCustomCode("");
     setCustomName("");
     setCustomLecturer("");
+
+    // Persist immediately to units table so it is stored in database
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      fetch(`${apiUrl}/api/units`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, name, lecturer }),
+      }).catch(() => {});
+    } catch (e) {}
   };
 
   const toggleUnitEnrolment = (unit: AvailableUnit) => {

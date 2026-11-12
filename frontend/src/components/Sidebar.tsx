@@ -59,11 +59,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen = false,
   onClose,
 }) => {
-  const { user, signOut, openAuthModal, isAdmin } = useAuth();
+  const { user, signOut, openAuthModal, isAdmin, profile } = useAuth();
 
   const userDisplayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Asman Musa";
   const userEmail = user?.email || "asmanmakero@gmail.com";
   const userAvatar = user?.user_metadata?.avatar_url;
+
+  const enrolledUnitCodes = (profile?.enrolled_units || []).map((c: string) => c.toUpperCase());
+  const myEnrolledUnits = enrolledUnitCodes.map((code: string) => {
+    const existing = units.find((u) => u.code.toUpperCase() === code);
+    return existing || { code, name: "Enrolled Course", lecturer: "Chiromo Faculty", venue: "Campus" };
+  });
+  const otherUnits = units.filter((u) => !enrolledUnitCodes.includes(u.code.toUpperCase()));
 
   const handleUnitClick = (code: string) => {
     onSelectUnit(code);
@@ -192,42 +199,116 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* The 7 Units Nav */}
-        <div className="flex-1 overflow-y-auto px-3 py-2">
-          <div className="mb-2 flex items-center justify-between px-2">
-            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-              The 7 Course Units
-            </span>
-            <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
-              {units.length} Units
-            </span>
-          </div>
+        {/* Units Navigation */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
+          {myEnrolledUnits.length > 0 ? (
+            <div>
+              <div className="mb-2 flex items-center justify-between px-2">
+                <span className="text-[10px] font-bold tracking-wider text-violet-300 uppercase flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
+                  <span>My Enrolled Courses</span>
+                </span>
+                <span className="rounded bg-violet-950/80 border border-violet-500/30 px-1.5 py-0.5 text-[10px] font-bold text-violet-200">
+                  {myEnrolledUnits.length} Enrolled
+                </span>
+              </div>
 
-          <nav className="space-y-1">
-            {units.map((unit) => {
-              const isSelected = selectedUnit === unit.code;
-              return (
-                <button
-                  key={unit.code}
-                  onClick={() => handleUnitClick(unit.code)}
-                  className={`flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition ${
-                    isSelected
-                      ? "border border-blue-500/40 bg-blue-600/15 text-white shadow-inner"
-                      : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                  }`}
-                >
-                  <div className="flex w-full items-center justify-between">
-                    <span className={`text-xs font-bold ${isSelected ? "text-blue-400" : "text-slate-300"}`}>
-                      {unit.code}
+              <nav className="space-y-1">
+                {myEnrolledUnits.map((unit) => {
+                  const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
+                  return (
+                    <button
+                      key={unit.code}
+                      onClick={() => handleUnitClick(unit.code)}
+                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition ${
+                        isSelected
+                          ? "border border-violet-500/50 bg-violet-600/20 text-white shadow-inner"
+                          : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className={`text-xs font-bold ${isSelected ? "text-violet-300" : "text-slate-300"}`}>
+                          {unit.code}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{unit.venue || "Campus"}</span>
+                      </div>
+                      <span className="line-clamp-1 text-[11px] text-slate-400">{unit.name}</span>
+                      <span className="text-[10px] text-slate-500">{unit.lecturer}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+
+              {otherUnits.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-slate-800/80">
+                  <div className="mb-2 flex items-center justify-between px-2">
+                    <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
+                      Other Chiromo Units
                     </span>
-                    <span className="text-[10px] text-slate-500">{unit.venue}</span>
+                    <span className="text-[10px] text-slate-600">{otherUnits.length}</span>
                   </div>
-                  <span className="line-clamp-1 text-[11px] text-slate-400">{unit.name}</span>
-                  <span className="text-[10px] text-slate-500">{unit.lecturer}</span>
-                </button>
-              );
-            })}
-          </nav>
+                  <nav className="space-y-1">
+                    {otherUnits.map((unit) => {
+                      const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
+                      return (
+                        <button
+                          key={unit.code}
+                          onClick={() => handleUnitClick(unit.code)}
+                          className={`flex w-full flex-col items-start rounded-lg px-3 py-1.5 text-left transition ${
+                            isSelected
+                              ? "border border-blue-500/40 bg-blue-600/15 text-white"
+                              : "text-slate-500 hover:bg-slate-800/40 hover:text-slate-300"
+                          }`}
+                        >
+                          <div className="flex w-full items-center justify-between">
+                            <span className="text-[11px] font-bold text-slate-400">{unit.code}</span>
+                          </div>
+                          <span className="line-clamp-1 text-[10px] text-slate-500">{unit.name}</span>
+                        </button>
+                      );
+                    })}
+                  </nav>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div>
+              <div className="mb-2 flex items-center justify-between px-2">
+                <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                  The 7 Course Units
+                </span>
+                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
+                  {units.length} Units
+                </span>
+              </div>
+
+              <nav className="space-y-1">
+                {units.map((unit) => {
+                  const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
+                  return (
+                    <button
+                      key={unit.code}
+                      onClick={() => handleUnitClick(unit.code)}
+                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition ${
+                        isSelected
+                          ? "border border-blue-500/40 bg-blue-600/15 text-white shadow-inner"
+                          : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                      }`}
+                    >
+                      <div className="flex w-full items-center justify-between">
+                        <span className={`text-xs font-bold ${isSelected ? "text-blue-400" : "text-slate-300"}`}>
+                          {unit.code}
+                        </span>
+                        <span className="text-[10px] text-slate-500">{unit.venue}</span>
+                      </div>
+                      <span className="line-clamp-1 text-[11px] text-slate-400">{unit.name}</span>
+                      <span className="text-[10px] text-slate-500">{unit.lecturer}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
         </div>
 
         {/* Semester Countdown & Account Footer */}

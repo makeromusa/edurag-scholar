@@ -18,6 +18,7 @@ import { RevisionQAModal } from "@/components/RevisionQAModal";
 import { DocumentPipelinesModal } from "@/components/DocumentPipelinesModal";
 import { Footer } from "@/components/Footer";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { useAuth } from "@/lib/AuthContext";
 
 const DEFAULT_UNITS: Unit[] = [
   { code: "SMA 2114", name: "Differential and Integral Calculus", lecturer: "Dr. Okeyo", venue: "LG01" },
@@ -48,6 +49,7 @@ export default function Home() {
   const [briefingMarkdown, setBriefingMarkdown] = useState<string | undefined>(undefined);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "documents">("chat");
+  const { user, profile } = useAuth();
 
   useEffect(() => {
     // Fetch units and today's briefing from backend
@@ -76,7 +78,17 @@ export default function Home() {
     };
 
     fetchData();
-  }, []);
+  }, [user?.id]);
+
+  // When student profile loads with enrolled units, select their first enrolled unit
+  useEffect(() => {
+    if (profile?.enrolled_units && profile.enrolled_units.length > 0) {
+      const firstEnrolled = profile.enrolled_units[0];
+      if (firstEnrolled && selectedUnit !== firstEnrolled) {
+        setSelectedUnit(firstEnrolled);
+      }
+    }
+  }, [profile?.enrolled_units]);
 
   const currentUnit = units.find((u) => u.code === selectedUnit) || units[0];
 
