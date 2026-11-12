@@ -947,7 +947,6 @@ async def download_mock_exam_pdf(exam_id: str, include_answers: bool = True):
     if not exam:
         col = get_mock_exams_collection()
         try:
-            from bson import ObjectId
             exam = await col.find_one({"_id": ObjectId(exam_id)})
         except Exception:
             pass
@@ -1103,13 +1102,28 @@ async def evaluate_mock_exam(request: Request, payload: MockExamEvaluateRequest)
     Evaluates student's submitted answers against the UoN marking rubric and saves evaluation to MongoDB.
     """
     col = get_mock_exams_collection()
-    exam = await col.find_one({"_id": ObjectId(payload.exam_id)})
+    exam = LIVE_EXAM_REGISTRY.get(payload.exam_id)
+    if not exam:
+        try:
+            exam = await col.find_one({"_id": payload.exam_id})
+        except Exception:
+            exam = None
+    if not exam and len(payload.exam_id) == 24:
+        try:
+            exam = await col.find_one({"_id": ObjectId(payload.exam_id)})
+        except Exception:
+            exam = None
+
     if not exam:
         raise HTTPException(status_code=404, detail="Mock exam not found.")
 
+    paper_content = exam.get('paper_markdown')
+    if not paper_content and exam.get('exam_data'):
+        paper_content = json.dumps(exam.get('exam_data'), indent=2)
+
     sys_inst = f"You are a rigorous UoN Computer Science Lecturer grading a student's final exam script for [{exam.get('unit_code')}]."
     user_p = f"""EXAM PAPER:
-{exam.get('paper_markdown')}
+{paper_content}
 
 STUDENT'S SUBMITTED ANSWERS:
 {payload.student_submission}
@@ -1127,12 +1141,19 @@ OUTPUT:
 - Actionable Corrections to secure an A in the real exam
 """
     evaluation_text = await rag_router.generate_text(sys_inst, user_p)
-    await col.update_one(
-        {"_id": ObjectId(payload.exam_id)},
-        {"$set": {
-            "student_submission": payload.student_submission,
-            "evaluation_markdown": evaluation_text,
-            "evaluated_at": datetime.now(timezone.utc).isoformat(),
+    try:
+        await col.update_one(
+            {"_id": payload.exam_id},
+            {"$set": {
+                "student_submission": payload.student_submission,
+                "evaluation_markdown": evaluation_text,
+                "evaluated_at": datetime.now(timezone.utc).isoformat(),
+                "is_completed": True
+            }},
+            upsert=True
+        )
+    except Exception as me:
+        logger.warning(f"Could not update exam evaluation in MongoDB: {me}")
             "is_completed": True
         }}
     )
@@ -1281,6 +1302,23 @@ async def get_batch_raw_content(
         return {"status": "success", "data": batch_raw}
     except Exception as e:
         logger.error(f"Error fetching batch raw content {start_page}–{end_page}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/professor/document/{document_id}/slide-raw")
+async def get_slide_raw_compat(
+    document_id: str,
+    page_number: int = Query(..., ge=1)
+):
+    """
+    Compatibility alias: frontend calls /slide-raw?page_number=N.
+    Delegates to get_slide_raw_content (same as /slide/{page_number}).
+    """
+    try:
+        slide = await professor_course_service.get_slide_raw_content(document_id, page_number)
+        return {"status": "success", "data": slide}
+    except Exception as e:
+        logger.error(f"Error fetching slide-raw for page {page_number}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

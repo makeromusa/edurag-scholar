@@ -161,10 +161,27 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
   };
 
   // --- Handler 3: Download Simulated Exam PDF ---
-  const handleDownloadSimulatedPdf = () => {
+  const handleDownloadSimulatedPdf = async () => {
     if (!simulationTaskId) return;
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
-    window.open(`${apiUrl}/api/v1/exams/download/${simulationTaskId}`, "_blank");
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      const res = await fetch(`${apiUrl}/api/v1/exams/download/${simulationTaskId}`);
+      if (!res.ok) throw new Error("Could not download simulated exam PDF.");
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `UoN_${selectedUnit.replace(/\s+/g, "_")}_Simulated_Exam.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (err: any) {
+      console.error("Download failed:", err);
+      // Fallback
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      window.open(`${apiUrl}/api/v1/exams/download/${simulationTaskId}`, "_blank");
+    }
   };
 
   return (

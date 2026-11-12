@@ -33,11 +33,11 @@ def get_real_ip(request: Request) -> str:
     return client.host if client else "127.0.0.1"
 
 
-# Global application limiter
+# Global application limiter (headers_enabled=False prevents parameter inspection crashes across routes)
 limiter = Limiter(
     key_func=get_real_ip,
     default_limits=["120/minute"],
-    headers_enabled=True
+    headers_enabled=False
 )
 
 

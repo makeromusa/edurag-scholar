@@ -190,7 +190,11 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.detail || `Server responded with HTTP ${res.status}`);
+      }
+
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: "assistant",

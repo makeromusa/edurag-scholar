@@ -122,16 +122,26 @@ class RagAgentRouter:
         Executes unit-isolated RAG retrieval with multimodal image & attached document support.
         Autonomously routes to Tavily academic search if local context is insufficient or deep_search is requested.
         """
-        # 1. Embed student query
-        query_vector = embedding_service.get_embedding(query)
+        # 1. Embed student query with zero-exception safety
+        try:
+            query_vector = embedding_service.get_embedding(query)
+        except Exception as ee:
+            logger.warning(f"Query embedding error caught: {ee}. Using fallback zero-vector.")
+            query_vector = [0.0] * 1536
 
-        # 2. Query unit-isolated chunks
-        local_chunks = await match_unit_chunks_rpc(
-            unit_code=unit_code,
-            query_embedding=query_vector,
-            match_threshold=similarity_threshold,
-            match_count=top_k
-        )
+        # 2. Query unit-isolated chunks via vector search if vector is valid
+        local_chunks = []
+        if query_vector and any(v != 0.0 for v in query_vector):
+            try:
+                local_chunks = await match_unit_chunks_rpc(
+                    unit_code=unit_code,
+                    query_embedding=query_vector,
+                    match_threshold=similarity_threshold,
+                    match_count=top_k
+                )
+            except Exception as me:
+                logger.warning(f"match_unit_chunks_rpc error: {me}")
+                local_chunks = []
 
         # Keyword fallback if vector search found 0 chunks (handles rate limits or low similarity)
         if not local_chunks:
