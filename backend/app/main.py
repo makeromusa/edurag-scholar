@@ -65,14 +65,16 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, custom_rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-# CORS Middleware for Next.js frontend communication (Localhost & Vercel)
+# CORS Middleware for Next.js frontend communication (Localhost, Vercel & custom .tech domains)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://learningassistant-chi.vercel.app"
+        "https://learningassistant-chi.vercel.app",
+        "https://edurag.tech",
+        "https://www.edurag.tech"
     ],
-    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_origin_regex=r"https://.*(\.vercel\.app|\.tech)",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
