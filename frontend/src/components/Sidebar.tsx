@@ -115,88 +115,91 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
         </div>
 
-        {/* Primary Actions */}
-        <div className="space-y-1.5 p-3">
-          {onOpenPipelines && (
-            <button
-              onClick={() => {
-                onOpenPipelines();
-                if (onClose) onClose();
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-purple-500/50 bg-gradient-to-r from-purple-950/40 to-blue-950/40 px-3 py-2.5 text-xs font-bold text-purple-200 transition hover:from-purple-900/60 hover:to-blue-900/60 hover:text-white shadow-md"
-            >
-              <Layers className="h-4 w-4 text-purple-400" />
-              <span>⚡ Automated Exam PDF Pipelines</span>
-            </button>
-          )}
+        {/* Primary Actions & Study Tools */}
+        <div className="space-y-1 p-3 border-b border-slate-800/80">
           <button
             onClick={() => {
               onOpenUpload();
               if (onClose) onClose();
             }}
-            className="flex w-full items-center gap-2.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-blue-500"
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-semibold text-white shadow-xs transition mb-2 cursor-pointer"
           >
             <UploadCloud className="h-4 w-4" />
             <span>Upload Course Materials</span>
           </button>
-          {onOpenExamSimulator && (
+
+          <nav className="space-y-0.5">
+            {onOpenPipelines && (
+              <button
+                onClick={() => {
+                  onOpenPipelines();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <Layers className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <span>Exam PDF Pipelines</span>
+              </button>
+            )}
+            {onOpenExamSimulator && (
+              <button
+                onClick={() => {
+                  onOpenExamSimulator();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <FileCheck2 className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <span>Exam Simulator & Papers</span>
+              </button>
+            )}
+            {onOpenRevisionQA && (
+              <button
+                onClick={() => {
+                  onOpenRevisionQA();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <BookOpen className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <span>Q&A Compendium</span>
+              </button>
+            )}
             <button
               onClick={() => {
-                onOpenExamSimulator();
+                onOpenFlashcards();
                 if (onClose) onClose();
               }}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-emerald-500/40 bg-emerald-950/30 px-3 py-2 text-xs font-semibold text-emerald-300 transition hover:bg-emerald-900/50 hover:text-emerald-100 shadow-sm"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
             >
-              <FileCheck2 className="h-4 w-4 text-emerald-400" />
-              <span>📝 Exam Simulator & PDF Suite</span>
+              <Sparkles className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+              <span>Spaced Repetition (SM-2)</span>
             </button>
-          )}
-          {onOpenRevisionQA && (
-            <button
-              onClick={() => {
-                onOpenRevisionQA();
-                if (onClose) onClose();
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-cyan-500/30 bg-cyan-950/20 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-900/40 hover:text-cyan-100 shadow-sm"
-            >
-              <Sparkles className="h-4 w-4 text-cyan-400" />
-              <span>📍 Q&A Solution Compendium</span>
-            </button>
-          )}
-          <button
-            onClick={() => {
-              onOpenFlashcards();
-              if (onClose) onClose();
-            }}
-            className="flex w-full items-center gap-2.5 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs font-medium text-amber-300 transition hover:bg-amber-900/40 hover:text-amber-200"
-          >
-            <Sparkles className="h-4 w-4 text-amber-400" />
-            <span>Spaced Repetition (SM-2)</span>
-          </button>
-          {onOpenVault && (
-            <button
-              onClick={() => {
-                onOpenVault();
-                if (onClose) onClose();
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-blue-500/30 bg-blue-950/20 px-3 py-2 text-xs font-medium text-blue-300 transition hover:bg-blue-900/40 hover:text-blue-200"
-            >
-              <BookMarked className="h-4 w-4 text-blue-400" />
-              <span>📚 Notes & Exam Vault</span>
-            </button>
-          )}
-          {onOpenProfessorMode && (
-            <button
-              onClick={() => {
-                onOpenProfessorMode();
-                if (onClose) onClose();
-              }}
-              className="flex w-full items-center gap-2.5 rounded-lg border border-indigo-500/30 bg-indigo-950/20 px-3 py-2 text-xs font-medium text-indigo-300 transition hover:bg-indigo-900/40 hover:text-indigo-200"
-            >
-              <GraduationCap className="h-4 w-4 text-indigo-400" />
-              <span>👨‍🏫 Professor Deep Lecture</span>
-            </button>
-          )}
+            {onOpenVault && (
+              <button
+                onClick={() => {
+                  onOpenVault();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <BookMarked className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <span>Notes & Exam Vault</span>
+              </button>
+            )}
+            {onOpenProfessorMode && (
+              <button
+                onClick={() => {
+                  onOpenProfessorMode();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <GraduationCap className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <span>Oral Masterclass Studio</span>
+              </button>
+            )}
+          </nav>
         </div>
 
         {/* Units Navigation */}
@@ -204,12 +207,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {myEnrolledUnits.length > 0 ? (
             <div>
               <div className="mb-2 flex items-center justify-between px-2">
-                <span className="text-[10px] font-bold tracking-wider text-violet-300 uppercase flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-violet-400 animate-pulse" />
-                  <span>My Enrolled Courses</span>
+                <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+                  My Enrolled Courses
                 </span>
-                <span className="rounded bg-violet-950/80 border border-violet-500/30 px-1.5 py-0.5 text-[10px] font-bold text-violet-200">
-                  {myEnrolledUnits.length} Enrolled
+                <span className="rounded bg-slate-800 border border-slate-700/60 px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
+                  {myEnrolledUnits.length}
                 </span>
               </div>
 
@@ -220,14 +222,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                       key={unit.code}
                       onClick={() => handleUnitClick(unit.code)}
-                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition ${
+                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition cursor-pointer ${
                         isSelected
-                          ? "border border-violet-500/50 bg-violet-600/20 text-white shadow-inner"
-                          : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
+                          ? "border border-blue-500/40 bg-blue-600/15 text-white"
+                          : "border border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
                       }`}
                     >
                       <div className="flex w-full items-center justify-between">
-                        <span className={`text-xs font-bold ${isSelected ? "text-violet-300" : "text-slate-300"}`}>
+                        <span className={`text-xs font-semibold ${isSelected ? "text-blue-400" : "text-slate-300"}`}>
                           {unit.code}
                         </span>
                         <span className="text-[10px] text-slate-500">{unit.venue || "Campus"}</span>
@@ -332,13 +334,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="flex w-full items-center justify-between rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/20 to-orange-500/10 px-3 py-2 text-xs font-bold text-amber-300 shadow-sm transition hover:border-amber-400 hover:bg-amber-500/30 mb-2"
+              className="flex w-full items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 mb-2"
             >
               <div className="flex items-center gap-2">
                 <Shield className="h-4 w-4 text-amber-400" />
                 <span>Admin Command</span>
               </div>
-              <span className="text-[10px] uppercase font-mono bg-amber-950/80 px-1.5 py-0.5 rounded text-amber-200 border border-amber-500/30">
+              <span className="text-[10px] uppercase font-mono bg-slate-900/80 px-1.5 py-0.5 rounded text-amber-300 border border-amber-500/30">
                 Portal
               </span>
             </Link>

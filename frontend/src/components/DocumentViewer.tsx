@@ -328,49 +328,49 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
         </button>
       </div>
 
-      {/* Category Shelf Filter Pills */}
-      <div className="flex items-center gap-1 border-b border-slate-800/80 bg-slate-950/60 px-4 py-2 overflow-x-auto scrollbar-thin">
+      {/* Category Shelf Filter Segmented Tabs */}
+      <div className="flex items-center gap-1.5 border-b border-slate-800 bg-[#0c121e] px-4 py-2 overflow-x-auto">
         <button
           onClick={() => setFilterCategory("all")}
-          className={`rounded-lg px-2.5 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+          className={`rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "all"
-              ? "bg-slate-700 text-white"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
           }`}
         >
           All ({categorizedDocs.length})
         </button>
         <button
           onClick={() => setFilterCategory("books")}
-          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "books"
-              ? "bg-blue-600/30 text-blue-300 border border-blue-500/40"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
           }`}
         >
-          <BookOpen className="h-3 w-3 text-blue-400" />
+          <BookOpen className="h-3.5 w-3.5" />
           <span>Books & Slides ({countBooks})</span>
         </button>
         <button
           onClick={() => setFilterCategory("exams")}
-          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "exams"
-              ? "bg-emerald-600/30 text-emerald-300 border border-emerald-500/40"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
           }`}
         >
-          <FileCheck2 className="h-3 w-3 text-emerald-400" />
+          <FileCheck2 className="h-3.5 w-3.5" />
           <span>Past Exams & CATs ({countExams})</span>
         </button>
         <button
           onClick={() => setFilterCategory("formulas")}
-          className={`flex items-center gap-1 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "formulas"
-              ? "bg-amber-600/30 text-amber-300 border border-amber-500/40"
-              : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+              ? "bg-blue-600 text-white shadow-xs"
+              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
           }`}
         >
-          <Sparkles className="h-3 w-3 text-amber-400" />
+          <Sparkles className="h-3.5 w-3.5" />
           <span>Formulas ({countFormulas})</span>
         </button>
       </div>

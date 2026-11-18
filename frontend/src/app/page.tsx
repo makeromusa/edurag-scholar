@@ -230,7 +230,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex h-[100dvh] w-screen overflow-hidden bg-[#090d16]">
+    <main className="flex h-screen w-screen overflow-hidden bg-[#090d16]">
       {/* 1. Left Sidebar Navigation (Responsive Drawer on mobile, static on desktop) */}
       <Sidebar
         units={units}
@@ -251,8 +251,8 @@ export default function Home() {
         onClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* 2. Middle Main Studio */}
-      <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      {/* 2. Middle Main Studio: Flows naturally with vertical scroll, no squashed clamping */}
+      <div className="flex flex-1 flex-col overflow-y-auto min-w-0 bg-[#090d16]">
         {/* Top Header Bar with Unit Info, Desktop Layout Switcher & Auth */}
         <Header
           currentUnit={currentUnit}
@@ -287,15 +287,15 @@ export default function Home() {
         </div>
 
         {/* Compact Daily Mission Card */}
-        <div className="px-3 sm:px-6 pt-2.5 sm:pt-3 shrink-0">
+        <div className="px-3 sm:px-6 pt-3 shrink-0">
           <DailyMissionCard
             briefingMarkdown={briefingMarkdown}
             onRefresh={() => {}}
           />
         </div>
 
-        {/* Workstation: Split Screen / Fullscreen on Desktop, Tabbed on Mobile */}
-        <div className="flex flex-1 min-h-0 overflow-hidden border-t border-slate-800/80 mt-2 sm:mt-3">
+        {/* Workstation Studio: Generous, comfortable height so chat & slides are never compressed */}
+        <div className="flex min-h-[640px] lg:min-h-[720px] h-[calc(100vh-140px)] shrink-0 border-t border-slate-800/80 mt-3 mx-3 sm:mx-6 rounded-xl overflow-hidden border border-slate-800 bg-[#0c111d] shadow-sm">
           {/* Unit-Isolated RAG Chat */}
           <div
             className={`h-full overflow-hidden flex flex-col ${
@@ -339,7 +339,7 @@ export default function Home() {
         </div>
 
         {/* Mobile Fixed Bottom Navigation Bar (Visible on mobile only, thumbs-friendly) */}
-        <div className="flex md:hidden items-center justify-around border-t border-slate-800 bg-[#090d16] py-2 px-1 shrink-0 z-30">
+        <div className="flex md:hidden items-center justify-around border-t border-slate-800 bg-[#090d16] py-2 px-1 shrink-0 z-30 mt-auto">
           <button
             onClick={() => setMobileTab("chat")}
             className={`flex flex-col items-center gap-0.5 text-[10px] font-medium py-1 px-2 rounded-lg transition ${
@@ -362,27 +362,27 @@ export default function Home() {
             onClick={() => handleOpenProfessor()}
             className="flex flex-col items-center gap-0.5 text-[10px] font-medium py-1 px-2 text-slate-400 hover:text-slate-200 transition"
           >
-            <Headphones className="h-4 w-4 text-violet-400" />
+            <Headphones className="h-4 w-4 text-slate-400" />
             <span>Oral Studio</span>
           </button>
           <button
             onClick={() => setIsExamSimulatorOpen(true)}
             className="flex flex-col items-center gap-0.5 text-[10px] font-medium py-1 px-2 text-slate-400 hover:text-slate-200 transition"
           >
-            <FileCheck2 className="h-4 w-4 text-emerald-400" />
+            <FileCheck2 className="h-4 w-4 text-slate-400" />
             <span>Mock Exam</span>
           </button>
           <button
             onClick={() => setIsMobileSidebarOpen(true)}
             className="flex flex-col items-center gap-0.5 text-[10px] font-medium py-1 px-2 text-slate-400 hover:text-slate-200 transition"
           >
-            <Menu className="h-4 w-4 text-amber-400" />
+            <Menu className="h-4 w-4 text-slate-400" />
             <span>Units</span>
           </button>
         </div>
 
-        {/* Global Directory, Legal & Academic Footer (Hidden on mobile to save vertical space) */}
-        <div className="hidden md:block shrink-0">
+        {/* Global Directory, Legal & Academic Footer: Sits naturally below the workstation in natural flow */}
+        <div className="hidden md:block shrink-0 mt-12 border-t border-slate-800/80 bg-[#090d16]">
           <Footer
             onSelectUnit={(code) => setSelectedUnit(code)}
             onOpenVault={() => setIsVaultOpen(true)}

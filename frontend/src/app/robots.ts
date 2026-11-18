@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ['/api/', '/admin/'],
       },
     ],
-    sitemap: 'https://learningassistant-chi.vercel.app/sitemap.xml',
+    sitemap: 'https://edurag.tech/sitemap.xml',
   };
 }

@@ -11,44 +11,36 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://learningassistant-chi.vercel.app"),
+  metadataBase: new URL("https://edurag.tech"),
   title: {
-    default: "EduRAG Scholar | UoN Chiromo Year 2 AI Revision & Past Papers",
+    default: "EduRAG Scholar | Autonomous Academic AI Copilot & Lecture Archive",
     template: "%s | EduRAG Scholar",
   },
   description:
-    "Autonomous 7-Unit RAG Academic Copilot and Past Exam Solved Vault for University of Nairobi Chiromo Campus B.Sc. Computer Science Year 2.",
+    "Autonomous course-isolated academic RAG copilot, verified lecture slides, past paper archives, and professor masterclass studio for university scholars.",
   keywords: [
     "EduRAG Scholar",
-    "University of Nairobi",
-    "UoN Chiromo",
-    "Computer Science Year 2",
-    "SCS 3201 Systems Analysis and Design",
-    "SCS 3209 Software Engineering",
-    "SCS 3207 Human Computer Interaction",
-    "SCS 3203 Network Programming",
-    "SCS 3205 Distributed Systems",
-    "SCS 3208 Mobile Application Development",
-    "SCS 3202 Advanced Database Systems",
+    "Academic AI Copilot",
+    "Computer Science University",
+    "Course-Isolated RAG",
     "Past Exam Papers Solved",
-    "Kendall and Kendall 10th Edition",
-    "Sommerville Software Engineering",
-    "RAG Academic Copilot",
-    "Academic Vault",
+    "Interactive Lecture Slides",
+    "Oral Masterclass Studio",
+    "Spaced Repetition SM-2",
   ],
-  authors: [{ name: "Musa Makeri", url: "https://learningassistant-chi.vercel.app" }],
-  creator: "Musa Makeri",
-  publisher: "University of Nairobi Chiromo Campus",
+  authors: [{ name: "EduRAG Academic Intelligence", url: "https://edurag.tech" }],
+  creator: "EduRAG AI",
+  publisher: "EduRAG Scholar",
   alternates: {
     canonical: "/",
   },
   openGraph: {
     type: "website",
-    locale: "en_KE",
-    url: "https://learningassistant-chi.vercel.app",
-    title: "EduRAG Scholar | UoN Chiromo Year 2 AI Revision & Past Papers",
+    locale: "en_US",
+    url: "https://edurag.tech",
+    title: "EduRAG Scholar | Autonomous Academic AI Copilot & Lecture Archive",
     description:
-      "Autonomous 7-Unit RAG Academic Copilot and Past Exam Solved Vault for University of Nairobi Chiromo Campus B.Sc. Computer Science Year 2.",
+      "Autonomous course-isolated academic RAG copilot, verified lecture slides, past paper archives, and professor masterclass studio for university scholars.",
     siteName: "EduRAG Scholar",
     images: [
       {
