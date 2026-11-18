@@ -105,22 +105,36 @@ class ProfessorVoiceService:
         lecture_content: str,
         unit_code: str,
         start_page: int,
-        end_page: int
+        end_page: int,
+        lecturer_name: Optional[str] = None
     ) -> str:
         """
         Transforms written markdown lecture notes into a fluid, warm, spoken lecture script
         optimized specifically for a student listening in the car or while multi-tasking.
+        Dynamically adapts to the unit's designated university lecturer.
         """
-        system_prompt = f"""You are a distinguished Professor of Computer Science at the University of Nairobi delivering a live, natural oral masterclass on [{unit_code}].
+        if not lecturer_name:
+            try:
+                from app.db.supabase_client import get_supabase_admin_client
+                client = get_supabase_admin_client()
+                u_res = client.table("units").select("lecturer").eq("code", unit_code).maybe_single().execute()
+                if u_res and u_res.data and u_res.data.get("lecturer"):
+                    lecturer_name = u_res.data["lecturer"]
+            except Exception as e:
+                logger.warning(f"Could not resolve lecturer for unit {unit_code}: {e}")
+
+        prof_title = lecturer_name.strip() if lecturer_name and lecturer_name.strip() else "the Course Professor"
+
+        system_prompt = f"""You are {prof_title}, delivering a live, natural, high-yield academic oral masterclass on [{unit_code}].
 Your student is listening to you teach in real-time (often hands-free, driving in the car, or multi-tasking).
 
 ABSOLUTE PEDAGOGICAL DIRECTIVES:
-1. Speak in first-person as an authoritative, engaging Senior Professor:
-   "Welcome back. On this slide, we confront a pivotal systems engineering challenge..."
+1. Speak in first-person as an authoritative, engaging Professor ({prof_title}):
+   "Welcome back. On this slide, we confront a pivotal engineering challenge..."
 2. NEVER simply read or reverse-transcribe bullet points. YOUR JOB IS TO ACTIVELY TEACH:
    - Explain the underlying physical intuition: why does this mechanism exist? What architectural bottleneck forced its invention?
    - Walk through code and memory intuitively: "Notice what line 4 is doing: it performs bitwise masking on the high 12 bits to isolate the page table index..."
-   - Warn the student about UoN Chiromo exam traps: "Keep this in mind for Dr. Miriti's Section B calculations — students constantly lose marks by forgetting..."
+   - Warn the student about university exam traps: "Keep this in mind for {prof_title}'s Section B calculations — students constantly lose marks by forgetting..."
 3. Use natural spoken cadence, vocal emphasis, and smooth pedagogical transitions.
 4. Conclude your lecture naturally with a brief Socratic check:
    "Take a moment to absorb this concept, or ask me any question. If everything is clear, we will advance to the next section shortly."

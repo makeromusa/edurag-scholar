@@ -182,6 +182,15 @@ class ProfessorCourseService:
         doc = client.table("documents").select("title, unit_code").eq("id", document_id).execute()
         doc_title = doc.data[0].get("title") if doc.data else "Course Document"
 
+        # Resolve unit lecturer dynamically
+        lecturer_name = "the Course Professor"
+        try:
+            u_res = client.table("units").select("lecturer").eq("code", unit_code).maybe_single().execute()
+            if u_res and u_res.data and u_res.data.get("lecturer"):
+                lecturer_name = u_res.data["lecturer"].strip()
+        except Exception as le:
+            logger.warning(f"Could not resolve lecturer for unit {unit_code}: {le}")
+
         # 2. Fetch all slide chunks in this range
         chunks = client.table("document_chunks") \
             .select("page_number, slide_title, content") \
@@ -248,7 +257,7 @@ ABSOLUTE PEDAGOGICAL DIRECTIVE:
 3. Deconstruct the low-level mechanical reality: Explain the hardware, memory, registers, kernel data structures, and algorithm execution.
 4. Explain WHAT THE SLIDE LEFT UNSAID: Address the hidden assumptions, edge cases, and why naive implementations break.
 5. Provide concrete, working code (C, C++, Python, or Assembly) and ASCII architectural memory maps.
-6. Detail the exact Chiromo exam question Dr. Miriti/the lecturer asks from this specific concept.
+6. Detail the exact university exam question {lecturer_name} asks from this specific concept.
 
 OUTPUT STRUCTURE:
 # 🎓 Technical Deep Dive: Slide {start_page} — [Topic Title]
@@ -263,7 +272,7 @@ OUTPUT STRUCTURE:
 ## 3. 💻 Working Implementation & Memory Layout
 (Concrete C/Python code and ASCII memory/register layout in code blocks)
 
-## 4. ⚠️ Chiromo Lecturer Exam Questions & Pitfalls on This Slide
+## 4. ⚠️ {lecturer_name} Exam Questions & Pitfalls on This Slide
 (Direct exam questions, trick conditions, and marking scheme pitfalls for this specific concept)
 
 ## 5. 🎯 First-Principles Self-Test
@@ -284,7 +293,7 @@ ABSOLUTE PEDAGOGICAL DIRECTIVE:
    - Clarify how this slide connects mechanically to the preceding and following slides in this cluster.
 4. Provide concrete, compilable code (C, C++, Python, or Assembly) illustrating the core mechanics across this batch.
 5. Provide ASCII architectural diagrams, memory maps, or process state transition flows in code blocks (```text).
-6. Chiromo Exam Masterclass: Provide the exact Section B derivation, multi-step calculation, or tricky edge case Dr. Miriti/the lecturer tests from this cluster of slides, complete with step-by-step working and marking scheme pitfalls.
+6. University Exam Masterclass: Provide the exact Section B derivation, multi-step calculation, or tricky edge case {lecturer_name} tests from this cluster of slides, complete with step-by-step working and marking scheme pitfalls.
 
 Deliver a rigorous, illuminating, graduate-level academic lecture that transforms the student into a master of this topic.
 

@@ -59,7 +59,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSelectCitation,
   onOpenProfessorMode,
 }) => {
-  const { session } = useAuth();
+  const { session, user, profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputQuery, setInputQuery] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
@@ -70,18 +70,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Reset or greet on unit change
+    // Dynamically address the signed-in student
+    const studentName =
+      profile?.full_name ||
+      user?.user_metadata?.full_name ||
+      user?.email?.split("@")[0] ||
+      "Scholar";
+
     setMessages([
       {
         id: "welcome",
         sender: "assistant",
-        content: `👋 Hello Asman! I am your AI Copilot strictly isolated to **${unitCode}: ${unitName}**.
+        content: `👋 Hello ${studentName}! I am your AI Copilot strictly isolated to **${unitCode}: ${unitName}**.
 
 You can ask me questions, attach past papers (PDF), or upload screenshots/diagrams of exam questions. I will solve them with step-by-step proofs and cite exact lecture slide numbers.`,
       },
     ]);
     setPendingAttachment(null);
-  }, [unitCode, unitName]);
+  }, [unitCode, unitName, user?.id, profile?.full_name]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

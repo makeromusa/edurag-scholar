@@ -285,29 +285,20 @@ def get_user_from_header(authorization: Optional[str] = None) -> Optional[Dict[s
 @router.get("/documents/list")
 def list_documents(unit_code: Optional[str] = None, authorization: Optional[str] = Header(None)):
     """
-    Returns ingested documents with user privacy isolation:
-    - Super Admin (makeromusa17@gmail.com) sees all documents.
-    - Other authenticated students only see their own uploaded documents + system course documents (uploaded_by IS NULL).
-    - Unauthenticated guests only see system course documents (uploaded_by IS NULL).
+    Returns ingested documents for authenticated students.
+    Guests must register/sign-in. All registered students have access to all course materials.
     """
     import urllib.parse
     try:
         user = get_user_from_header(authorization)
+        if not user:
+            raise HTTPException(status_code=401, detail="Authentication required to view course materials. Please sign up or log in.")
         client = get_supabase_admin_client()
         query = client.table("documents").select(
             "id, unit_code, title, file_type, page_count, is_processed, file_size_bytes, uploaded_at, uploaded_by, storage_url"
         )
         if unit_code:
             query = query.eq("unit_code", unit_code)
-        
-        # Privacy isolation:
-        is_super_admin = user and user.get("email") == "makeromusa17@gmail.com"
-        if not is_super_admin:
-            if user:
-                user_id = str(user["id"])
-                query = query.or_(f"uploaded_by.eq.{user_id},uploaded_by.is.null")
-            else:
-                query = query.is_("uploaded_by", "null")
         
         try:
             res = query.order("uploaded_at", desc=True).limit(100).execute()
@@ -330,6 +321,8 @@ def list_documents(unit_code: Optional[str] = None, authorization: Optional[str]
                 "chunks_indexed": d.get("page_count", 0)
             })
         return {"documents": enriched}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing documents: {e}", exc_info=True)
         return {"documents": []}
@@ -545,8 +538,10 @@ async def chat_with_unit(request: Request, payload: ChatRequest, authorization: 
     Persists the full interaction into MongoDB chat_transcripts associated with student account.
     """
     user = get_user_from_header(authorization)
-    user_id = user["id"] if user else "guest"
-    user_email = user.get("email") if user else None
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required to use AI Copilot. Please sign up or log in.")
+    user_id = user["id"]
+    user_email = user.get("email")
     attached_document_text = None
     image_b64 = payload.image_base64
 

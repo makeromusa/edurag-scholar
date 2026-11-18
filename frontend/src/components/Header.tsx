@@ -12,6 +12,8 @@ interface HeaderProps {
   onOpenPastPapers: () => void;
   onOpenFlashcards: () => void;
   onToggleMobileSidebar?: () => void;
+  desktopLayout?: "split" | "chat" | "documents";
+  onSelectDesktopLayout?: (layout: "split" | "chat" | "documents") => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenPastPapers,
   onOpenFlashcards,
   onToggleMobileSidebar,
+  desktopLayout,
+  onSelectDesktopLayout,
 }) => {
   const { user, session, signOut, openAuthModal, isLoading, isAdmin } = useAuth();
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -104,6 +108,48 @@ export const Header: React.FC<HeaderProps> = ({
               <Shield className="h-3.5 w-3.5 text-amber-400" />
               <span className="hidden sm:inline">Admin Panel</span>
             </Link>
+          )}
+
+          {/* Desktop Split / Fullscreen Layout Switcher */}
+          {desktopLayout && onSelectDesktopLayout && (
+            <div className="hidden md:flex items-center rounded-lg border border-slate-800 bg-[#0c121e] p-0.5 shadow-xs">
+              <button
+                type="button"
+                onClick={() => onSelectDesktopLayout("split")}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                  desktopLayout === "split"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Side-by-side 50/50 split"
+              >
+                ◫ Split
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectDesktopLayout("chat")}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                  desktopLayout === "chat"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Full width Chat Copilot"
+              >
+                💬 Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectDesktopLayout("documents")}
+                className={`px-2.5 py-1 text-xs font-semibold rounded-md transition ${
+                  desktopLayout === "documents"
+                    ? "bg-blue-600 text-white shadow-xs"
+                    : "text-slate-400 hover:text-white"
+                }`}
+                title="Full width Course Materials"
+              >
+                📄 Slides
+              </button>
+            </div>
           )}
 
           <button

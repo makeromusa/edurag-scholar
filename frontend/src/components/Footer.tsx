@@ -33,7 +33,7 @@ export const Footer: React.FC<FooterProps> = ({ onSelectUnit, onOpenVault, onOpe
             <span className="font-bold text-sm tracking-tight">EduRAG Scholar</span>
           </div>
           <p className="text-xs text-slate-400 leading-relaxed">
-            Autonomous 7-unit academic copilot, vector-indexed textbook knowledge base, and past paper repository for University of Nairobi Chiromo Campus.
+            Autonomous academic copilot, vector-indexed textbook knowledge base, and past paper repository for university scholars.
           </p>
           <div className="flex items-center gap-2 text-[11px] text-emerald-400 font-medium">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
@@ -144,10 +144,9 @@ export const Footer: React.FC<FooterProps> = ({ onSelectUnit, onOpenVault, onOpe
 
       {/* Bottom Bar */}
       <div className="max-w-7xl mx-auto border-t border-slate-800/80 pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-        <p>© 2026 EduRAG Scholar • University of Nairobi, Chiromo Campus. All rights reserved.</p>
+        <p>EduRAG © 2026. All rights reserved.</p>
         <p className="flex items-center gap-1">
-          <span>Engineered for CS Year 2 Excellence by</span>
-          <span className="text-slate-300 font-semibold">Musa Makeri</span>
+          <span>Enterprise Academic AI & Learning Intelligence</span>
         </p>
       </div>
     </footer>

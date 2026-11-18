@@ -96,7 +96,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   useEffect(() => {
     fetchDocuments();
-  }, [selectedUnit]);
+  }, [selectedUnit, session?.access_token]);
 
   const handleDeleteDocument = async (docId: string, title: string) => {
     if (!window.confirm(`Are you sure you want to delete "${title}" and purge all its vector chunks?`)) {

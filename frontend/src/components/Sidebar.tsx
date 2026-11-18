@@ -61,14 +61,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { user, signOut, openAuthModal, isAdmin, profile } = useAuth();
 
-  const userDisplayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Asman Musa";
-  const userEmail = user?.email || "asmanmakero@gmail.com";
+  const userDisplayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Scholar";
+  const userEmail = user?.email || "";
   const userAvatar = user?.user_metadata?.avatar_url;
 
   const enrolledUnitCodes = (profile?.enrolled_units || []).map((c: string) => c.toUpperCase());
   const myEnrolledUnits = enrolledUnitCodes.map((code: string) => {
     const existing = units.find((u) => u.code.toUpperCase() === code);
-    return existing || { code, name: "Enrolled Course", lecturer: "Chiromo Faculty", venue: "Campus" };
+    return existing || { code, name: "Enrolled Course", lecturer: "Faculty Lecturer", venue: "Campus" };
   });
   const otherUnits = units.filter((u) => !enrolledUnitCodes.includes(u.code.toUpperCase()));
 
@@ -101,7 +101,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div>
               <h1 className="text-sm font-bold tracking-tight text-white">EduRAG Scholar</h1>
-              <p className="text-[11px] font-medium text-slate-400">UoN Chiromo • CS Year 2</p>
+              <p className="text-[11px] font-medium text-slate-400">Academic AI Copilot</p>
             </div>
           </div>
 
@@ -243,7 +243,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <div className="mt-4 pt-3 border-t border-slate-800/80">
                   <div className="mb-2 flex items-center justify-between px-2">
                     <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                      Other Chiromo Units
+                      Other Department Units
                     </span>
                     <span className="text-[10px] text-slate-600">{otherUnits.length}</span>
                   </div>
@@ -321,7 +321,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <p className="mt-1 text-xs font-semibold text-slate-200">Dec 7 – 18, 2026</p>
             <div className="mt-1 flex items-center gap-1.5 text-[10px] text-slate-400">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-              Venue: LG01 Chiromo
+              Venue: Main Lecture Hall
             </div>
           </div>
 

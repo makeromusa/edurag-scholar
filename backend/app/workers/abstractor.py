@@ -54,7 +54,7 @@ async def run_nightly_abstraction_job():
         weakness_summary.append(f"- {w['unit_code']}: {w['topic_name']} ({w.get('error_pattern', 'Need revision')})")
     weakness_text = "\n".join(weakness_summary) if weakness_summary else "No recorded weaknesses! All caught up."
 
-    briefing_prompt = f"""You are the UoN Chiromo Academic 3 AM Nightly Abstractor for Asman Makero Musa.
+    briefing_prompt = f"""You are the EduRAG Academic Morning Abstractor for enrolled university scholars.
 Synthesize a crisp, highly motivational, structured Morning Briefing for today ({now_nairobi.strftime('%A, %d %B %Y')}).
 
 TODAY'S TIMETABLE:
@@ -64,12 +64,12 @@ STUDENT'S KNOWN WEAK SPOTS FROM RECENT CHATS/QUIZZES:
 {weakness_text}
 
 OUTPUT FORMAT (Markdown):
-# 🌅 Chiromo Morning Briefing - {now_nairobi.strftime('%A, %d %B')}
+# 🌅 EduRAG Morning Briefing - {now_nairobi.strftime('%A, %d %B')}
 ## 🎯 Today's Lecture Objectives & Timeline
 (List lectures and the primary conceptual challenges to anticipate in class)
 
 ## ⚡ 5-Minute Weakness Remediation Drill
-(Give 3 rapid-fire questions/definitions targeting the student's recorded weak spots)
+(Give 3 rapid-fire questions/definitions targeting recorded weak spots)
 
 ## 💡 Quote / Exam Tactical Tip of the Day
 (A short, punchy computer science or study habit tip)
@@ -77,11 +77,11 @@ OUTPUT FORMAT (Markdown):
 
     briefing_markdown = ""
     try:
-        sys_inst = "You are the UoN Chiromo Academic 3 AM Nightly Abstractor for Asman Makero Musa."
+        sys_inst = "You are the EduRAG Academic Morning Abstractor for university scholars."
         briefing_markdown = await rag_router.generate_text(sys_inst, briefing_prompt)
     except Exception as e:
         logger.error(f"Error generating morning briefing: {e}")
-        briefing_markdown = f"# 🌅 Chiromo Morning Briefing\n\n### Today's Schedule:\n{schedule_text}"
+        briefing_markdown = f"# 🌅 EduRAG Morning Briefing\n\n### Today's Schedule:\n{schedule_text}"
 
     # 4. Save to daily_briefings (Supabase & MongoDB)
     try:
