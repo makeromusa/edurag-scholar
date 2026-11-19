@@ -21,6 +21,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from app.api.routes import router as api_router
 from app.api.admin_routes import admin_router
+from app.api.assignment_routes import assignment_router
 from app.routers.document_pipeline import router as pipeline_router
 from app.workers.abstractor import start_scheduler
 
@@ -55,7 +56,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="EduRAG Scholar API",
-    description="Autonomous 7-Unit RAG & Web-Agent Scholar for University of Nairobi (Chiromo)",
+    description="Autonomous University RAG & Web-Agent Scholar",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -83,6 +84,7 @@ app.add_middleware(
 # Register routes
 app.include_router(api_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
+app.include_router(assignment_router, prefix="/api")
 app.include_router(pipeline_router)
 
 

@@ -29,6 +29,7 @@ import { AcademicVaultModal } from "@/components/AcademicVaultModal";
 import { ExamSimulatorModal } from "@/components/ExamSimulatorModal";
 import { RevisionQAModal } from "@/components/RevisionQAModal";
 import { DocumentPipelinesModal } from "@/components/DocumentPipelinesModal";
+import { AssignmentStudioModal } from "@/components/AssignmentStudioModal";
 import { Footer } from "@/components/Footer";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { useAuth } from "@/lib/AuthContext";
@@ -55,6 +56,7 @@ export default function Home() {
   const [isExamSimulatorOpen, setIsExamSimulatorOpen] = useState(false);
   const [isRevisionQAOpen, setIsRevisionQAOpen] = useState(false);
   const [isPipelinesOpen, setIsPipelinesOpen] = useState(false);
+  const [isAssignmentStudioOpen, setIsAssignmentStudioOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [professorTopic, setProfessorTopic] = useState<string | undefined>(undefined);
   const [professorDocId, setProfessorDocId] = useState<string | undefined>(undefined);
@@ -247,6 +249,7 @@ export default function Home() {
         onOpenExamSimulator={() => setIsExamSimulatorOpen(true)}
         onOpenRevisionQA={() => setIsRevisionQAOpen(true)}
         onOpenPipelines={() => setIsPipelinesOpen(true)}
+        onOpenAssignmentStudio={() => setIsAssignmentStudioOpen(true)}
         isOpen={isMobileSidebarOpen}
         onClose={() => setIsMobileSidebarOpen(false)}
       />
@@ -465,6 +468,14 @@ export default function Home() {
         initialUnit={selectedUnit}
         isOpen={isPipelinesOpen}
         onClose={() => setIsPipelinesOpen(false)}
+      />
+
+      {/* Assignment & Architecture Studio (Syllabus Grounding, Mermaid DFD/ERD/UML, Anonymous PDF/DOCX) */}
+      <AssignmentStudioModal
+        units={units}
+        currentUnitCode={selectedUnit}
+        isOpen={isAssignmentStudioOpen}
+        onClose={() => setIsAssignmentStudioOpen(false)}
       />
 
       {/* Universal Auth Modal (Email/Password + Google OAuth) */}

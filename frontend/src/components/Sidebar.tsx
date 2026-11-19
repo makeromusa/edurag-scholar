@@ -18,6 +18,7 @@ import {
   User as UserIcon,
   X,
   Shield,
+  Compass,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -40,6 +41,7 @@ interface SidebarProps {
   onOpenExamSimulator?: () => void;
   onOpenRevisionQA?: () => void;
   onOpenPipelines?: () => void;
+  onOpenAssignmentStudio?: () => void;
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -56,6 +58,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenExamSimulator,
   onOpenRevisionQA,
   onOpenPipelines,
+  onOpenAssignmentStudio,
   isOpen = false,
   onClose,
 }) => {
@@ -129,6 +132,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </button>
 
           <nav className="space-y-0.5">
+            {onOpenAssignmentStudio && (
+              <button
+                onClick={() => {
+                  onOpenAssignmentStudio();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-200 hover:text-white bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 transition group cursor-pointer shadow-sm mb-1"
+              >
+                <Compass className="h-4 w-4 text-blue-400 group-hover:rotate-45 transition-transform" />
+                <span>Assignment Studio</span>
+                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono tracking-wider uppercase font-bold border border-blue-400/20">PRO</span>
+              </button>
+            )}
             {onOpenPipelines && (
               <button
                 onClick={() => {

@@ -176,7 +176,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
                         {currentCard.exam_trap && (
                           <div className="rounded-lg border border-rose-500/30 bg-rose-950/20 p-2.5 text-xs text-rose-300">
                             <span className="font-bold flex items-center gap-1">
-                              <AlertTriangle className="h-3.5 w-3.5" /> UoN Exam Trap:
+                              <AlertTriangle className="h-3.5 w-3.5" /> Examiner's Trap:
                             </span>
                             <span className="mt-0.5 block">{currentCard.exam_trap}</span>
                           </div>

@@ -107,6 +107,16 @@ class RagAgentRouter:
 
         return "⚠️ No LLM brain configured."
 
+    async def generate_multimodal(
+        self,
+        system_instruction: str,
+        user_prompt: str,
+        image_base64: str,
+        file_type: Optional[str] = None
+    ) -> str:
+        """Convenience method for vision/multimodal generation."""
+        return await self.generate_text(system_instruction, user_prompt, image_base64=image_base64)
+
     async def execute_query(
         self,
         unit_code: str,
