@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   GraduationCap,
@@ -8,8 +8,6 @@ import {
   FileText,
   UploadCloud,
   FileCheck2,
-  Clock,
-  Layers,
   Sparkles,
   BookMarked,
   LogOut,
@@ -18,14 +16,23 @@ import {
   X,
   Shield,
   Compass,
+  ChevronDown,
+  Check,
+  Plus,
+  Key,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
+import { RequestUnitModal } from "./RequestUnitModal";
+import { DeveloperApiModal } from "./DeveloperApiModal";
 
 export interface Unit {
   code: string;
   name: string;
   lecturer: string;
   venue: string;
+  status?: string;
+  is_system_unit?: boolean;
 }
 
 interface SidebarProps {
@@ -62,20 +69,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onClose,
 }) => {
   const { user, signOut, openAuthModal, isAdmin, profile } = useAuth();
+  const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
+  const [isRequestUnitOpen, setIsRequestUnitOpen] = useState(false);
+  const [isDeveloperApiOpen, setIsDeveloperApiOpen] = useState(false);
 
-  const userDisplayName = profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Scholar";
+  const userDisplayName =
+    profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Scholar";
   const userEmail = user?.email || "";
   const userAvatar = user?.user_metadata?.avatar_url;
 
   const enrolledUnitCodes = (profile?.enrolled_units || []).map((c: string) => c.toUpperCase());
+  
+  // Categorize enrolled vs available units
   const myEnrolledUnits = enrolledUnitCodes.map((code: string) => {
     const existing = units.find((u) => u.code.toUpperCase() === code);
     return existing || { code, name: "Enrolled Course", lecturer: "Faculty Lecturer", venue: "Campus" };
   });
-  const otherUnits = units.filter((u) => !enrolledUnitCodes.includes(u.code.toUpperCase()));
 
-  const handleUnitClick = (code: string) => {
+  const displayUnits = myEnrolledUnits.length > 0 ? myEnrolledUnits : units;
+
+  const activeUnitObj = units.find(
+    (u) => u.code.toUpperCase() === selectedUnit.toUpperCase()
+  ) || displayUnits[0] || {
+    code: selectedUnit || "SCS 3201",
+    name: "Academic Unit",
+    lecturer: "Chief Examiner",
+    venue: "Campus",
+  };
+
+  const handleUnitSelect = (code: string) => {
     onSelectUnit(code);
+    setIsUnitDropdownOpen(false);
     if (onClose) onClose();
   };
 
@@ -96,240 +120,261 @@ export const Sidebar: React.FC<SidebarProps> = ({
         }`}
       >
         {/* Brand Header */}
-        <div className="flex items-center justify-between border-b border-slate-800/80 px-5 py-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-500/20">
-              <GraduationCap className="h-5 w-5" />
+        <div className="flex items-center justify-between border-b border-slate-800/80 px-4 py-3.5 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-sm shadow-md shadow-blue-500/20">
+              <GraduationCap className="h-4 w-4" />
             </div>
             <div>
-              <h1 className="text-sm font-bold tracking-tight text-white">EduRAG Scholar</h1>
-              <p className="text-[11px] font-medium text-slate-400">Academic AI Copilot</p>
+              <h1 className="text-sm font-extrabold tracking-tight text-white flex items-center gap-1.5">
+                <span>EduRAG</span>
+                <span className="text-[10px] font-semibold text-blue-400 bg-blue-950/60 border border-blue-800/40 px-1.5 py-0.2 rounded">
+                  Scholar
+                </span>
+              </h1>
+              <p className="text-[10px] text-slate-400">Academic RAG & Copilot</p>
             </div>
           </div>
 
-          {/* Close button on mobile */}
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
-            aria-label="Close sidebar"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {/* Mobile Close Button */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white md:hidden"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
-        {/* Primary Actions & Study Tools */}
-        <div className="space-y-1 p-3 border-b border-slate-800/80">
-          <button
-            onClick={() => {
-              onOpenUpload();
-              if (onClose) onClose();
-            }}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 hover:bg-blue-500 px-3 py-2 text-xs font-semibold text-white shadow-xs transition mb-2 cursor-pointer"
-          >
-            <UploadCloud className="h-4 w-4" />
-            <span>Upload Course Materials</span>
-          </button>
+        {/* Compact Course Unit Selector (Zero vertical scrolling clutter) */}
+        <div className="px-3 py-2.5 border-b border-slate-800/80 bg-[#090d16]/70 shrink-0 relative z-30">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              Course Unit
+            </span>
+            <button
+              onClick={() => setIsRequestUnitOpen(true)}
+              className="text-[10px] text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-0.5 transition"
+              title="Request or add a custom course unit"
+            >
+              <Plus className="h-3 w-3" />
+              <span>Add Unit</span>
+            </button>
+          </div>
 
-          <nav className="space-y-0.5">
+          {/* Unit Dropdown Button */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsUnitDropdownOpen(!isUnitDropdownOpen)}
+              className="flex w-full items-center justify-between gap-2 rounded-xl border border-blue-500/30 bg-blue-950/20 px-3 py-2 text-left hover:border-blue-500/50 hover:bg-blue-950/30 transition shadow-xs"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                  <span className="text-xs font-bold text-white truncate">{activeUnitObj.code}</span>
+                  <span className="rounded bg-blue-500/20 px-1.5 py-0.2 text-[9px] font-medium text-blue-300 shrink-0">
+                    {activeUnitObj.venue || "Campus"}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 truncate mt-0.5">{activeUnitObj.name}</p>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-slate-400 shrink-0 transition-transform ${
+                  isUnitDropdownOpen ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            {/* Dropdown Menu */}
+            {isUnitDropdownOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1.5 z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-700/80 bg-[#0d1322] p-1.5 shadow-2xl backdrop-blur-md">
+                <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Select Active Unit
+                </div>
+                <div className="space-y-1">
+                  {displayUnits.map((u) => {
+                    const isSelected = u.code.toUpperCase() === selectedUnit.toUpperCase();
+                    return (
+                      <button
+                        key={u.code}
+                        onClick={() => handleUnitSelect(u.code)}
+                        className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                          isSelected
+                            ? "bg-blue-600/20 border border-blue-500/40 text-blue-300 font-semibold"
+                            : "text-slate-300 hover:bg-slate-800/60 hover:text-white"
+                        }`}
+                      >
+                        <div className="min-w-0 truncate">
+                          <span className="font-bold">{u.code}</span> -{" "}
+                          <span className="text-slate-400 text-[11px]">{u.name}</span>
+                        </div>
+                        {isSelected && <Check className="h-3.5 w-3.5 text-blue-400 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-1.5 pt-1.5 border-t border-slate-800">
+                  <button
+                    onClick={() => {
+                      setIsUnitDropdownOpen(false);
+                      setIsRequestUnitOpen(true);
+                    }}
+                    className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-slate-700 bg-slate-900/60 py-1.5 text-xs font-semibold text-blue-400 hover:border-blue-500 hover:bg-blue-950/20 transition"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Request New Unit (Admin Review)...</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Academic Workspaces Navigation (Full vertical visibility, no crowding) */}
+        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1">
+          <div className="px-2 pb-1.5 text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            Academic Workspaces
+          </div>
+
+          <nav className="space-y-1">
             {onOpenAssignmentStudio && (
               <button
                 onClick={() => {
                   onOpenAssignmentStudio();
                   if (onClose) onClose();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-blue-200 hover:text-white bg-blue-600/15 hover:bg-blue-600/25 border border-blue-500/30 transition group cursor-pointer shadow-sm mb-1"
+                className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-semibold text-white bg-gradient-to-r from-blue-600/25 to-indigo-600/25 hover:from-blue-600/35 hover:to-indigo-600/35 border border-blue-500/35 transition group cursor-pointer shadow-xs"
               >
-                <Compass className="h-4 w-4 text-blue-400 group-hover:rotate-45 transition-transform" />
-                <span>Assignment Studio</span>
-                <span className="ml-auto text-[9px] px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-mono tracking-wider uppercase font-bold border border-blue-400/20">PRO</span>
+                <div className="flex items-center gap-2.5">
+                  <Compass className="h-4 w-4 text-blue-400 group-hover:scale-110 transition-transform" />
+                  <span>Assignment Studio</span>
+                </div>
+                <span className="rounded bg-blue-500/20 px-1.5 py-0.2 text-[9px] font-bold text-blue-300 uppercase tracking-wider border border-blue-500/30">
+                  #1 Core
+                </span>
               </button>
             )}
-            {onOpenPipelines && (
-              <button
-                onClick={() => {
-                  onOpenPipelines();
-                  if (onClose) onClose();
-                }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
-              >
-                <Layers className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
-                <span>Exam PDF Pipelines</span>
-              </button>
-            )}
+
+            <button
+              onClick={() => {
+                onOpenUpload();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+            >
+              <UploadCloud className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+              <span>Upload Slide Deck / Notes</span>
+            </button>
+
             {onOpenExamSimulator && (
               <button
                 onClick={() => {
                   onOpenExamSimulator();
                   if (onClose) onClose();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
               >
                 <FileCheck2 className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
-                <span>Exam Simulator & Papers</span>
+                <span>Simulated Examination</span>
               </button>
             )}
+
+            <button
+              onClick={() => {
+                onOpenPastPapers();
+                if (onClose) onClose();
+              }}
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+            >
+              <FileText className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+              <span>Past Exam Questions</span>
+            </button>
+
             {onOpenRevisionQA && (
               <button
                 onClick={() => {
                   onOpenRevisionQA();
                   if (onClose) onClose();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
               >
                 <BookOpen className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
                 <span>Q&A Compendium</span>
               </button>
             )}
+
             <button
               onClick={() => {
                 onOpenFlashcards();
                 if (onClose) onClose();
               }}
-              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
             >
-              <Sparkles className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+              <Sparkles className="h-4 w-4 text-slate-400 group-hover:text-amber-400 transition" />
               <span>Spaced Repetition (SM-2)</span>
             </button>
+
             {onOpenVault && (
               <button
                 onClick={() => {
                   onOpenVault();
                   if (onClose) onClose();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
               >
                 <BookMarked className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
                 <span>Notes & Exam Vault</span>
               </button>
             )}
+
             {onOpenProfessorMode && (
               <button
                 onClick={() => {
                   onOpenProfessorMode();
                   if (onClose) onClose();
                 }}
-                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
               >
-                <GraduationCap className="h-4 w-4 text-slate-400 group-hover:text-blue-400 transition" />
+                <GraduationCap className="h-4 w-4 text-slate-400 group-hover:text-purple-400 transition" />
                 <span>Oral Masterclass Studio</span>
+              </button>
+            )}
+
+            {onOpenPipelines && (
+              <button
+                onClick={() => {
+                  onOpenPipelines();
+                  if (onClose) onClose();
+                }}
+                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
+              >
+                <Layers className="h-4 w-4 text-slate-400 group-hover:text-emerald-400 transition" />
+                <span>Autonomous Pipelines</span>
               </button>
             )}
           </nav>
         </div>
 
-        {/* Units Navigation */}
-        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-4">
-          {myEnrolledUnits.length > 0 ? (
-            <div>
-              <div className="mb-2 flex items-center justify-between px-2">
-                <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                  My Enrolled Courses
-                </span>
-                <span className="rounded bg-slate-800 border border-slate-700/60 px-1.5 py-0.5 text-[10px] font-medium text-slate-300">
-                  {myEnrolledUnits.length}
-                </span>
-              </div>
-
-              <nav className="space-y-1">
-                {myEnrolledUnits.map((unit) => {
-                  const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
-                  return (
-                    <button
-                      key={unit.code}
-                      onClick={() => handleUnitClick(unit.code)}
-                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2 text-left transition cursor-pointer ${
-                        isSelected
-                          ? "border border-blue-500/40 bg-blue-600/15 text-white"
-                          : "border border-transparent text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                      }`}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className={`text-xs font-semibold ${isSelected ? "text-blue-400" : "text-slate-300"}`}>
-                          {unit.code}
-                        </span>
-                        <span className="text-[10px] text-slate-500">{unit.venue || "Campus"}</span>
-                      </div>
-                      <span className="line-clamp-1 text-[11px] text-slate-400">{unit.name}</span>
-                      <span className="text-[10px] text-slate-500">{unit.lecturer}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-
-              {otherUnits.length > 0 && (
-                <div className="mt-4 pt-3 border-t border-slate-800/80">
-                  <div className="mb-2 flex items-center justify-between px-2">
-                    <span className="text-[10px] font-bold tracking-wider text-slate-500 uppercase">
-                      Other Department Units
-                    </span>
-                    <span className="text-[10px] text-slate-600">{otherUnits.length}</span>
-                  </div>
-                  <nav className="space-y-1">
-                    {otherUnits.map((unit) => {
-                      const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
-                      return (
-                        <button
-                          key={unit.code}
-                          onClick={() => handleUnitClick(unit.code)}
-                          className={`flex w-full flex-col items-start rounded-lg px-3 py-1.5 text-left transition ${
-                            isSelected
-                              ? "border border-blue-500/40 bg-blue-600/15 text-white"
-                              : "text-slate-500 hover:bg-slate-800/40 hover:text-slate-300"
-                          }`}
-                        >
-                          <div className="flex w-full items-center justify-between">
-                            <span className="text-[11px] font-bold text-slate-400">{unit.code}</span>
-                          </div>
-                          <span className="line-clamp-1 text-[10px] text-slate-500">{unit.name}</span>
-                        </button>
-                      );
-                    })}
-                  </nav>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div>
-              <div className="mb-2 flex items-center justify-between px-2">
-                <span className="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-                  The 7 Course Units
-                </span>
-                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-semibold text-slate-300">
-                  {units.length} Units
-                </span>
-              </div>
-
-              <nav className="space-y-1">
-                {units.map((unit) => {
-                  const isSelected = selectedUnit.toUpperCase() === unit.code.toUpperCase();
-                  return (
-                    <button
-                      key={unit.code}
-                      onClick={() => handleUnitClick(unit.code)}
-                      className={`flex w-full flex-col items-start rounded-lg px-3 py-2.5 text-left transition ${
-                        isSelected
-                          ? "border border-blue-500/40 bg-blue-600/15 text-white shadow-inner"
-                          : "text-slate-400 hover:bg-slate-800/60 hover:text-slate-200"
-                      }`}
-                    >
-                      <div className="flex w-full items-center justify-between">
-                        <span className={`text-xs font-bold ${isSelected ? "text-blue-400" : "text-slate-300"}`}>
-                          {unit.code}
-                        </span>
-                        <span className="text-[10px] text-slate-500">{unit.venue}</span>
-                      </div>
-                      <span className="line-clamp-1 text-[11px] text-slate-400">{unit.name}</span>
-                      <span className="text-[10px] text-slate-500">{unit.lecturer}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-          )}
-        </div>
-
         {/* Account & Administration Footer */}
-        <div className="border-t border-slate-800/80 p-3.5 space-y-2">
+        <div className="border-t border-slate-800/80 p-3 space-y-2 shrink-0 bg-[#090d16]/90">
+          {/* Developer API Keys Shortcut */}
+          <button
+            onClick={() => setIsDeveloperApiOpen(true)}
+            className="flex w-full items-center justify-between rounded-lg border border-purple-500/25 bg-purple-950/20 px-3 py-1.5 text-xs font-semibold text-purple-300 transition hover:bg-purple-950/40"
+            title="Generate API key and access developer REST endpoints"
+          >
+            <div className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5 text-purple-400" />
+              <span>Developer API Keys</span>
+            </div>
+            <span className="text-[9px] uppercase font-mono bg-purple-900/50 px-1.5 py-0.2 rounded text-purple-200 border border-purple-500/30">
+              REST v1
+            </span>
+          </button>
+
           {/* Super Admin Command Shortcut */}
           {isAdmin && (
             <Link
@@ -337,13 +382,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="flex w-full items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 mb-2"
+              className="flex w-full items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
             >
               <div className="flex items-center gap-2">
-                <Shield className="h-4 w-4 text-amber-400" />
+                <Shield className="h-3.5 w-3.5 text-amber-400" />
                 <span>Admin Command</span>
               </div>
-              <span className="text-[10px] uppercase font-mono bg-slate-900/80 px-1.5 py-0.5 rounded text-amber-300 border border-amber-500/30">
+              <span className="text-[9px] uppercase font-mono bg-slate-900/80 px-1.5 py-0.2 rounded text-amber-300 border border-amber-500/30">
                 Portal
               </span>
             </Link>
@@ -351,21 +396,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {/* User Account State */}
           {user ? (
-            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#090d16] p-2.5">
-              <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#0c121e] p-2">
+              <div className="flex items-center gap-2 min-w-0">
                 {userAvatar ? (
                   <img
                     src={userAvatar}
                     alt={userDisplayName}
-                    className="h-8 w-8 rounded-full border border-blue-500/40 object-cover shrink-0"
+                    className="h-7 w-7 rounded-full border border-blue-500/40 object-cover shrink-0"
                   />
                 ) : (
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600/30 text-blue-400 text-xs font-bold shrink-0">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-blue-600/30 text-blue-400 text-xs font-bold shrink-0">
                     {userDisplayName.slice(0, 2).toUpperCase()}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="text-xs font-semibold text-white truncate max-w-[130px]">{userDisplayName}</p>
+                  <p className="text-xs font-semibold text-white truncate max-w-[130px]">
+                    {userDisplayName}
+                  </p>
                   <p className="text-[10px] text-slate-400 truncate max-w-[130px]">{userEmail}</p>
                 </div>
               </div>
@@ -378,19 +425,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             </div>
           ) : (
-            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#090d16] p-2.5">
+            <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-[#0c121e] p-2">
               <div className="flex items-center gap-2 min-w-0">
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-800 text-slate-400">
                   <UserIcon className="h-3.5 w-3.5" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-medium text-slate-300">Guest Scholar</p>
-                  <p className="text-[10px] text-slate-500">Sign in to sync your notes</p>
+                  <p className="text-[10px] text-slate-500">Sign in to sync notes</p>
                 </div>
               </div>
               <button
                 onClick={openAuthModal}
-                className="flex items-center gap-1 rounded-lg bg-blue-600/20 border border-blue-500/30 px-2.5 py-1 text-[11px] font-semibold text-blue-400 hover:bg-blue-600 hover:text-white transition"
+                className="flex items-center gap-1 rounded-lg bg-blue-600/20 border border-blue-500/30 px-2 py-1 text-[11px] font-semibold text-blue-400 hover:bg-blue-600 hover:text-white transition"
               >
                 <LogIn className="h-3 w-3" />
                 <span>Sign In</span>
@@ -399,6 +446,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </aside>
+
+      {/* Modals */}
+      <RequestUnitModal
+        isOpen={isRequestUnitOpen}
+        onClose={() => setIsRequestUnitOpen(false)}
+      />
+      <DeveloperApiModal
+        isOpen={isDeveloperApiOpen}
+        onClose={() => setIsDeveloperApiOpen(false)}
+      />
     </>
   );
 };

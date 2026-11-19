@@ -30,7 +30,7 @@ from app.ingestion.extractor import extract_document_pages
 from app.ingestion.chunker import chunk_extracted_pages
 from app.ingestion.embedder import embedding_service
 from app.agents.rag_router import rag_router
-from app.workers.abstractor import run_nightly_abstraction_job
+from app.workers.abstractor import run_nightly_abstraction_job, send_briefing_to_email
 from app.core.exam_pdf_builder import build_simulated_exam_pdf
 from app.core.qa_pdf_builder import build_revision_qa_pdf
 from fastapi.responses import Response, StreamingResponse
@@ -74,7 +74,7 @@ class FlashcardReviewRequest(BaseModel):
 
 class MockExamGenerateRequest(BaseModel):
     unit_code: str
-    difficulty: Optional[str] = "Chiromo Standard Exam"
+    difficulty: Optional[str] = "University Standard Exam"
     exam_type: Optional[str] = "Final Examination" # Final Examination | CAT I | CAT II | Special Revision
     include_answers: bool = True
 
@@ -155,16 +155,32 @@ def health_check():
 
 
 @router.get("/units")
-def get_units():
-    """Returns the 7 units and lecturer metadata."""
+def get_units(authorization: Optional[str] = Header(None)):
+    """
+    Returns active system units, plus any private units created by and approved for the authenticated user.
+    Private units created by other users are excluded.
+    """
+    user = get_user_from_header(authorization)
     client = get_supabase_admin_client()
-    res = client.table("units").select("*").order("code").execute()
-    return {"units": res.data or []}
+    res = client.table("units").select("*").eq("status", "active").order("code").execute()
+    all_units = res.data or []
+
+    user_id = user.get("id") if user else None
+    filtered = []
+    for u in all_units:
+        # System unit: visible to all scholars
+        if u.get("is_system_unit", True):
+            filtered.append(u)
+        # Custom/private unit: visible ONLY to the user who requested it
+        elif user_id and u.get("created_by") == user_id:
+            filtered.append(u)
+
+    return {"units": filtered}
 
 
 @router.post("/units")
 async def create_unit(body: dict, authorization: Optional[str] = Header(None)):
-    """Allow creating a new unit (from signup, custom typing, or admin)."""
+    """Allow creating a new unit (from admin or user request)."""
     user = get_user_from_header(authorization)
     code = (body.get("code") or "").strip().upper()
     name = (body.get("name") or "").strip()
@@ -173,22 +189,67 @@ async def create_unit(body: dict, authorization: Optional[str] = Header(None)):
     supabase = get_supabase_admin_client()
     try:
         # Check if already exists
-        existing = supabase.table("units").select("id,code,name,lecturer,venue").ilike("code", code).execute()
+        existing = supabase.table("units").select("code,name,lecturer,venue").eq("code", code).execute()
         if existing.data:
             return {"unit": existing.data[0], "created": False}
+
+        is_admin_user = False
+        if user:
+            SUPER_ADMIN = "makeromusa17@gmail.com"
+            if user.get("email") == SUPER_ADMIN:
+                is_admin_user = True
+            else:
+                p_check = supabase.table("profiles").select("is_admin").eq("id", user["id"]).maybe_single().execute()
+                is_admin_user = (p_check.data or {}).get("is_admin", False)
+
         row = {
             "code": code,
             "name": name,
-            "lecturer": body.get("lecturer") or "Chiromo Faculty",
-            "venue": body.get("venue") or "Chiromo Campus",
-            "is_system_unit": False,
-            "status": "active",
+            "lecturer": body.get("lecturer") or "Faculty Lecturer",
+            "venue": body.get("venue") or "Main Campus",
+            "is_system_unit": body.get("is_system_unit", is_admin_user),
+            "status": "active" if is_admin_user else "pending_approval",
             "created_by": user["id"] if user else None,
         }
         resp = supabase.table("units").insert(row).execute()
         return {"unit": resp.data[0] if resp.data else row, "created": True}
     except Exception as e:
         logger.error(f"Create unit error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/units/request")
+async def request_custom_unit(body: dict, authorization: Optional[str] = Header(None)):
+    """Allow a student during sign up or study to request a custom unit pending admin approval."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Sign in required to request custom units.")
+    code = (body.get("code") or "").strip().upper()
+    name = (body.get("name") or "").strip()
+    if not code or not name:
+        raise HTTPException(status_code=400, detail="Unit code and name are required.")
+    supabase = get_supabase_admin_client()
+    try:
+        existing = supabase.table("units").select("code,name,status,created_by").eq("code", code).execute()
+        if existing.data:
+            return {"unit": existing.data[0], "created": False, "message": "Unit code already exists."}
+        row = {
+            "code": code,
+            "name": name,
+            "lecturer": body.get("lecturer") or "Faculty Lecturer",
+            "venue": body.get("venue") or "Main Campus",
+            "is_system_unit": False,
+            "status": "pending_approval",
+            "created_by": user["id"],
+        }
+        resp = supabase.table("units").insert(row).execute()
+        return {
+            "unit": resp.data[0] if resp.data else row,
+            "created": True,
+            "message": "Unit request submitted! It will appear in your workspace once approved by Admin."
+        }
+    except Exception as e:
+        logger.error(f"Request custom unit error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -624,70 +685,8 @@ async def chat_with_unit(request: Request, payload: ChatRequest, authorization: 
 
 # --- Spaced Repetition (SM-2) Flashcard Subsystem ---
 
-# Resilient in-memory fallback store for flashcards (survives MongoDB connectivity blips)
+# In-memory session cache for flashcards during current request lifecycle
 _memory_flashcards: dict = {}
-
-def _get_seed_cards_for_unit(unit_code: str) -> list:
-    """Pre-built high-yield revision flashcards for university units."""
-    now_iso = datetime.now(timezone.utc).isoformat()
-    seeds = {
-        "SCS 3207": [
-            {
-                "_id": "seed-os-1",
-                "unit_code": "SCS 3207",
-                "topic": "Deadlock Characterization",
-                "question": "What are the four necessary and sufficient conditions for deadlock (Coffman conditions)?",
-                "answer": "1. Mutual Exclusion (non-shareable resources)\n2. Hold and Wait (process holds resources while waiting for others)\n3. No Preemption (resources cannot be forcibly taken)\n4. Circular Wait (closed chain of processes waiting for each other)",
-                "exam_trap": "All four conditions must hold simultaneously. Breaking any single condition prevents deadlock entirely.",
-                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
-                "next_review_at": now_iso, "created_at": now_iso
-            },
-            {
-                "_id": "seed-os-2",
-                "unit_code": "SCS 3207",
-                "topic": "Memory Hierarchy & Paging",
-                "question": "Differentiate between internal and external fragmentation.",
-                "answer": "Internal fragmentation: Unused memory space inside an allocated partition/page.\nExternal fragmentation: Total free memory satisfies a request, but is non-contiguous.",
-                "exam_trap": "Paging eliminates external fragmentation completely, but small internal fragmentation can still exist on the last page.",
-                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
-                "next_review_at": now_iso, "created_at": now_iso
-            },
-            {
-                "_id": "seed-os-3",
-                "unit_code": "SCS 3207",
-                "topic": "Process Synchronization",
-                "question": "What is the difference between a counting semaphore and a binary mutex?",
-                "answer": "A binary mutex is an exclusive locking mechanism (ownership semantics) with values 0 or 1. A counting semaphore maintains an integer count representing the number of shared resources currently available.",
-                "exam_trap": "Only the thread that locked a mutex can unlock it. Any process with access can signal (V) a semaphore.",
-                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
-                "next_review_at": now_iso, "created_at": now_iso
-            }
-        ],
-        "CSC 3211": [
-            {
-                "_id": "seed-net-1",
-                "unit_code": "CSC 3211",
-                "topic": "OSI & TCP/IP Reference Models",
-                "question": "How does TCP guarantee reliable in-order delivery over an unreliable network?",
-                "answer": "Using 3-way handshake connection establishment, sequence numbers on every segment, cumulative ACKs, sliding window flow control, and adaptive retransmission timers.",
-                "exam_trap": "UDP does not provide flow control or sequencing; applications requiring reliability over UDP must implement it at the application layer.",
-                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
-                "next_review_at": now_iso, "created_at": now_iso
-            }
-        ]
-    }
-    return seeds.get(unit_code.upper(), [
-        {
-            "_id": f"seed-{unit_code}-1",
-            "unit_code": unit_code,
-            "topic": f"{unit_code} Core Concepts",
-            "question": f"What are the foundational architectural principles of {unit_code}?",
-            "answer": f"Refer to course syllabus lectures, prescribed textbook definitions, and mathematical formulations for {unit_code}.",
-            "exam_trap": "Focus on step-by-step derivations and textbook definitions required in Section A of university papers.",
-            "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
-            "next_review_at": now_iso, "created_at": now_iso
-        }
-    ])
 
 
 @router.post("/flashcards/generate")
@@ -808,17 +807,10 @@ async def get_due_flashcards(unit_code: str):
     except Exception as e:
         logger.warning(f"MongoDB read failed for flashcards ({e}), checking fallback store")
 
-    # 2. Check in-memory store
+    # 2. Check session memory store
     if len(cards) == 0:
         mem_cards = [c for c in _memory_flashcards.values() if c.get("unit_code", "").upper() == unit_code.upper()]
         cards.extend(mem_cards[:10])
-
-    # 3. If still empty, provide high-yield seed cards so student never has a dead screen
-    if len(cards) == 0:
-        seed_cards = _get_seed_cards_for_unit(unit_code)
-        for sc in seed_cards:
-            _memory_flashcards[sc["_id"]] = sc
-        cards = seed_cards
 
     return {"unit_code": unit_code, "due_cards": cards, "count": len(cards)}
 
@@ -962,18 +954,18 @@ For every calculation question, the 'model_answer' MUST show ALL working line-by
 """ if is_math else ""
 
     sys_inst = (
-        f"You are the senior University of Nairobi Chief Examiner for [{payload.unit_code}: {unit_name}]. "
-        f"Lecturer: {lecturer}. You must set a complete, rigorous 70-mark University Examination paper matching Chiromo standards.\n"
+        f"You are the senior University Chief Examiner for [{payload.unit_code}: {unit_name}]. "
+        f"Lecturer: {lecturer}. You must set a complete, rigorous 70-mark University Examination paper matching University Examination standards.\n"
         "CRITICAL MARKING RULES:\n"
         "- DO NOT set every question to 10 marks.\n"
-        "- Follow authentic UON Chiromo marks distribution: sub-questions MUST have realistic varying marks (such as 3, 4, 5, 6, 7, 8 marks).\n"
+        "- Follow authentic University marks distribution: sub-questions MUST have realistic varying marks (such as 3, 4, 5, 6, 7, 8 marks).\n"
         "- Question ONE (Compulsory) total must equal EXACTLY 30 Marks (across 4 or 5 sub-questions).\n"
         "- Questions TWO, THREE, and FOUR total must equal EXACTLY 20 Marks each (across 2 or 3 sub-questions).\n"
         f"{calc_instruction}"
         "Strict rule: You MUST output pure JSON only (no markdown code blocks, no backticks, no commentary)."
     )
 
-    user_p = f"""Set a complete Chiromo Final Examination paper for {payload.unit_code}: {unit_name}.
+    user_p = f"""Set a complete University Final Examination paper for {payload.unit_code}: {unit_name}.
 Grounding Syllabus Context from Prescribed Textbooks & Past Exams:
 {syllabus_context}
 
@@ -1053,7 +1045,7 @@ Return a valid JSON object with EXACTLY this structure:
           "label": "c)",
           "text": "Practical design recommendations, constraints, or edge-case handling...",
           "marks": 6,
-          "model_answer": "Thorough discussion and solution validation meeting Chiromo standards.",
+          "model_answer": "Thorough discussion and solution validation meeting University Examination standards.",
           "citation": "{payload.unit_code} Lecture Slides"
         }}
       ]
@@ -1383,7 +1375,7 @@ async def evaluate_mock_exam(request: Request, payload: MockExamEvaluateRequest)
             paper_content = json.dumps(exam.get('exam_data'), indent=2)
         unit_code = exam.get('unit_code', 'SCS Unit')
     else:
-        paper_content = "Comprehensive Chiromo Examination Assessment"
+        paper_content = "Comprehensive University Examination Assessment"
         unit_code = "SCS Unit"
 
     sys_inst = f"You are a rigorous UoN Computer Science Lecturer grading a student's final exam script for [{unit_code}]."
@@ -1439,6 +1431,30 @@ async def trigger_briefing_now(background_tasks: BackgroundTasks):
     return {"status": "accepted", "message": "3 AM Abstractor job initiated in background."}
 
 
+@router.post("/briefings/dispatch-to-me")
+@limiter.limit("5/minute")
+async def dispatch_briefing_to_scholar(
+    request: Request,
+    authorization: Optional[str] = Header(None)
+):
+    """
+    Sends today's in-depth academic study notes directly to the authenticated scholar's email.
+    """
+    user = get_user_from_header(authorization)
+    if not user or not user.get("email"):
+        raise HTTPException(status_code=401, detail="Authentication required to receive personal email notes.")
+
+    client = get_supabase_admin_client()
+    try:
+        prof_res = client.table("profiles").select("enrolled_units").eq("id", user["id"]).execute()
+        enrolled_units = (prof_res.data[0].get("enrolled_units") if prof_res.data else []) or []
+    except Exception:
+        enrolled_units = []
+
+    res = await send_briefing_to_email(target_email=user["email"], unit_codes=enrolled_units)
+    return res
+
+
 @router.post("/past-papers/analyze")
 @limiter.limit("15/minute")
 async def analyze_past_paper_trends(request: Request, payload: PastPaperAnalyzeRequest):
@@ -1446,7 +1462,7 @@ async def analyze_past_paper_trends(request: Request, payload: PastPaperAnalyzeR
     Predict & Trend Engine: Analyzes recurring exam themes and question frequency.
     """
     system_inst = f"You are the senior examiner for University of Nairobi unit [{payload.unit_code}]."
-    user_p = f"""Analyze typical examination trends and recurring themes based on Chiromo Computer Science syllabi for [{payload.unit_code}].
+    user_p = f"""Analyze typical examination trends and recurring themes based on University Computer Science syllabi for [{payload.unit_code}].
 Output:
 1. High-Probability Topics (ranked by typical exam frequency)
 2. Compulsory Section A Question Predictions
@@ -1589,7 +1605,7 @@ async def teach_document_lesson(payload: ProfessorLessonRequest):
     """
     Delivers a full Professor Masterclass covering Slides start_page to end_page.
     Teaches in MORE DETAIL than the slides themselves, unpacking mechanics, memory maps,
-    C code, and Chiromo Section B exam problems.
+    C code, and University Section B exam problems.
     """
     try:
         lesson = await professor_course_service.teach_lesson_batch(

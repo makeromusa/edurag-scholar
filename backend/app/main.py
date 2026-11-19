@@ -22,6 +22,7 @@ from slowapi.middleware import SlowAPIMiddleware
 from app.api.routes import router as api_router
 from app.api.admin_routes import admin_router
 from app.api.assignment_routes import assignment_router
+from app.api.developer_routes import developer_router
 from app.routers.document_pipeline import router as pipeline_router
 from app.workers.abstractor import start_scheduler
 
@@ -85,6 +86,7 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(assignment_router, prefix="/api")
+app.include_router(developer_router, prefix="/api")
 app.include_router(pipeline_router)
 
 

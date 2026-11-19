@@ -227,7 +227,7 @@ ABSOLUTE PEDAGOGICAL DIRECTIVE:
 2. Provide a rigorous, inspiring academic orientation:
    - Outline the foundational pillars of {unit_code} and how this course interfaces with hardware, OS kernels, algorithms, or systems programming.
    - Clarify the mathematical/programming prerequisites needed to excel.
-   - Explain the Chiromo examination architecture: Section A (30 marks compulsory breadth testing) and Section B (Answer 2 of 3 questions, 20 marks each, deep derivations/code).
+   - Explain the university examination architecture: Section A (30 marks compulsory breadth testing) and Section B (Answer 2 of 3 questions, 20 marks each, deep derivations/code).
    - Point to authoritative reference textbooks (e.g. Silberschatz, Stallings, Tanenbaum, Cormen).
 
 OUTPUT STRUCTURE:
@@ -240,7 +240,7 @@ OUTPUT STRUCTURE:
 ## 2. 🏛️ Core Foundational Concepts & Systems Prerequisites
 (Key computer systems, memory hierarchy, data structures, or math background required)
 
-## 3. 🎯 Chiromo Examination Strategy & Paper Structure
+## 3. 🎯 University Examination Strategy & Paper Structure
 (Detailed breakdown of Section A compulsory questions vs Section B in-depth design/calculation questions)
 
 ## 4. 📚 Essential Reference Literature & Standard Texts
@@ -315,7 +315,7 @@ Format your lecture clearly in Markdown with these structured sections:
 ## 3. 📐 Unified Architectural Flow, Code & Memory Layout
 (Concrete compilable C/Python code and ASCII diagram showing data structures, memory layout, register states, or state transitions across this batch)
 
-## 4. ⚠️ Chiromo Lecturer Exam Traps & Section B Calculations
+## 4. ⚠️ University Lecturer Exam Traps & Section B Calculations
 (The exact Section B exam questions, numerical gotchas, proofs, and marking scheme pitfalls examiners use on these slides, with full step-by-step model working)
 
 ## 5. 🎯 Socratic Self-Check & Active Recall Questions

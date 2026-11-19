@@ -20,7 +20,7 @@ AVAILABLE_PROFESSOR_VOICES = {
     },
     "kenyan_professor": {
         "id": "en-KE-ChilembaNeural",
-        "name": "Prof. Omondi (UoN Chiromo Resident Voice)",
+        "name": "Prof. Omondi (Faculty Resident Voice)",
         "gender": "Male"
     },
     "distinguished_female": {

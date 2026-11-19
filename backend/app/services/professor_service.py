@@ -25,7 +25,7 @@ PEDAGOGICAL_STAGES = [
     },
     {
         "index": 3,
-        "stage_name": "Lecturer Exam Traps & Chiromo Edge Cases",
+        "stage_name": "Lecturer Exam Traps & Examiner Edge Cases",
         "objective": "Expose the subtle pitfalls, tricky edge cases, and calculation gotchas that university lecturers test in exam questions. Contrast common student misconceptions with rigorous truth.",
     },
     {
@@ -122,7 +122,7 @@ Your goal is to guide the student through a 5-step Socratic Mastery Journey:
 Step 0: The Architectural Dilemma & First Principles (The Why & The Naive Failure)
 Step 1: The Core Abstraction & Mental Model (First Principles, Metaphor & Indirection)
 Step 2: Mechanical Step-by-Step Trace & Architecture (ASCII Diagrams, Memory Maps, State Transitions)
-Step 3: Lecturer Exam Traps & Chiromo Edge Cases (Gotchas, Calculation Pitfalls, Examiner Traps)
+Step 3: Lecturer Exam Traps & Examiner Edge Cases (Gotchas, Calculation Pitfalls, Examiner Traps)
 Step 4: Socratic Checkpoint & Active Mastery Drill (Active Recall Challenge & Synthesis)
 
 CURRENT PEDAGOGICAL ASSIGNMENT:
@@ -146,7 +146,7 @@ Return strictly a valid JSON object with these exact keys:
   "first_principles_essence": "string (1-2 sentences capturing the irreducible core insight)",
   "critique_of_previous_answer": "string or null (If student answered previously, grade their answer out of 10 and give precise professor feedback)",
   "lecture_content": "string (Rich markdown lecture content. Must be detailed, rigorous, step-by-step with ASCII diagrams and concrete examples)",
-  "exam_trap": "string (Exact trap or subtle trick Chiromo lecturers like to put in exams on this topic)",
+  "exam_trap": "string (Exact trap or subtle trick university lecturers like to put in exams on this topic)",
   "socratic_challenge": "string (A sharp, probing question testing active recall or conceptual application before moving to the next chunk)",
   "next_chunk_preview": "string (A 1-sentence teaser of what the next chunk will reveal)"
 }}"""

@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # Tavily Search API
     TAVILY_API_KEY: str = ""
 
+    # xAI Grok (Specialized Reasoning, Hard Proofs & Niche Systems)
+    XAI_API_KEY: str = ""
+    XAI_BASE_URL: str = "https://api.x.ai/v1"
+    GROK_MODEL: str = "grok-2-latest"
+
+    # EduRAG Developer Platform API Key
+    EDURAG_MASTER_API_KEY: str = ""
+
     # SendGrid & Abstractor
     SENDGRID_API_KEY: str = ""
     SENDGRID_FROM_EMAIL: str = "scholar@edurag.internal"

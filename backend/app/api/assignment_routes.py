@@ -110,6 +110,31 @@ async def solve_assignment(payload: AssignmentSolveRequest):
     else:
         context_str = f"Rely on established computer science, engineering, and mathematics definitions prescribed for {unit_code}."
 
+    # Live academic web search enhancement (Tavily)
+    external_sources = []
+    if rag_router.tavily_client and payload.prompt:
+        try:
+            search_query = f"{payload.prompt[:160]} {unit_code} academic computer science engineering"
+            search_res = rag_router.tavily_client.search(
+                query=search_query,
+                search_depth="advanced",
+                max_results=3,
+                include_domains=[
+                    "geeksforgeeks.org", "wikipedia.org", "tutorialspoint.com",
+                    "arxiv.org", "mit.edu", "stanford.edu", "github.com", "baeldung.com"
+                ]
+            )
+            raw_web = search_res.get("results", [])
+            if raw_web:
+                web_parts = []
+                for w in raw_web:
+                    external_sources.append({"title": w.get("title", "Web Source"), "url": w.get("url", "#")})
+                    web_parts.append(f"[External Academic Excerpt | {w.get('title')}]:\n{w.get('content')}")
+                context_str += "\n\n--- LIVE ACADEMIC WEB SOURCES (TAVILY) ---\n" + "\n\n".join(web_parts)
+                logger.info(f"Assignment Studio incorporated {len(raw_web)} live web search results.")
+        except Exception as web_err:
+            logger.warning(f"Assignment Studio web search warning: {web_err}")
+
     # 2. Build multi-stage prompt
     notation_guide = ""
     if payload.notation_style == "gane_sarson":
@@ -182,6 +207,7 @@ CORE ACADEMIC PRINCIPLES:
         "mermaid_code": primary_diagram,
         "all_diagrams": mermaid_blocks,
         "citations": citations,
+        "external_sources": external_sources,
         "viva_questions": viva_questions,
     }
 

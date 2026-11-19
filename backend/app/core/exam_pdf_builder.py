@@ -49,7 +49,7 @@ class NumberedExamCanvas(canvas.Canvas):
         self.line(54, 45, 558, 45)
 
         self.setFont("Helvetica", 7.5)
-        self.drawString(54, 32, "EduRAG Autonomous Academic Copilot • Chiromo Examination Standards")
+        self.drawString(54, 32, "EduRAG Autonomous Academic Copilot • University Examination Standards")
         page_str = f"Page {self._pageNumber} of {page_count}"
         self.drawRightString(558, 32, page_str)
 
@@ -207,7 +207,7 @@ def build_simulated_exam_pdf(
         ],
         [
             Paragraph(f"<b>TOTAL MARKS:</b> 70 MARKS", body_style),
-            Paragraph(f"<b>EXAM TYPE:</b> Autonomous Chiromo Standard Simulation", body_style)
+            Paragraph(f"<b>EXAM TYPE:</b> Autonomous University Standard Simulation", body_style)
         ]
     ]
     t_meta = Table(meta_data, colWidths=[250, 254])

@@ -18,6 +18,7 @@ import {
   Code,
   Shield,
   HelpCircle,
+  Globe,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkMath from "remark-math";
@@ -39,6 +40,7 @@ interface SolutionData {
   mermaid_code?: string | null;
   all_diagrams?: string[];
   citations?: { document_title: string; page_number: number }[];
+  external_sources?: { title: string; url: string }[];
   viva_questions?: string[];
 }
 
@@ -473,6 +475,28 @@ export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
                           >
                             {c.document_title} (p. {c.page_number})
                           </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Live Academic Web Sources (Tavily) */}
+                  {solution.external_sources && solution.external_sources.length > 0 && (
+                    <div className="rounded-xl border border-emerald-900/40 bg-emerald-950/20 p-3 text-xs text-slate-400 flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-emerald-400 shrink-0" />
+                      <span className="font-semibold text-emerald-300">Live Academic Web Sources:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {solution.external_sources.map((ext, i) => (
+                          <a
+                            key={i}
+                            href={ext.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="rounded bg-slate-900 border border-emerald-600/30 px-2 py-0.5 text-[10px] text-emerald-300 font-mono hover:bg-emerald-900/30 transition truncate max-w-[200px]"
+                            title={ext.title}
+                          >
+                            {ext.title} ↗
+                          </a>
                         ))}
                       </div>
                     </div>

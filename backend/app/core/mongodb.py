@@ -44,3 +44,8 @@ def get_flashcards_collection():
 
 def get_briefing_archives_collection():
     return get_mongo_db()["briefing_archives"]
+
+
+def get_api_keys_collection():
+    return get_mongo_db()["api_keys"]
+

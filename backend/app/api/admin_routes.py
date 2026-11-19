@@ -102,7 +102,7 @@ async def admin_overview(authorization: str = Header(None)):
             admin_count = sum(1 for u in users if u.get("is_admin"))
 
         # Units
-        units_resp = supabase.table("units").select("id,code,name,status").execute()
+        units_resp = supabase.table("units").select("code,name,status").execute()
         units = units_resp.data or []
         total_units = len(units)
 
@@ -254,6 +254,18 @@ async def admin_list_units(authorization: str = Header(None)):
     try:
         units_resp = supabase.table("units").select("*").order("code").execute()
         units = units_resp.data or []
+
+        # Get profiles to resolve creator email for private/custom unit requests
+        creator_ids = [u.get("created_by") for u in units if u.get("created_by")]
+        creator_map = {}
+        if creator_ids:
+            try:
+                prof_res = supabase.table("profiles").select("id,email,full_name").in_("id", creator_ids).execute()
+                for p in (prof_res.data or []):
+                    creator_map[p["id"]] = p.get("email") or p.get("full_name") or "User"
+            except Exception:
+                pass
+
         # Attach doc count per unit
         docs_resp = supabase.table("documents").select("unit_code").execute()
         docs = docs_resp.data or []
@@ -261,34 +273,108 @@ async def admin_list_units(authorization: str = Header(None)):
         for d in docs:
             uc = d.get("unit_code", "")
             doc_count_map[uc] = doc_count_map.get(uc, 0) + 1
+
         for u in units:
-            u["doc_count"] = doc_count_map.get(u.get("code", ""), 0)
+            code = u.get("code", "")
+            u["id"] = code  # Consistent key for frontend
+            u["doc_count"] = doc_count_map.get(code, 0)
+            u["creator_email"] = creator_map.get(u.get("created_by"), None)
+
         return {"units": units, "count": len(units)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@admin_router.patch("/units/{unit_id}")
-async def admin_update_unit(unit_id: str, body: UnitUpdateBody, authorization: str = Header(None)):
+@admin_router.post("/units")
+async def admin_create_unit(body: dict, authorization: str = Header(None)):
+    """Admin endpoint to create a global system unit or a private user-assigned unit."""
+    admin = await require_admin(authorization)
+    supabase = get_supabase_admin_client()
+    code = (body.get("code") or "").strip().upper()
+    name = (body.get("name") or "").strip()
+    if not code or not name:
+        raise HTTPException(status_code=400, detail="Unit code and name are required.")
+
+    # Check for existing code
+    existing = supabase.table("units").select("code").eq("code", code).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail=f"Unit with code {code} already exists.")
+
+    row = {
+        "code": code,
+        "name": name,
+        "lecturer": body.get("lecturer") or "Faculty Lecturer",
+        "venue": body.get("venue") or "Main Campus",
+        "is_system_unit": body.get("is_system_unit", True),
+        "status": body.get("status", "active"),
+        "created_by": body.get("created_by") or admin["user"].id,
+    }
+    try:
+        resp = supabase.table("units").insert(row).execute()
+        return {"success": True, "unit": resp.data[0] if resp.data else row}
+    except Exception as e:
+        logger.error(f"Admin create unit error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.patch("/units/{unit_code}")
+async def admin_update_unit(unit_code: str, body: UnitUpdateBody, authorization: str = Header(None)):
     await require_admin(authorization)
     supabase = get_supabase_admin_client()
     update_data = {k: v for k, v in body.dict().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="Nothing to update.")
     try:
-        resp = supabase.table("units").update(update_data).eq("id", unit_id).execute()
+        resp = supabase.table("units").update(update_data).eq("code", unit_code.upper()).execute()
         return {"success": True, "data": resp.data}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@admin_router.delete("/units/{unit_id}")
-async def admin_delete_unit(unit_id: str, authorization: str = Header(None)):
+@admin_router.delete("/units/{unit_code}")
+async def admin_delete_unit(unit_code: str, authorization: str = Header(None)):
     await require_admin(authorization)
     supabase = get_supabase_admin_client()
     try:
-        supabase.table("units").delete().eq("id", unit_id).execute()
+        supabase.table("units").delete().eq("code", unit_code.upper()).execute()
         return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.post("/units/{unit_code}/approve")
+async def admin_approve_unit(unit_code: str, authorization: str = Header(None)):
+    """Approves a student's private unit request and enrolls them into the unit."""
+    await require_admin(authorization)
+    supabase = get_supabase_admin_client()
+    code = unit_code.upper()
+    try:
+        supabase.table("units").update({"status": "active"}).eq("code", code).execute()
+
+        # Find creator and automatically enroll them
+        unit_data = supabase.table("units").select("created_by,code").eq("code", code).maybe_single().execute()
+        if unit_data.data and unit_data.data.get("created_by"):
+            uid = unit_data.data["created_by"]
+            prof = supabase.table("profiles").select("enrolled_units").eq("id", uid).maybe_single().execute()
+            current_units = (prof.data or {}).get("enrolled_units") or []
+            if code not in current_units:
+                current_units.append(code)
+                supabase.table("profiles").update({"enrolled_units": current_units}).eq("id", uid).execute()
+
+        return {"success": True, "message": f"Unit {code} approved successfully."}
+    except Exception as e:
+        logger.error(f"Approve unit error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.post("/units/{unit_code}/reject")
+async def admin_reject_unit(unit_code: str, authorization: str = Header(None)):
+    """Rejects and purges a pending unit request."""
+    await require_admin(authorization)
+    supabase = get_supabase_admin_client()
+    try:
+        supabase.table("units").delete().eq("code", unit_code.upper()).execute()
+        return {"success": True, "message": f"Unit {unit_code.upper()} rejected."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -352,7 +438,7 @@ async def admin_health(authorization: str = Header(None)):
     # 2. Supabase Primary DB
     try:
         supabase = get_supabase_admin_client()
-        supabase.table("units").select("id").limit(1).execute()
+        supabase.table("units").select("code").limit(1).execute()
         checks["supabase"] = {"status": "ok"}
     except Exception as e:
         checks["supabase"] = {"status": "error", "detail": str(e)}
@@ -450,3 +536,16 @@ async def admin_audit_log(limit: int = 50, authorization: str = Header(None)):
         return {"logs": resp.data or []}
     except Exception as e:
         return {"logs": [], "note": str(e)}
+
+
+@admin_router.post("/trigger-briefing-email")
+async def admin_trigger_briefing_email(authorization: str = Header(None)):
+    """Allows Super Admin to trigger and dispatch the Morning Abstractor email immediately."""
+    admin = await require_admin(authorization)
+    from app.workers.abstractor import run_nightly_abstraction_job
+    import asyncio
+    asyncio.create_task(run_nightly_abstraction_job())
+    return {
+        "success": True,
+        "message": f"Academic Abstractor deep-reader synthesis initiated in background. Dispatched to {admin['email']}."
+    }

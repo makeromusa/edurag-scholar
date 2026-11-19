@@ -12,6 +12,110 @@ from app.agents.rag_router import rag_router
 logger = logging.getLogger(__name__)
 scheduler = AsyncIOScheduler()
 
+# Cache to prevent LLM rate limit exhaustion when multiple scholars request briefings
+_DAILY_BRIEFING_CACHE: dict = {}
+
+
+def _build_html_email(briefing_markdown: str, date_str: str) -> str:
+    return f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #040711; color: #e2e8f0; margin: 0; padding: 24px; }}
+        .container {{ max-width: 680px; margin: 0 auto; background-color: #090d19; border: 1px solid #1e293b; border-radius: 12px; padding: 32px; }}
+        .header {{ border-bottom: 1px solid #1e293b; padding-bottom: 20px; margin-bottom: 24px; }}
+        .brand {{ font-size: 13px; font-weight: 700; color: #3b82f6; text-transform: uppercase; letter-spacing: 1px; }}
+        h1 {{ font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 8px; margin-bottom: 0; }}
+        .date {{ font-size: 13px; color: #94a3b8; margin-top: 4px; }}
+        .content {{ font-size: 14px; line-height: 1.7; color: #cbd5e1; white-space: pre-wrap; font-family: inherit; }}
+        .footer {{ border-top: 1px solid #1e293b; margin-top: 32px; padding-top: 16px; font-size: 11px; color: #64748b; text-align: center; }}
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+          <div class="brand">EduRAG Scholar • Academic Intelligence</div>
+          <h1>🌅 Morning Academic Reader</h1>
+          <div class="date">{date_str}</div>
+        </div>
+        <div class="content">{briefing_markdown}</div>
+        <div class="footer">
+          EduRAG Scholar • Autonomous University RAG & Web-Agent System • Verified Syllabus Grounding
+        </div>
+      </div>
+    </body>
+    </html>
+    """
+
+
+async def get_or_generate_briefing_content(unit_codes: list = None) -> str:
+    """Generates or fetches cached in-depth daily study dossier."""
+    nairobi_tz = pytz.timezone(settings.TIMEZONE)
+    now_nairobi = datetime.now(nairobi_tz)
+    today_str = now_nairobi.strftime("%Y-%m-%d")
+    cache_key = f"{today_str}_{','.join(sorted(unit_codes or []))}"
+
+    if cache_key in _DAILY_BRIEFING_CACHE:
+        return _DAILY_BRIEFING_CACHE[cache_key]
+
+    target_units_text = ", ".join(unit_codes) if unit_codes else "SCS 3201 (Software Engineering), SCS 3207 (Operating Systems), SCS 3209 (Distributed Networks)"
+    briefing_prompt = f"""You are the EduRAG Academic Morning Reader & Abstractor for university scholars.
+Synthesize an IN-DEPTH, FULL-CONTENT ACADEMIC STUDY DOSSIER for today ({now_nairobi.strftime('%A, %d %B %Y')}).
+Target Units: {target_units_text}.
+
+Do NOT merely list topics or bullet points of 'what to cover'. Instead, write the ACTUAL READABLE NOTES, EXPLANATIONS, AND PROOFS directly into this document so the student can read and learn the core curriculum directly in their email!
+
+STRUCTURE FOR THE EMAIL:
+# 🌅 EduRAG Daily Academic Reader — {now_nairobi.strftime('%A, %d %B %Y')}
+
+## 📖 Part 1: Deep-Dive Core Concept & First Principles
+(Write an exhaustive, thorough explanation of the most critical theoretical foundation for today's units. Include definitions, architectural abstractions, memory models, mathematical formulations, or state machines. Make it fully readable study notes.)
+
+## ⚙️ Part 2: Mechanical Trace, Algorithm or Code Blueprint
+(Provide concrete code, step-by-step mathematical proof, or execution trace clarifying how the underlying mechanism functions.)
+
+## ⚠️ Part 3: Examiner's Traps & University Grading Gotchas
+(Highlight exact tricky questions, false assumptions students make, and model answers required to secure full marks in university papers.)
+
+## 🧠 Part 4: High-Yield Micro-Drill (With Complete Model Answers)
+(Provide 3 university exam questions on today's concepts followed immediately by rigorous, complete model answers.)
+"""
+    content = await rag_router.generate_text(
+        system_instruction="You are the EduRAG Autonomous Academic Professor and Curriculum Abstractor.",
+        user_prompt=briefing_prompt
+    )
+    _DAILY_BRIEFING_CACHE[cache_key] = content
+    return content
+
+
+async def send_briefing_to_email(target_email: str, unit_codes: list = None) -> dict:
+    """Dispatches in-depth study notes directly to the requested scholar's email."""
+    if not settings.SENDGRID_API_KEY:
+        return {"status": "error", "message": "SendGrid API Key not configured on server."}
+
+    nairobi_tz = pytz.timezone(settings.TIMEZONE)
+    now_nairobi = datetime.now(nairobi_tz)
+    content = await get_or_generate_briefing_content(unit_codes)
+    html_body = _build_html_email(content, now_nairobi.strftime('%A, %d %B %Y'))
+
+    try:
+        message = Mail(
+            from_email=settings.SENDGRID_FROM_EMAIL or "scholar@edurag.tech",
+            to_emails=target_email,
+            subject=f"🌅 [EduRAG Morning Reader] In-Depth Academic Notes: {now_nairobi.strftime('%A, %d %B')}",
+            html_content=html_body
+        )
+        sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+        sg.send(message)
+        logger.info(f"Morning academic reader email dispatched to {target_email}.")
+        return {"status": "success", "message": f"Daily Academic Reader dispatched to {target_email}."}
+    except Exception as e:
+        logger.error(f"Failed to dispatch SendGrid email to {target_email}: {e}")
+        return {"status": "error", "message": f"SendGrid dispatch error: {str(e)}"}
+
+
 
 async def run_nightly_abstraction_job():
     """
@@ -39,7 +143,7 @@ async def run_nightly_abstraction_job():
     weakness_res = client.table("weakness_logs").select("unit_code, topic_name, error_pattern").in_("unit_code", scheduled_units).eq("is_resolved", False).limit(5).execute()
     weaknesses = weakness_res.data or []
 
-    # 3. Synthesize Morning Briefing using LLM
+    # 3. Synthesize In-Depth Morning Academic Reader using LLM (Directly readable notes, not just an outline)
     schedule_summary = []
     for s in slots:
         unit_meta = s.get("units", {}) or {}
@@ -47,46 +151,50 @@ async def run_nightly_abstraction_job():
         lecturer = unit_meta.get("lecturer", "Lecturer")
         schedule_summary.append(f"- {s['start_time']} - {s['end_time']}: **{s['unit_code']} - {name}** ({lecturer}, {s['venue']})")
 
-    schedule_text = "\n".join(schedule_summary) if schedule_summary else "No formal lectures scheduled for today (Study/Project day)."
+    schedule_text = "\n".join(schedule_summary) if schedule_summary else "Core Degree Revision (Systems Architecture, Operating Systems, Networks, Software Engineering)."
 
     weakness_summary = []
     for w in weaknesses:
         weakness_summary.append(f"- {w['unit_code']}: {w['topic_name']} ({w.get('error_pattern', 'Need revision')})")
-    weakness_text = "\n".join(weakness_summary) if weakness_summary else "No recorded weaknesses! All caught up."
+    weakness_text = "\n".join(weakness_summary) if weakness_summary else "General high-yield exam traps and system abstractions."
 
-    briefing_prompt = f"""You are the EduRAG Academic Morning Abstractor for enrolled university scholars.
-Synthesize a crisp, highly motivational, structured Morning Briefing for today ({now_nairobi.strftime('%A, %d %B %Y')}).
+    briefing_prompt = f"""You are the EduRAG Academic Morning Reader & Abstractor for university scholars.
+Synthesize an IN-DEPTH, FULL-CONTENT ACADEMIC STUDY DOSSIER for today ({now_nairobi.strftime('%A, %d %B %Y')}).
+Do NOT merely list topics or bullet points of 'what to cover'. Instead, write the ACTUAL READABLE NOTES, EXPLANATIONS, AND PROOFS directly into this document so the student can read and learn the core curriculum directly in their email!
 
-TODAY'S TIMETABLE:
+TODAY'S SCHEDULED UNITS:
 {schedule_text}
 
-STUDENT'S KNOWN WEAK SPOTS FROM RECENT CHATS/QUIZZES:
+STUDENT'S KNOWN WEAK SPOTS:
 {weakness_text}
 
-OUTPUT FORMAT (Markdown):
-# 🌅 EduRAG Morning Briefing - {now_nairobi.strftime('%A, %d %B')}
-## 🎯 Today's Lecture Objectives & Timeline
-(List lectures and the primary conceptual challenges to anticipate in class)
+STRUCTURE FOR THE EMAIL:
+# 🌅 EduRAG Daily Academic Reader — {now_nairobi.strftime('%A, %d %B %Y')}
 
-## ⚡ 5-Minute Weakness Remediation Drill
-(Give 3 rapid-fire questions/definitions targeting recorded weak spots)
+## 📖 Part 1: Deep-Dive Core Concept & First Principles
+(Write an exhaustive, thorough explanation of the most critical theoretical foundation for today's units. Include definitions, architectural abstractions, memory models, mathematical formulations, or state machines. Make it fully readable study notes.)
 
-## 💡 Quote / Exam Tactical Tip of the Day
-(A short, punchy computer science or study habit tip)
+## ⚙️ Part 2: Mechanical Trace, Algorithm or Code Blueprint
+(Provide concrete code, step-by-step mathematical proof, or execution trace clarifying how the underlying mechanism functions.)
+
+## ⚠️ Part 3: Examiner's Traps & University Grading Gotchas
+(Highlight exact tricky questions, false assumptions students make, and model answers required to secure full marks in university papers.)
+
+## 🧠 Part 4: High-Yield Micro-Drill (With Complete Model Answers)
+(Provide 3 university exam questions on today's concepts followed immediately by rigorous, complete model answers.)
 """
 
     briefing_markdown = ""
     try:
-        sys_inst = "You are the EduRAG Academic Morning Abstractor for university scholars."
+        sys_inst = "You are the EduRAG Academic Morning Reader for university scholars. Provide dense, rigorous, directly readable academic study material."
         briefing_markdown = await rag_router.generate_text(sys_inst, briefing_prompt)
     except Exception as e:
         logger.error(f"Error generating morning briefing: {e}")
-        briefing_markdown = f"# 🌅 EduRAG Morning Briefing\n\n### Today's Schedule:\n{schedule_text}"
+        briefing_markdown = f"# 🌅 EduRAG Morning Reader\n\n### Today's Focus Units:\n{schedule_text}\n\nReview your course notes and slide archives in EduRAG Scholar."
 
     # 4. Save to daily_briefings (Supabase & MongoDB)
     try:
-        # Get primary user id (admin)
-        profile_res = client.table("profiles").select("id").eq("role", "admin_owner").limit(1).execute()
+        profile_res = client.table("profiles").select("id").eq("is_admin", True).limit(1).execute()
         user_id = profile_res.data[0]["id"] if profile_res.data else None
 
         if user_id:
@@ -110,20 +218,28 @@ OUTPUT FORMAT (Markdown):
     except Exception as e:
         logger.error(f"Error saving daily briefing: {e}")
 
-    # 5. SendGrid Email Dispatch
-    if settings.SENDGRID_API_KEY and settings.STUDENT_ALERT_EMAIL:
-        try:
-            message = Mail(
-                from_email=settings.SENDGRID_FROM_EMAIL,
-                to_emails=settings.STUDENT_ALERT_EMAIL,
-                subject=f"🌅 [EduRAG 3 AM Briefing] Ready for Chiromo: {now_nairobi.strftime('%A, %d %B')}",
-                html_content=f"<pre style='font-family: sans-serif; white-space: pre-wrap;'>{briefing_markdown}</pre>"
-            )
-            sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
-            sg.send(message)
-            logger.info("Morning briefing email successfully dispatched.")
-        except Exception as e:
-            logger.error(f"Failed to dispatch SendGrid email: {e}")
+    # 5. SendGrid Email Dispatch (Formatted HTML Academic Reader)
+    recipient_emails = []
+    if settings.STUDENT_ALERT_EMAIL:
+        recipient_emails.append(settings.STUDENT_ALERT_EMAIL)
+    if "makeromusa17@gmail.com" not in recipient_emails:
+        recipient_emails.append("makeromusa17@gmail.com")
+
+    if settings.SENDGRID_API_KEY and recipient_emails:
+        html_body = _build_html_email(briefing_markdown, now_nairobi.strftime('%A, %d %B %Y'))
+        for to_email in recipient_emails:
+            try:
+                message = Mail(
+                    from_email=settings.SENDGRID_FROM_EMAIL or "scholar@edurag.tech",
+                    to_emails=to_email,
+                    subject=f"🌅 [EduRAG Morning Reader] In-Depth Academic Notes: {now_nairobi.strftime('%A, %d %B')}",
+                    html_content=html_body
+                )
+                sg = SendGridAPIClient(settings.SENDGRID_API_KEY)
+                sg.send(message)
+                logger.info(f"Morning academic reader email dispatched to {to_email}.")
+            except Exception as e:
+                logger.error(f"Failed to dispatch SendGrid email to {to_email}: {e}")
 
 
 def start_scheduler():

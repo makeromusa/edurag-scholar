@@ -256,7 +256,7 @@ async def run_exam_simulation_task(task_id: str, unit_code: str, semester: str, 
                 else:
                     syllabus_corpus += f"\n[SYLLABUS CONTENT: {title} (p.{c.get('page_number', 1)})]\n{chunk_body}\n"
 
-        TASK_REGISTRY[task_id]["progress"] = "Synthesizing authentic UON Chiromo exam paper via Dual-Engine Copilot..."
+        TASK_REGISTRY[task_id]["progress"] = "Synthesizing authentic University exam paper via Dual-Engine Copilot..."
 
         is_math = any(term in unit_code.lower() for term in ["sma", "calculus", "math"])
 
@@ -271,18 +271,18 @@ For every calculation question, the 'model_answer' MUST show ALL working line-by
 """ if is_math else ""
 
         sys_inst = (
-            f"You are the senior University of Nairobi Chief Examiner for [{unit_code}] at Chiromo Campus. "
-            "You are setting a formal, rigorous 70-mark University Examination paper matching authentic UON faculty standards.\n"
+            f"You are the senior University Chief Examiner for [{unit_code}]. "
+            "You are setting a formal, rigorous 70-mark University Examination paper matching authentic university faculty standards.\n"
             "CRITICAL MARKING RULES:\n"
             "- DO NOT set every question to 10 marks.\n"
-            "- Follow authentic UON Chiromo marks distribution: sub-questions MUST have realistic varying marks (such as 3, 4, 5, 6, 7, 8 marks).\n"
+            "- Follow authentic University marks distribution: sub-questions MUST have realistic varying marks (such as 3, 4, 5, 6, 7, 8 marks).\n"
             "- Question ONE (Compulsory) total must equal EXACTLY 30 Marks (across 4 or 5 sub-questions).\n"
             "- Questions TWO, THREE, and FOUR total must equal EXACTLY 20 Marks each (across 2 or 3 sub-questions).\n"
             f"{calc_instruction}"
             "Strict requirement: Return valid JSON only without markdown code fences or backticks."
         )
 
-        user_p = f"""Set a complete, publication-grade University of Nairobi Chiromo Examination paper for {unit_code}.
+        user_p = f"""Set a complete, publication-grade University Examination paper for {unit_code}.
 SEMESTER SYLLABUS & NOTES:
 {syllabus_corpus[:5000]}
 
@@ -320,7 +320,7 @@ Format the output strictly as a JSON object matching this schema:
       "sub_questions": [
         {{"label": "a)", "text": "Theoretical foundation or formal proof question...", "marks": 7, "model_answer": "Step-by-step proof with all intermediate logic clearly articulated."}},
         {{"label": "b)", "text": "Detailed computation or engineering implementation problem...", "marks": 7, "model_answer": "Detailed line-by-line computation and evaluation."}},
-        {{"label": "c)", "text": "Critical analysis, edge cases, or trade-off evaluation...", "marks": 6, "model_answer": "Comprehensive technical evaluation meeting Chiromo standards."}}
+        {{"label": "c)", "text": "Critical analysis, edge cases, or trade-off evaluation...", "marks": 6, "model_answer": "Comprehensive technical evaluation meeting university examination standards."}}
       ]
     }},
     {{
