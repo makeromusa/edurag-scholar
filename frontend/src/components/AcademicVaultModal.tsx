@@ -147,7 +147,7 @@ export const AcademicVaultModal: React.FC<AcademicVaultModalProps> = ({
               <h2 className="text-sm sm:text-base font-bold text-white tracking-tight flex items-center gap-2">
                 Centralized Academic Notes & Exam Vault
                 <span className="rounded bg-blue-500/20 border border-blue-500/30 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
-                  UoN Chiromo Year 2
+                  Course Vault
                 </span>
               </h2>
               <p className="text-xs text-slate-400">

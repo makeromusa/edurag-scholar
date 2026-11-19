@@ -219,7 +219,7 @@ export const AuthModal: React.FC = () => {
 
     const code = customCode.trim().toUpperCase();
     const name = customName.trim();
-    const lecturer = customLecturer.trim() || "Chiromo Faculty";
+    const lecturer = customLecturer.trim() || "Department Faculty";
 
     if (!code || !name) {
       setCustomUnitError("Both Unit Code (e.g. CSC 421) and Unit Name are required.");
@@ -313,7 +313,7 @@ export const AuthModal: React.FC = () => {
               body: JSON.stringify({
                 code: u.code,
                 name: u.name,
-                lecturer: u.lecturer || "Chiromo Faculty",
+                lecturer: u.lecturer || "Department Faculty",
               }),
             });
           } catch (e) {
@@ -745,7 +745,7 @@ export const AuthModal: React.FC = () => {
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. Asman Musa"
+                    placeholder="e.g. Alex Kamau"
                     className="w-full rounded-xl border border-slate-800 bg-[#050811] py-2 pl-9 pr-3 text-xs text-white placeholder-slate-500 focus:border-blue-500 focus:outline-none transition"
                   />
                 </div>
@@ -834,7 +834,7 @@ export const AuthModal: React.FC = () => {
 
                 {enrolledUnits.length === 0 ? (
                   <p className="text-[11px] text-slate-500 italic py-1">
-                    No units chosen yet. Select from Chiromo courses below or type your units from scratch.
+                    No units chosen yet. Select from curriculum courses below or type your units from scratch.
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
@@ -917,10 +917,10 @@ export const AuthModal: React.FC = () => {
                 </div>
               </div>
 
-              {/* Chiromo Curriculum Units (Select / Filter) */}
+              {/* Curriculum Units (Select / Filter) */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-semibold text-slate-300">Select Existing Chiromo Units</label>
+                  <label className="text-xs font-semibold text-slate-300">Select Existing Curriculum Units</label>
                   <div className="relative w-44">
                     <Search className="absolute left-2 top-1.5 h-3 w-3 text-slate-500" />
                     <input

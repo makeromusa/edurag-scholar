@@ -201,7 +201,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
           {citation.type === "local_slide" && (
             <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/40 p-3 text-xs text-slate-400">
-              <span>UoN Chiromo Syllabus Reference</span>
+              <span>Verified Course Syllabus Reference</span>
               <span className="font-semibold text-slate-300">
                 Unit: {citation.unit_code} • Page {citation.page_number}
               </span>

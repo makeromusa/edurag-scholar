@@ -78,7 +78,7 @@ export default function AdminOverviewPage() {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Real-time telemetry and management across Chiromo Campus AI Copilot infrastructure.
+            Real-time telemetry and management across EduRAG Scholar AI Copilot infrastructure.
           </p>
         </div>
 

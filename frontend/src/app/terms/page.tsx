@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 
 export const metadata = {
   title: "Terms of Service | EduRAG Scholar",
-  description: "Academic integrity, fair use, and platform terms of service for University of Nairobi Chiromo Campus students.",
+  description: "Academic integrity, fair use, and platform terms of service for university students and scholars.",
 };
 
 export default function TermsOfServicePage() {
@@ -80,7 +80,7 @@ export default function TermsOfServicePage() {
 
           <section className="border-t border-slate-800 pt-6">
             <p className="text-xs text-slate-500">
-              Last updated: October 2026. University of Nairobi, Chiromo Campus, Department of Computing and Informatics.
+              Last updated: October 2026. EduRAG Scholar • Academic AI & Learning Intelligence.
             </p>
           </section>
         </div>

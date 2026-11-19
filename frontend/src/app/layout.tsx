@@ -47,15 +47,15 @@ export const metadata: Metadata = {
         url: "/og-image.png",
         width: 1200,
         height: 630,
-        alt: "EduRAG Scholar - UoN Chiromo AI Revision Copilot",
+        alt: "EduRAG Scholar - Academic AI Revision Copilot",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "EduRAG Scholar | UoN Chiromo Year 2 AI Revision",
+    title: "EduRAG Scholar | Autonomous Academic AI Copilot",
     description:
-      "Autonomous 7-Unit RAG Academic Copilot & Past Exam Solved Vault for UoN Chiromo Computer Science.",
+      "Autonomous 7-Unit RAG Academic Copilot & Past Exam Solved Vault for University Scholars.",
     images: ["/og-image.png"],
     creator: "@makeromusa",
   },

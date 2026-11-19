@@ -39,7 +39,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({ isOpen: contro
     {
       badge: "Step 1 of 3 • Syllabus Overview",
       title: "Welcome to EduRAG Scholar",
-      subtitle: "The autonomous, 7-unit AI revision partner built for University of Nairobi Chiromo Campus B.Sc. Computer Science Year 2.",
+      subtitle: "The autonomous, 7-unit AI revision partner built for university scholars in Computer Science and Engineering.",
       icon: <GraduationCap className="h-8 w-8 text-blue-400" />,
       features: [
         "Pre-indexed for SCS 3201 (SAD), SCS 3209 (SE), SCS 3207 (OS), and all Year 2 units.",

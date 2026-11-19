@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 
 export const metadata = {
   title: "Privacy Policy | EduRAG Scholar",
-  description: "Student data privacy, academic record protection, and AI confidentiality policy for University of Nairobi Chiromo Campus.",
+  description: "Student data privacy, academic record protection, and AI confidentiality policy for EduRAG Scholar.",
 };
 
 export default function PrivacyPolicyPage() {
@@ -33,7 +33,7 @@ export default function PrivacyPolicyPage() {
           </div>
           <div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Privacy Policy</h1>
-            <p className="text-xs text-slate-400">EduRAG Scholar • University of Nairobi Chiromo Campus</p>
+            <p className="text-xs text-slate-400">EduRAG Scholar • Enterprise Academic AI & Learning Intelligence</p>
           </div>
         </div>
 
@@ -90,7 +90,7 @@ export default function PrivacyPolicyPage() {
 
           <section className="border-t border-slate-800 pt-6">
             <p className="text-xs text-slate-500">
-              For privacy inquiries, contact the platform maintainer at: <span className="text-blue-400">makeromusa17@gmail.com</span> or Chiromo Campus Department of Computing and Informatics.
+              For privacy inquiries, contact the platform maintainer at: <span className="text-blue-400">makeromusa17@gmail.com</span> or the platform data governance desk.
             </p>
           </section>
         </div>

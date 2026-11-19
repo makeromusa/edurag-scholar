@@ -39,7 +39,7 @@ export default function AdminUnitsPage() {
   const [newCode, setNewCode] = useState("");
   const [newName, setNewName] = useState("");
   const [newLecturer, setNewLecturer] = useState("");
-  const [newVenue, setNewVenue] = useState("Chiromo Campus");
+  const [newVenue, setNewVenue] = useState("Main Campus");
   const [creating, setCreating] = useState(false);
 
   const fetchUnits = async () => {
@@ -75,7 +75,7 @@ export default function AdminUnitsPage() {
 
     const code = newCode.trim().toUpperCase();
     const name = newName.trim();
-    const lecturer = newLecturer.trim() || "Chiromo Faculty";
+    const lecturer = newLecturer.trim() || "Department Faculty";
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
@@ -104,7 +104,7 @@ export default function AdminUnitsPage() {
   const handleDeleteUnit = async (unit: UnitItem) => {
     if (!session?.access_token) return;
     if (unit.is_system_unit) {
-      if (!confirm(`Warning: ${unit.code} is a core Chiromo curriculum unit. Are you sure you want to delete it?`)) {
+      if (!confirm(`Warning: ${unit.code} is a core curriculum unit. Are you sure you want to delete it?`)) {
         return;
       }
     } else {
@@ -148,7 +148,7 @@ export default function AdminUnitsPage() {
             </span>
           </div>
           <p className="mt-1 text-xs text-slate-400">
-            Chiromo Department of Computer Science & Mathematics academic directory and knowledge bases.
+            Academic directory, curriculum structures, and course knowledge bases.
           </p>
         </div>
 
@@ -298,7 +298,7 @@ export default function AdminUnitsPage() {
                           : "bg-emerald-950/60 border-emerald-500/30 text-emerald-300"
                       }`}
                     >
-                      {isSystem ? "Core Chiromo" : "Student Created"}
+                      {isSystem ? "Core Curriculum" : "Student Created"}
                     </span>
                   </div>
 

@@ -382,7 +382,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
                     University of Nairobi Examination Simulator
                   </h3>
                   <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
-                    Synthesizes a brand new, realistic examination paper for <b>{selectedUnit}</b> adhering strictly to Chiromo academic regulations.
+                    Synthesizes a brand new, realistic examination paper for <b>{selectedUnit}</b> adhering strictly to university academic regulations.
                   </p>
                 </div>
 

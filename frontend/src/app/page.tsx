@@ -251,8 +251,8 @@ export default function Home() {
         onClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* 2. Middle Main Studio: Flows naturally with vertical scroll, no squashed clamping */}
-      <div className="flex flex-1 flex-col overflow-y-auto min-w-0 bg-[#090d16]">
+      {/* 2. Middle Main Studio: Responsive flex workstation, zero awkward clamping */}
+      <div className="flex flex-1 flex-col h-full min-w-0 bg-[#090d16] overflow-hidden">
         {/* Top Header Bar with Unit Info, Desktop Layout Switcher & Auth */}
         <Header
           currentUnit={currentUnit}
@@ -286,16 +286,16 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Compact Daily Mission Card */}
-        <div className="px-3 sm:px-6 pt-3 shrink-0">
+        {/* Compact Collapsible Daily Mission Banner */}
+        <div className="px-3 sm:px-6 pt-2 shrink-0">
           <DailyMissionCard
             briefingMarkdown={briefingMarkdown}
             onRefresh={() => {}}
           />
         </div>
 
-        {/* Workstation Studio: Generous, comfortable height so chat & slides are never compressed */}
-        <div className="flex min-h-[640px] lg:min-h-[720px] h-[calc(100vh-140px)] shrink-0 border-t border-slate-800/80 mt-3 mx-3 sm:mx-6 rounded-xl overflow-hidden border border-slate-800 bg-[#0c111d] shadow-sm">
+        {/* Workstation Studio: Fluid flex-1 fills screen seamlessly with internal scroll */}
+        <div className="flex flex-1 min-h-0 mx-3 sm:mx-6 my-2 rounded-xl overflow-hidden border border-slate-800 bg-[#0c111d] shadow-sm">
           {/* Unit-Isolated RAG Chat */}
           <div
             className={`h-full overflow-hidden flex flex-col ${
@@ -381,13 +381,26 @@ export default function Home() {
           </button>
         </div>
 
-        {/* Global Directory, Legal & Academic Footer: Sits naturally below the workstation in natural flow */}
-        <div className="hidden md:block shrink-0 mt-12 border-t border-slate-800/80 bg-[#090d16]">
-          <Footer
-            onSelectUnit={(code) => setSelectedUnit(code)}
-            onOpenVault={() => setIsVaultOpen(true)}
-            onOpenOnboarding={() => setIsOnboardingOpen(true)}
-          />
+        {/* Global Directory, Legal & Academic Status Bar on Desktop: sleek and non-clamping */}
+        <div className="hidden md:flex items-center justify-between border-t border-slate-800/80 bg-[#090d16] px-6 py-2 text-[11px] text-slate-500 shrink-0">
+          <div className="flex items-center gap-3">
+            <span>EduRAG © 2026. All rights reserved.</span>
+            <span className="text-slate-700">•</span>
+            <span className="text-emerald-500/80 flex items-center gap-1 font-medium">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
+              RLS Protected Student Vault
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-slate-400">
+            <a href="/privacy" className="hover:text-slate-200 transition">Privacy</a>
+            <a href="/terms" className="hover:text-slate-200 transition">Terms</a>
+            <button onClick={() => setIsOnboardingOpen(true)} className="hover:text-slate-200 transition">
+              Tour
+            </button>
+            <button onClick={() => setIsVaultOpen(true)} className="hover:text-blue-400 text-blue-500 font-medium transition">
+              Course Vault &rarr;
+            </button>
+          </div>
         </div>
       </div>
 

@@ -21,7 +21,7 @@ export default function NotFound() {
           Page Not In Curriculum
         </h1>
         <p className="mt-3 text-sm text-slate-400 leading-relaxed">
-          The requested page or document link could not be located in the University of Nairobi Chiromo academic index.
+          The requested page or document link could not be located in the EduRAG academic curriculum index.
         </p>
 
         {/* Quick Action Buttons */}

@@ -1352,7 +1352,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                       className="rounded-lg border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-medium text-slate-200 focus:border-indigo-500 focus:outline-none"
                     >
                       <option value="en-GB-RyanNeural">Prof. Sterling (British Scholar)</option>
-                      <option value="en-KE-ChilembaNeural">Prof. Omondi (UoN Chiromo Voice)</option>
+                      <option value="en-KE-ChilembaNeural">Prof. Omondi (Regional Academic Voice)</option>
                       <option value="en-US-ChristopherNeural">Prof. Miller (Deep American)</option>
                       <option value="en-GB-SoniaNeural">Prof. Catherine (Distinguished)</option>
                     </select>
@@ -1500,7 +1500,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     {lectureLoadingStage}
                   </p>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    Unpacking theoretical mechanics, memory maps, C code, and Chiromo Section B exam calculations with GPT-4.1.
+                    Unpacking theoretical mechanics, memory maps, C code, and Section B exam calculations with GPT-4.1.
                   </p>
                 </div>
               )}

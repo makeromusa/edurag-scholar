@@ -121,7 +121,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
                 Spaced Repetition Flashcards • {unitCode}
               </h2>
               <p className="text-[11px] text-slate-400">
-                SuperMemo-2 (SM-2) memory retention engine & Chiromo exam traps
+                SuperMemo-2 (SM-2) memory retention engine & university exam traps
               </p>
             </div>
           </div>
@@ -167,7 +167,7 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
               >
                 <div>
                   <span className="inline-block rounded bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 uppercase">
-                    {isFlipped ? "Examiner's Answer & Trap" : "Chiromo Exam Question"}
+                    {isFlipped ? "Examiner's Answer & Trap" : "University Exam Question"}
                   </span>
                   <div className="mt-4 text-sm font-medium leading-relaxed text-slate-100">
                     {isFlipped ? (

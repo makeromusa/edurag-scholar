@@ -94,7 +94,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <div>
               <h1 className="text-xs font-black tracking-wider text-white uppercase">EduRAG Admin</h1>
-              <p className="text-[10px] text-amber-400/90 font-medium">UoN Chiromo Command</p>
+              <p className="text-[10px] text-amber-400/90 font-medium">Enterprise Central Command</p>
             </div>
           </div>
         </div>

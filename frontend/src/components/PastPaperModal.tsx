@@ -76,7 +76,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
       const res = await fetch(`${apiUrl}/api/mock-exams/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ unit_code: unitCode, difficulty: "Chiromo Standard Final" }),
+        body: JSON.stringify({ unit_code: unitCode, difficulty: "University Standard Final" }),
       });
       const data = await res.json();
       if (data.exam) {
@@ -179,7 +179,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
               <div className="rounded-xl border border-blue-500/20 bg-blue-950/20 p-4 text-xs text-slate-300">
                 <p className="font-semibold text-blue-400">Topic Frequency & Probability Engine</p>
                 <p className="mt-1 text-slate-400">
-                  Analyzes indexed Chiromo past papers for {unitCode} to predict which topics will appear in Section A (Compulsory) and Section B.
+                  Analyzes indexed past papers for {unitCode} to predict which topics will appear in Section A (Compulsory) and Section B.
                 </p>
                 <button
                   onClick={handleAnalyzeTrends}
@@ -240,14 +240,14 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
                   <Clock className="mx-auto h-10 w-10 text-blue-400 mb-2 stroke-[1.5]" />
                   <h3 className="text-sm font-bold text-slate-200">Timed Mock Exam Simulator</h3>
                   <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-                    Generates a full 70-mark Chiromo-standard examination paper stored into MongoDB.
+                    Generates a full 70-mark university standard examination paper stored into MongoDB.
                   </p>
                   <button
                     onClick={handleGenerateMockExam}
                     disabled={isLoading}
                     className="mt-4 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
                   >
-                    {isLoading ? "Generating Examination Paper..." : `Generate Chiromo Mock Exam for ${unitCode}`}
+                    {isLoading ? "Generating Examination Paper..." : `Generate Mock Exam for ${unitCode}`}
                   </button>
                 </div>
               ) : (

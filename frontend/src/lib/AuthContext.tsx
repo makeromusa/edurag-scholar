@@ -93,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 body: JSON.stringify({
                   code: u.code,
                   name: u.name,
-                  lecturer: u.lecturer || "Chiromo Faculty",
+                  lecturer: u.lecturer || "Department Faculty",
                 }),
               });
             } catch (e) {}

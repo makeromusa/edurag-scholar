@@ -60,7 +60,7 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
 }) => {
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnitCode || "SCS 3201");
   const [examType, setExamType] = useState<string>("Final Examination");
-  const [difficulty, setDifficulty] = useState<string>("Chiromo Standard Exam");
+  const [difficulty, setDifficulty] = useState<string>("University Standard Exam");
   const [includeAnswers, setIncludeAnswers] = useState<boolean>(true);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [currentExamId, setCurrentExamId] = useState<string | null>(null);
@@ -204,7 +204,7 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
               onChange={(e) => setDifficulty(e.target.value)}
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white focus:border-blue-500 focus:outline-none"
             >
-              <option value="Chiromo Standard Exam">Chiromo Standard (Balanced)</option>
+              <option value="University Standard Exam">University Standard (Balanced)</option>
               <option value="Rigorous High-Distinction (First Class)">Rigorous High-Distinction (First Class)</option>
               <option value="Essential Pass-Shield (Foundational)">Essential Pass-Shield (Foundational)</option>
             </select>
@@ -407,7 +407,7 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
               </div>
               <h3 className="text-base font-bold text-white">No Exam Paper Generated Yet</h3>
               <p className="text-xs text-slate-400 max-w-md mt-1">
-                Select your unit above and click <b>"Generate Complete Paper"</b>. EduRAG will autonomously draft a rigorous, 70-mark Chiromo examination grounded in your real textbooks and past exams, with full downloadable PDFs and model solutions.
+                Select your unit above and click <b>"Generate Complete Paper"</b>. EduRAG will autonomously draft a rigorous, 70-mark university examination grounded in your real textbooks and past exams, with full downloadable PDFs and model solutions.
               </p>
             </div>
           )}
