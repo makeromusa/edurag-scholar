@@ -24,6 +24,7 @@ interface UserProfile {
   is_admin: boolean;
   enrolled_units?: string[];
   created_at?: string;
+  last_sign_in_at?: string | null;
 }
 
 export default function AdminUsersPage() {
@@ -230,6 +231,7 @@ export default function AdminUsersPage() {
               <tr>
                 <th className="px-4 py-3.5">Scholar / Identity</th>
                 <th className="px-4 py-3.5">Privilege Level</th>
+                <th className="px-4 py-3.5">Signed In At</th>
                 <th className="px-4 py-3.5">Enrolled Units</th>
                 <th className="px-4 py-3.5">Registered</th>
                 <th className="px-4 py-3.5 text-right">Actions</th>
@@ -238,14 +240,14 @@ export default function AdminUsersPage() {
             <tbody className="divide-y divide-slate-800/60 text-slate-300">
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     <Loader2 className="mx-auto h-6 w-6 animate-spin text-blue-500 mb-2" />
-                    <span>Loading scholars directory...</span>
+                    <span>Loading scholars directory & real-time sessions...</span>
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500">
+                  <td colSpan={6} className="py-12 text-center text-slate-500">
                     No users matching criteria.
                   </td>
                 </tr>
@@ -255,12 +257,24 @@ export default function AdminUsersPage() {
                   const isAdminRole = u.is_admin || isSuperAdmin;
                   const units = u.enrolled_units || [];
 
+                  // Compute active status
+                  const lastSignIn = u.last_sign_in_at ? new Date(u.last_sign_in_at) : null;
+                  const isRecent = lastSignIn && (Date.now() - lastSignIn.getTime() < 86400000 * 2);
+
                   return (
                     <tr key={u.id} className="hover:bg-slate-800/30 transition">
                       <td className="px-4 py-3.5">
                         <div className="flex items-center gap-2.5">
-                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase shrink-0">
-                            {(u.full_name || u.email || "U").slice(0, 2)}
+                          <div className="relative">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-800 text-slate-300 font-bold text-xs uppercase shrink-0">
+                              {(u.full_name || u.email || "U").slice(0, 2)}
+                            </div>
+                            {isRecent && (
+                              <span
+                                className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-[#070b16] animate-pulse"
+                                title="Active in last 48 hours"
+                              />
+                            )}
                           </div>
                           <div className="min-w-0">
                             <p className="font-bold text-white truncate">{u.full_name || "Scholar"}</p>
@@ -285,6 +299,23 @@ export default function AdminUsersPage() {
                             <UserCheck className="h-3 w-3 text-slate-400" />
                             <span>Student Scholar</span>
                           </span>
+                        )}
+                      </td>
+
+                      <td className="px-4 py-3.5 whitespace-nowrap">
+                        {lastSignIn ? (
+                          <div>
+                            <span className={`inline-flex items-center gap-1 font-semibold ${isRecent ? "text-emerald-400" : "text-slate-300"}`}>
+                              <span className={`h-1.5 w-1.5 rounded-full ${isRecent ? "bg-emerald-400 animate-pulse" : "bg-slate-500"}`} />
+                              {lastSignIn.toLocaleDateString(undefined, { month: "short", day: "numeric" })},{" "}
+                              {lastSignIn.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span className="block text-[10px] text-slate-500">
+                              {isRecent ? "Recently Signed In" : "Authenticated session"}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-500 italic">No recorded login</span>
                         )}
                       </td>
 

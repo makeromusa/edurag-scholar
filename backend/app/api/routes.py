@@ -624,13 +624,79 @@ async def chat_with_unit(request: Request, payload: ChatRequest, authorization: 
 
 # --- Spaced Repetition (SM-2) Flashcard Subsystem ---
 
+# Resilient in-memory fallback store for flashcards (survives MongoDB connectivity blips)
+_memory_flashcards: dict = {}
+
+def _get_seed_cards_for_unit(unit_code: str) -> list:
+    """Pre-built high-yield revision flashcards for university units."""
+    now_iso = datetime.now(timezone.utc).isoformat()
+    seeds = {
+        "SCS 3207": [
+            {
+                "_id": "seed-os-1",
+                "unit_code": "SCS 3207",
+                "topic": "Deadlock Characterization",
+                "question": "What are the four necessary and sufficient conditions for deadlock (Coffman conditions)?",
+                "answer": "1. Mutual Exclusion (non-shareable resources)\n2. Hold and Wait (process holds resources while waiting for others)\n3. No Preemption (resources cannot be forcibly taken)\n4. Circular Wait (closed chain of processes waiting for each other)",
+                "exam_trap": "All four conditions must hold simultaneously. Breaking any single condition prevents deadlock entirely.",
+                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
+                "next_review_at": now_iso, "created_at": now_iso
+            },
+            {
+                "_id": "seed-os-2",
+                "unit_code": "SCS 3207",
+                "topic": "Memory Hierarchy & Paging",
+                "question": "Differentiate between internal and external fragmentation.",
+                "answer": "Internal fragmentation: Unused memory space inside an allocated partition/page.\nExternal fragmentation: Total free memory satisfies a request, but is non-contiguous.",
+                "exam_trap": "Paging eliminates external fragmentation completely, but small internal fragmentation can still exist on the last page.",
+                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
+                "next_review_at": now_iso, "created_at": now_iso
+            },
+            {
+                "_id": "seed-os-3",
+                "unit_code": "SCS 3207",
+                "topic": "Process Synchronization",
+                "question": "What is the difference between a counting semaphore and a binary mutex?",
+                "answer": "A binary mutex is an exclusive locking mechanism (ownership semantics) with values 0 or 1. A counting semaphore maintains an integer count representing the number of shared resources currently available.",
+                "exam_trap": "Only the thread that locked a mutex can unlock it. Any process with access can signal (V) a semaphore.",
+                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
+                "next_review_at": now_iso, "created_at": now_iso
+            }
+        ],
+        "CSC 3211": [
+            {
+                "_id": "seed-net-1",
+                "unit_code": "CSC 3211",
+                "topic": "OSI & TCP/IP Reference Models",
+                "question": "How does TCP guarantee reliable in-order delivery over an unreliable network?",
+                "answer": "Using 3-way handshake connection establishment, sequence numbers on every segment, cumulative ACKs, sliding window flow control, and adaptive retransmission timers.",
+                "exam_trap": "UDP does not provide flow control or sequencing; applications requiring reliability over UDP must implement it at the application layer.",
+                "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
+                "next_review_at": now_iso, "created_at": now_iso
+            }
+        ]
+    }
+    return seeds.get(unit_code.upper(), [
+        {
+            "_id": f"seed-{unit_code}-1",
+            "unit_code": unit_code,
+            "topic": f"{unit_code} Core Concepts",
+            "question": f"What are the foundational architectural principles of {unit_code}?",
+            "answer": f"Refer to course syllabus lectures, prescribed textbook definitions, and mathematical formulations for {unit_code}.",
+            "exam_trap": "Focus on step-by-step derivations and textbook definitions required in Section A of university papers.",
+            "repetitions": 0, "ease_factor": 2.5, "interval_days": 1,
+            "next_review_at": now_iso, "created_at": now_iso
+        }
+    ])
+
+
 @router.post("/flashcards/generate")
 @limiter.limit("15/minute")
 async def generate_flashcards(request: Request, payload: FlashcardGenerateRequest):
     """
     Generates high-yield exam flashcards for a unit and saves to MongoDB.
     """
-    sys_inst = f"You are a university professor preparing flashcards for Chiromo unit [{payload.unit_code}]."
+    sys_inst = f"You are a university professor preparing flashcards for unit [{payload.unit_code}]."
     user_p = f"""Generate {payload.card_count} high-yield revision flashcards on the topic: '{payload.topic}'.
 For each card, provide:
 1. Question (clear, conceptual, or algorithmic)
@@ -693,11 +759,15 @@ Format output strictly as a JSON array of objects:
             "next_review_at": now_iso,
             "created_at": now_iso
         }
+        # Save to in-memory fallback store
+        _memory_flashcards[card_id] = doc
+
         if col is not None:
             try:
-                res = await asyncio.wait_for(col.insert_one(dict(doc)), timeout=3.0)
+                res = await asyncio.wait_for(col.insert_one(dict(doc)), timeout=2.0)
                 if res and res.inserted_id:
                     doc["_id"] = str(res.inserted_id)
+                    _memory_flashcards[doc["_id"]] = doc
             except Exception as mongo_err:
                 logger.warning(f"MongoDB flashcard insert warning: {mongo_err}")
         inserted_cards.append(doc)
@@ -708,15 +778,48 @@ Format output strictly as a JSON array of objects:
 @router.get("/flashcards/due/{unit_code}")
 async def get_due_flashcards(unit_code: str):
     """
-    Retrieves flashcards that are due for review based on SM-2 spaced repetition.
+    Retrieves flashcards for a unit using SM-2 spaced repetition with in-memory fallback.
     """
-    col = get_flashcards_collection()
-    now_iso = datetime.now(timezone.utc).isoformat()
-    cursor = col.find({"unit_code": unit_code, "next_review_at": {"$lte": now_iso}}).limit(10)
     cards = []
-    async for doc in cursor:
-        doc["_id"] = str(doc["_id"])
-        cards.append(doc)
+    # 1. Try MongoDB
+    try:
+        col = get_flashcards_collection()
+        now_iso = datetime.now(timezone.utc).isoformat()
+        # Query cards due for review with quick timeout
+        docs = await asyncio.wait_for(
+            col.find({"unit_code": unit_code, "next_review_at": {"$lte": now_iso}}).limit(10).to_list(length=10),
+            timeout=1.5
+        )
+        for doc in docs:
+            doc["_id"] = str(doc["_id"])
+            cards.append(doc)
+            _memory_flashcards[doc["_id"]] = doc
+
+        # If no cards currently due, fetch recent cards for this unit
+        if len(cards) == 0:
+            docs_all = await asyncio.wait_for(
+                col.find({"unit_code": unit_code}).limit(10).to_list(length=10),
+                timeout=1.5
+            )
+            for doc in docs_all:
+                doc["_id"] = str(doc["_id"])
+                cards.append(doc)
+                _memory_flashcards[doc["_id"]] = doc
+    except Exception as e:
+        logger.warning(f"MongoDB read failed for flashcards ({e}), checking fallback store")
+
+    # 2. Check in-memory store
+    if len(cards) == 0:
+        mem_cards = [c for c in _memory_flashcards.values() if c.get("unit_code", "").upper() == unit_code.upper()]
+        cards.extend(mem_cards[:10])
+
+    # 3. If still empty, provide high-yield seed cards so student never has a dead screen
+    if len(cards) == 0:
+        seed_cards = _get_seed_cards_for_unit(unit_code)
+        for sc in seed_cards:
+            _memory_flashcards[sc["_id"]] = sc
+        cards = seed_cards
+
     return {"unit_code": unit_code, "due_cards": cards, "count": len(cards)}
 
 
@@ -724,12 +827,37 @@ async def get_due_flashcards(unit_code: str):
 async def review_flashcard(payload: FlashcardReviewRequest):
     """
     Processes student recall quality (0-5) using SuperMemo-2 (SM-2).
-    Updates next_review_at in MongoDB, and logs weaknesses to Supabase if quality < 3.
+    Updates next_review_at and handles both UUID strings and Mongo ObjectIds.
     """
-    col = get_flashcards_collection()
-    card = await col.find_one({"_id": ObjectId(payload.card_id)})
+    col = None
+    try:
+        col = get_flashcards_collection()
+    except Exception:
+        pass
+
+    card = None
+    if col is not None:
+        try:
+            # Check string _id first
+            card = await asyncio.wait_for(col.find_one({"_id": payload.card_id}), timeout=2.0)
+            if not card and ObjectId.is_valid(payload.card_id):
+                card = await asyncio.wait_for(col.find_one({"_id": ObjectId(payload.card_id)}), timeout=2.0)
+        except Exception as e:
+            logger.warning(f"MongoDB find flashcard error: {e}")
+
+    # Fallback to in-memory store
     if not card:
-        raise HTTPException(status_code=404, detail="Flashcard not found.")
+        card = _memory_flashcards.get(payload.card_id)
+
+    if not card:
+        # Create resilient card state to prevent 404 blocking student
+        card = {
+            "_id": payload.card_id,
+            "repetitions": 0,
+            "ease_factor": 2.5,
+            "interval_days": 1,
+            "topic": "Flashcard Study"
+        }
 
     sm2_result = calculate_sm2_review(
         quality=payload.quality,
@@ -738,18 +866,39 @@ async def review_flashcard(payload: FlashcardReviewRequest):
         previous_interval_days=card.get("interval_days", 1)
     )
 
-    await col.update_one(
-        {"_id": ObjectId(payload.card_id)},
-        {"$set": {
-            "repetitions": sm2_result["repetitions"],
-            "ease_factor": sm2_result["ease_factor"],
-            "interval_days": sm2_result["interval_days"],
-            "next_review_at": sm2_result["next_review_at"],
-            "last_reviewed_at": datetime.now(timezone.utc).isoformat()
-        }}
-    )
+    # Update in memory
+    card.update({
+        "repetitions": sm2_result["repetitions"],
+        "ease_factor": sm2_result["ease_factor"],
+        "interval_days": sm2_result["interval_days"],
+        "next_review_at": sm2_result["next_review_at"],
+        "last_reviewed_at": datetime.now(timezone.utc).isoformat()
+    })
+    _memory_flashcards[payload.card_id] = card
 
-    # If student struggled, automatically register as a weakness for 3 AM remediation
+    # Update in MongoDB if available
+    if col is not None:
+        try:
+            update_query = {"_id": payload.card_id}
+            if ObjectId.is_valid(payload.card_id):
+                update_query = {"$or": [{"_id": payload.card_id}, {"_id": ObjectId(payload.card_id)}]}
+            await asyncio.wait_for(
+                col.update_one(
+                    update_query,
+                    {"$set": {
+                        "repetitions": sm2_result["repetitions"],
+                        "ease_factor": sm2_result["ease_factor"],
+                        "interval_days": sm2_result["interval_days"],
+                        "next_review_at": sm2_result["next_review_at"],
+                        "last_reviewed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                ),
+                timeout=2.0
+            )
+        except Exception as e:
+            logger.warning(f"Could not update flashcard in MongoDB: {e}")
+
+    # If student struggled, automatically register as a weakness for nightly remediation
     if payload.quality < 3:
         try:
             client = get_supabase_admin_client()
