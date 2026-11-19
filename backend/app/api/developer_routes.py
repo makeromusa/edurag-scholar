@@ -17,7 +17,7 @@ from app.api.assignment_routes import (
 )
 from app.core.config import settings
 from app.core.mongodb import get_api_keys_collection
-from app.core.supabase_client import get_supabase_admin_client
+from app.core.database import get_supabase_admin_client
 
 logger = logging.getLogger(__name__)
 

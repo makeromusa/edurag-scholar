@@ -75,6 +75,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const userEmail = user?.email || "";
   const userAvatar = user?.user_metadata?.avatar_url;
 
+  const isSuperAdmin = (user?.email || "").toLowerCase() === "makeromusa17@gmail.com";
+  const hasAdminAccess = isAdmin || isSuperAdmin;
+
   const enrolledUnitCodes = (profile?.enrolled_units || []).map((c: string) => c.toUpperCase());
   
   // Categorize enrolled vs available units
@@ -358,20 +361,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Account & Administration Footer */}
         <div className="border-t border-slate-800/80 p-3 space-y-2 shrink-0 bg-[#090d16]/90">
           {/* Super Admin Command Shortcut */}
-          {isAdmin && (
+          {hasAdminAccess && (
             <Link
               href="/admin"
               onClick={() => {
                 if (onClose) onClose();
               }}
-              className="flex w-full items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
+              className="flex w-full items-center justify-between rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs font-bold text-amber-300 transition hover:bg-amber-500/20 shadow-xs"
             >
               <div className="flex items-center gap-2">
-                <Shield className="h-3.5 w-3.5 text-amber-400" />
-                <span>Admin Command</span>
+                <Shield className="h-4 w-4 text-amber-400" />
+                <span>Admin Command Portal</span>
               </div>
-              <span className="text-[9px] uppercase font-mono bg-slate-900/80 px-1.5 py-0.2 rounded text-amber-300 border border-amber-500/30">
-                Portal
+              <span className="text-[10px] uppercase font-mono bg-slate-900/80 px-1.5 py-0.5 rounded text-amber-300 border border-amber-500/30">
+                Portal ↗
               </span>
             </Link>
           )}

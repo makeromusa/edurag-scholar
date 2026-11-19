@@ -236,13 +236,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isSuperAdminEmail = (user?.email || "").toLowerCase() === "makeromusa17@gmail.com";
+  const effectiveIsAdmin = isAdmin || isSuperAdminEmail;
+
   return (
     <AuthContext.Provider
       value={{
         user,
         session,
         isLoading,
-        isAdmin,
+        isAdmin: effectiveIsAdmin,
         profile,
         refreshProfile,
         isAuthModalOpen,

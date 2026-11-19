@@ -35,6 +35,9 @@ export const Header: React.FC<HeaderProps> = ({
   const userEmail = user?.email || null;
   const userAvatar = user?.user_metadata?.avatar_url;
 
+  const isSuperAdmin = (user?.email || "").toLowerCase() === "makeromusa17@gmail.com";
+  const hasAdminAccess = isAdmin || isSuperAdmin;
+
   const handleDeleteAccount = async () => {
     if (!session?.access_token) return;
     setIsDeleting(true);
@@ -99,7 +102,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Controls: Quick Actions & Single Prominent Auth Button */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {isAdmin && (
+          {hasAdminAccess && (
             <Link
               href="/admin"
               className="flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/30 hover:bg-amber-900/40 px-2.5 py-1.5 text-xs font-bold text-amber-300 transition shadow-sm"

@@ -15,7 +15,7 @@ export const RequestUnitModal: React.FC<RequestUnitModalProps> = ({
   onClose,
   onUnitRequested,
 }) => {
-  const { session } = useAuth();
+  const { session, user, openAuthModal } = useAuth();
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [lecturer, setLecturer] = useState("");
@@ -35,6 +35,12 @@ export const RequestUnitModal: React.FC<RequestUnitModalProps> = ({
       return;
     }
 
+    if (!session?.access_token) {
+      setError("Please sign in first to submit a unit request. The unit will be linked to your account once approved.");
+      openAuthModal();
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -45,10 +51,8 @@ export const RequestUnitModal: React.FC<RequestUnitModalProps> = ({
 
       const headers: Record<string, string> = {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${session.access_token}`,
       };
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
 
       const res = await fetch(`${apiUrl}/api/units/request`, {
         method: "POST",
@@ -123,6 +127,22 @@ export const RequestUnitModal: React.FC<RequestUnitModalProps> = ({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            {!session && (
+              <div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-blue-950/20 p-3 text-xs text-blue-300">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-blue-400 shrink-0" />
+                  <span>Sign in required to request units.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openAuthModal()}
+                  className="rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-blue-500 transition shrink-0"
+                >
+                  Sign In
+                </button>
+              </div>
+            )}
+
             {error && (
               <div className="flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-950/30 p-3 text-xs text-rose-300">
                 <AlertTriangle className="h-4 w-4 shrink-0 text-rose-400" />
