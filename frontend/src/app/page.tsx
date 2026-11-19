@@ -65,16 +65,21 @@ export default function Home() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [mobileTab, setMobileTab] = useState<"chat" | "documents">("chat");
   const [desktopLayout, setDesktopLayout] = useState<"split" | "chat" | "documents">("split");
-  const { user, profile, isLoading, openAuthModal } = useAuth();
+  const { user, profile, session, isLoading, openAuthModal } = useAuth();
 
   useEffect(() => {
-    // Fetch units and today's briefing from backend
+    // Fetch units and today's briefing from backend (authenticated so custom units are included)
     const fetchData = async () => {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+        const headers: Record<string, string> = {};
+        if (session?.access_token) {
+          headers["Authorization"] = `Bearer ${session.access_token}`;
+        }
+
         const [unitsRes, briefingRes] = await Promise.allSettled([
-          fetch(`${apiUrl}/api/units`),
-          fetch(`${apiUrl}/api/briefings/today`),
+          fetch(`${apiUrl}/api/units`, { headers }),
+          fetch(`${apiUrl}/api/briefings/today`, { headers }),
         ]);
 
         if (unitsRes.status === "fulfilled" && unitsRes.value.ok) {
@@ -94,7 +99,7 @@ export default function Home() {
     };
 
     fetchData();
-  }, [user?.id]);
+  }, [user?.id, session?.access_token]);
 
   // When student profile loads with enrolled units, select their first enrolled unit
   useEffect(() => {
@@ -106,7 +111,16 @@ export default function Home() {
     }
   }, [profile?.enrolled_units]);
 
-  const currentUnit = units.find((u) => u.code === selectedUnit) || units[0];
+  const currentUnit =
+    units.find((u) => u.code.toUpperCase() === (selectedUnit || "").toUpperCase()) ||
+    units[0] || {
+      code: selectedUnit || "SCS 3201",
+      name: "Enrolled Course",
+      lecturer: "Faculty Lecturer",
+      venue: "Campus",
+      semester: "1",
+      academic_year: "2025/2026",
+    };
 
   const handleOpenProfessor = (topic?: string, docId?: string, docTitle?: string) => {
     setProfessorTopic(topic);

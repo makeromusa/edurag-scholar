@@ -51,7 +51,8 @@ export default function AdminOverviewPage() {
         },
       });
       if (!res.ok) {
-        throw new Error(`Failed to load admin overview: HTTP ${res.status}`);
+        const errJson = await res.json().catch(() => ({}));
+        throw new Error(errJson.detail || `Failed to load admin overview: HTTP ${res.status}`);
       }
       const json = await res.json();
       setData(json);

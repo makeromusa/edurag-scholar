@@ -195,10 +195,10 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white tracking-tight">
-                Automated Examination PDF Pipelines
+                Academic Revision & Document Studio
               </h2>
               <p className="text-xs text-slate-400">
-                Asynchronous document pipelines powered by Gemini 1.5, OpenAI GPT-4o, Jinja2, and WeasyPrint.
+                Generate complete lecture revision booklets, structured model answers, and printable PDF packages.
               </p>
             </div>
           </div>

@@ -1,13 +1,44 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, TrendingUp, Award, Clock, Sparkles, Send, CheckCircle2 } from "lucide-react";
+import { X, TrendingUp, Award, Clock, Sparkles, Send, CheckCircle2, BookOpen, Layers } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import { MermaidDiagram } from "./MermaidDiagram";
 
 interface PastPaperModalProps {
   unitCode: string;
   isOpen: boolean;
   onClose: () => void;
+}
+
+/**
+ * Pre-processes markdown from the LLM. If the model outputs raw Mermaid
+ * diagrams (e.g. `flowchart TD ...`) without markdown fences, wraps them
+ * cleanly so the Mermaid component renders visual architectural graphics.
+ */
+function formatExamContent(raw: string): string {
+  if (!raw) return "";
+  let formatted = raw;
+  const mermaidKeywords = [
+    "flowchart TD",
+    "flowchart LR",
+    "graph TD",
+    "graph LR",
+    "sequenceDiagram",
+    "classDiagram",
+    "erDiagram",
+  ];
+
+  for (const kw of mermaidKeywords) {
+    if (formatted.includes(kw) && !formatted.includes("```mermaid")) {
+      const regex = new RegExp(`(${kw}[\\s\\S]*?)(?=\\n\\s*\\n\\s*\\d|\\n\\s*\\n\\s*#|$)`, "g");
+      formatted = formatted.replace(regex, "```mermaid\n$1\n```");
+    }
+  }
+  return formatted;
 }
 
 export const PastPaperModal: React.FC<PastPaperModalProps> = ({
@@ -32,7 +63,9 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setIsLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/past-papers/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -52,7 +85,9 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setIsLoading(true);
     setResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/past-papers/solve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -72,7 +107,9 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     setMockPaper(null);
     setEvaluationResult(null);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/mock-exams/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -94,107 +131,235 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     if (!mockExamId || !studentSubmission.trim()) return;
     setIsLoading(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL ||
+        "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
       const res = await fetch(`${apiUrl}/api/mock-exams/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exam_id: mockExamId, student_submission: studentSubmission }),
+        body: JSON.stringify({ exam_id: mockExamId, student_answers: studentSubmission }),
       });
       const data = await res.json();
-      setEvaluationResult(data.evaluation || "No evaluation generated.");
+      setEvaluationResult(data.evaluation || "Evaluation complete.");
     } catch (e) {
-      console.error(e);
+      setEvaluationResult("Error submitting examination for grading.");
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Reusable styled markdown components with vibrant headers, tables & diagrams
+  const markdownComponents = {
+    h1: ({ children, ...props }: any) => (
+      <h1
+        className="text-base sm:text-lg font-black text-sky-400 border-b border-sky-500/20 pb-1.5 mt-4 mb-2 flex items-center gap-2 tracking-tight"
+        {...props}
+      >
+        <span className="h-2 w-2 rounded-full bg-sky-400 inline-block shrink-0" />
+        <span>{children}</span>
+      </h1>
+    ),
+    h2: ({ children, ...props }: any) => (
+      <h2
+        className="text-sm sm:text-base font-extrabold text-amber-300 mt-4 mb-2 flex items-center gap-1.5 tracking-tight"
+        {...props}
+      >
+        <span className="text-amber-400 text-xs font-mono">▸</span>
+        <span>{children}</span>
+      </h2>
+    ),
+    h3: ({ children, ...props }: any) => (
+      <h3
+        className="text-xs sm:text-sm font-bold text-violet-300 mt-3 mb-1.5 flex items-center gap-1"
+        {...props}
+      >
+        <span>{children}</span>
+      </h3>
+    ),
+    h4: ({ children, ...props }: any) => (
+      <h4 className="text-xs font-bold text-emerald-400 mt-2.5 mb-1" {...props}>
+        {children}
+      </h4>
+    ),
+    p: ({ children, ...props }: any) => (
+      <p className="text-xs leading-relaxed text-slate-200 my-1.5 font-normal" {...props}>
+        {children}
+      </p>
+    ),
+    strong: ({ children, ...props }: any) => (
+      <strong className="font-bold text-sky-200" {...props}>
+        {children}
+      </strong>
+    ),
+    ul: ({ children, ...props }: any) => (
+      <ul className="my-2 space-y-1 pl-4 list-disc text-xs text-slate-300" {...props}>
+        {children}
+      </ul>
+    ),
+    ol: ({ children, ...props }: any) => (
+      <ol className="my-2 space-y-1 pl-4 list-decimal text-xs text-slate-300" {...props}>
+        {children}
+      </ol>
+    ),
+    li: ({ children, ...props }: any) => (
+      <li className="text-xs leading-relaxed text-slate-200" {...props}>
+        {children}
+      </li>
+    ),
+    table: ({ children, ...props }: any) => (
+      <div className="my-3 overflow-x-auto rounded-xl border border-slate-700/80 bg-[#080d1a] shadow-md">
+        <table className="w-full text-left text-xs border-collapse" {...props}>
+          {children}
+        </table>
+      </div>
+    ),
+    thead: ({ children, ...props }: any) => (
+      <thead
+        className="bg-slate-900/90 text-sky-300 font-bold border-b border-slate-700 uppercase tracking-wider text-[10px]"
+        {...props}
+      >
+        {children}
+      </thead>
+    ),
+    th: ({ children, ...props }: any) => (
+      <th className="px-3 py-2 font-bold text-sky-300 border-b border-slate-700" {...props}>
+        {children}
+      </th>
+    ),
+    td: ({ children, ...props }: any) => (
+      <td className="px-3 py-2 border-b border-slate-800/60 text-slate-200 text-xs" {...props}>
+        {children}
+      </td>
+    ),
+    blockquote: ({ children, ...props }: any) => (
+      <blockquote
+        className="border-l-4 border-amber-500 bg-amber-950/20 px-3 py-2 rounded-r-lg my-2.5 text-xs italic text-amber-200"
+        {...props}
+      >
+        {children}
+      </blockquote>
+    ),
+    code({ node, inline, className, children, ...props }: any) {
+      const match = /language-(\w+)/.exec(className || "");
+      const lang = match ? match[1] : "";
+      const codeString = String(children).replace(/\n$/, "");
+
+      if (!inline && (lang === "mermaid" || codeString.trim().startsWith("flowchart") || codeString.trim().startsWith("graph") || codeString.trim().startsWith("sequenceDiagram"))) {
+        return (
+          <div className="my-3">
+            <MermaidDiagram chart={codeString} title="Technical Architecture Diagram" />
+          </div>
+        );
+      }
+
+      return !inline ? (
+        <div className="relative group my-2.5">
+          <pre className="overflow-x-auto rounded-xl bg-slate-950 p-3 text-xs font-mono text-emerald-300 border border-slate-800">
+            <code className={className} {...props}>
+              {children}
+            </code>
+          </pre>
+        </div>
+      ) : (
+        <code className="rounded bg-slate-800/80 px-1 py-0.5 text-[11px] font-mono text-amber-300 border border-slate-700/50" {...props}>
+          {children}
+        </code>
+      );
+    },
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-      <div className="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in">
+      <div className="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-slate-800 bg-[#0a0f1b] px-6 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600/20 text-emerald-400">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
               <Award className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-white">
-                Past Papers & Exam Suite • {unitCode}
+              <h2 className="text-base font-bold text-white tracking-tight">
+                Past Papers & Exam Revision Suite • <span className="text-emerald-400 font-mono">{unitCode}</span>
               </h2>
               <p className="text-xs text-slate-400">
-                UoN Lecturer marking schemes, exam trend predictor & mock simulator
+                Lecturer marking rubrics, exam trend predictions & realistic timed practice
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-800 hover:text-white"
+            className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Tab Controls */}
-        <div className="flex border-b border-slate-800/80 px-6">
+        <div className="flex border-b border-slate-800/80 bg-[#080d17] px-6">
           <button
             onClick={() => { setActiveTab("trend"); setResult(null); }}
-            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-semibold transition ${
+            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-bold transition ${
               activeTab === "trend"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             <TrendingUp className="h-4 w-4" />
-            <span>Mode A: Predict & Trend</span>
+            <span>Exam Trend Predictor</span>
           </button>
           <button
             onClick={() => { setActiveTab("solve"); setResult(null); }}
-            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-semibold transition ${
+            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-bold transition ${
               activeTab === "solve"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             <Award className="h-4 w-4" />
-            <span>Mode B: Model Marking Scheme</span>
+            <span>Lecturer Marking Rubric</span>
           </button>
           <button
             onClick={() => { setActiveTab("mock"); setResult(null); }}
-            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-semibold transition ${
+            className={`flex items-center gap-2 border-b-2 py-3 px-4 text-xs font-bold transition ${
               activeTab === "mock"
                 ? "border-blue-500 text-blue-400"
                 : "border-transparent text-slate-400 hover:text-slate-200"
             }`}
           >
             <Clock className="h-4 w-4" />
-            <span>Mode C: Mock Exam Simulator</span>
+            <span>Timed Mock Exam Simulator</span>
           </button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {activeTab === "trend" && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-blue-500/20 bg-blue-950/20 p-4 text-xs text-slate-300">
-                <p className="font-semibold text-blue-400">Topic Frequency & Probability Engine</p>
-                <p className="mt-1 text-slate-400">
-                  Analyzes indexed past papers for {unitCode} to predict which topics will appear in Section A (Compulsory) and Section B.
+              <div className="rounded-2xl border border-blue-500/20 bg-blue-950/20 p-4 text-xs text-slate-300">
+                <p className="font-bold text-blue-300 text-sm">Topic Frequency & Probability Engine</p>
+                <p className="mt-1 text-slate-400 leading-relaxed">
+                  Analyzes indexed curriculum past papers for <strong>{unitCode}</strong> to identify high-yield questions likely to appear in Section A (Compulsory) and Section B.
                 </p>
                 <button
                   onClick={handleAnalyzeTrends}
                   disabled={isLoading}
-                  className="mt-3 flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                  className="mt-3 flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50 shadow-md"
                 >
                   <Sparkles className="h-4 w-4" />
-                  {isLoading ? "Analyzing Exam Trends..." : `Run Trend Analysis for ${unitCode}`}
+                  {isLoading ? "Analyzing Exam Trends..." : `Analyze Exam Trends for ${unitCode}`}
                 </button>
               </div>
 
               {result && (
-                <div className="mt-4 rounded-xl border border-slate-800 bg-[#090d16] p-5 shadow-inner">
-                  <div className="prose prose-invert max-w-none text-xs text-slate-300">
-                    <ReactMarkdown>{result}</ReactMarkdown>
+                <div className="mt-4 rounded-2xl border border-slate-800 bg-[#090d16] p-6 shadow-inner">
+                  <div className="prose prose-invert max-w-none text-xs">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      components={markdownComponents}
+                    >
+                      {formatExamContent(result)}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}
@@ -203,30 +368,36 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
 
           {activeTab === "solve" && (
             <div className="space-y-4">
-              <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                <label className="text-xs font-semibold text-slate-300">
-                  Paste Exam Question (from past paper or CAT):
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                <label className="text-xs font-bold text-slate-200">
+                  Paste Exam Question (from past paper or assignment):
                 </label>
                 <textarea
                   value={questionInput}
                   onChange={(e) => setQuestionInput(e.target.value)}
                   placeholder="e.g. Describe the Banker's Algorithm for deadlock avoidance and calculate the safe state..."
-                  className="mt-2 h-24 w-full rounded-lg border border-slate-800 bg-[#090d16] p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none"
+                  className="mt-2 h-24 w-full rounded-xl border border-slate-800 bg-[#090d16] p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-blue-500 focus:outline-none"
                 />
                 <button
                   onClick={handleSolveQuestion}
                   disabled={isLoading || !questionInput.trim()}
-                  className="mt-3 flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                  className="mt-3 flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-50 shadow-md"
                 >
                   <Send className="h-3.5 w-3.5" />
-                  {isLoading ? "Formulating Model Answer..." : "Draft Lecturer-Grade Model Answer"}
+                  {isLoading ? "Formulating Model Answer..." : "Draft Model Answer with Rubric"}
                 </button>
               </div>
 
               {result && (
-                <div className="mt-4 rounded-xl border border-slate-800 bg-[#090d16] p-5 shadow-inner">
-                  <div className="prose prose-invert max-w-none text-xs text-slate-300">
-                    <ReactMarkdown>{result}</ReactMarkdown>
+                <div className="mt-4 rounded-2xl border border-slate-800 bg-[#090d16] p-6 shadow-inner">
+                  <div className="prose prose-invert max-w-none text-xs">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      components={markdownComponents}
+                    >
+                      {formatExamContent(result)}
+                    </ReactMarkdown>
                   </div>
                 </div>
               )}
@@ -236,16 +407,16 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
           {activeTab === "mock" && (
             <div className="space-y-5">
               {!mockPaper ? (
-                <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-6 text-center text-slate-400">
-                  <Clock className="mx-auto h-10 w-10 text-blue-400 mb-2 stroke-[1.5]" />
-                  <h3 className="text-sm font-bold text-slate-200">Timed Mock Exam Simulator</h3>
-                  <p className="mt-1 text-xs text-slate-400 max-w-sm mx-auto">
-                    Generates a full 70-mark university standard examination paper stored into MongoDB.
+                <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-slate-400">
+                  <Clock className="mx-auto h-12 w-12 text-blue-400 mb-3 stroke-[1.5]" />
+                  <h3 className="text-base font-bold text-slate-200">Timed Mock Exam Simulator</h3>
+                  <p className="mt-1.5 text-xs text-slate-400 max-w-md mx-auto leading-relaxed">
+                    Synthesizes a realistic 70-mark university final examination paper grounded in the course syllabus.
                   </p>
                   <button
                     onClick={handleGenerateMockExam}
                     disabled={isLoading}
-                    className="mt-4 rounded-lg bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 disabled:opacity-50"
+                    className="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50 shadow-md"
                   >
                     {isLoading ? "Generating Examination Paper..." : `Generate Mock Exam for ${unitCode}`}
                   </button>
@@ -253,47 +424,59 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
               ) : (
                 <div className="space-y-4">
                   {/* The Exam Paper */}
-                  <div className="rounded-xl border border-slate-700 bg-[#090d16] p-5">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2 mb-3">
-                      <span className="text-xs font-bold text-blue-400">Examination Paper: {unitCode}</span>
-                      <span className="text-[10px] text-slate-500">Stored in MongoDB ID: {mockExamId}</span>
+                  <div className="rounded-2xl border border-slate-700 bg-[#090d16] p-6 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                      <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Examination Paper: {unitCode}</span>
+                      <span className="text-[10px] text-slate-500 font-mono">Exam Ref: {mockExamId?.slice(0, 12)}</span>
                     </div>
-                    <div className="prose prose-invert max-w-none text-xs text-slate-300 max-h-60 overflow-y-auto">
-                      <ReactMarkdown>{mockPaper}</ReactMarkdown>
+                    <div className="prose prose-invert max-w-none text-xs max-h-72 overflow-y-auto">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm, remarkMath]}
+                        rehypePlugins={[rehypeKatex]}
+                        components={markdownComponents}
+                      >
+                        {formatExamContent(mockPaper)}
+                      </ReactMarkdown>
                     </div>
                   </div>
 
                   {/* Student Answer Submission Box */}
-                  <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-4">
-                    <label className="text-xs font-semibold text-slate-300">
+                  <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-4">
+                    <label className="text-xs font-semibold text-slate-200">
                       Your Examination Answer Sheet:
                     </label>
                     <textarea
                       value={studentSubmission}
                       onChange={(e) => setStudentSubmission(e.target.value)}
                       placeholder="Type your answers here (Question 1, Question 2, Question 3). Include definitions, formulas, and trade-offs..."
-                      className="mt-2 h-36 w-full rounded-lg border border-slate-800 bg-[#090d16] p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
+                      className="mt-2 h-36 w-full rounded-xl border border-slate-800 bg-[#090d16] p-3 text-xs text-slate-200 placeholder-slate-600 focus:border-emerald-500 focus:outline-none"
                     />
                     <div className="mt-3 flex justify-end gap-2">
                       <button
                         onClick={handleEvaluateMockExam}
                         disabled={isLoading || !studentSubmission.trim()}
-                        className="flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                        className="flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2 text-xs font-semibold text-white hover:bg-emerald-500 transition disabled:opacity-50 shadow-md"
                       >
                         <CheckCircle2 className="h-4 w-4" />
-                        <span>{isLoading ? "Grading Against UoN Rubric..." : "Submit for Lecturer Grading"}</span>
+                        <span>{isLoading ? "Grading Against University Rubric..." : "Submit for Lecturer Grading"}</span>
                       </button>
                     </div>
                   </div>
 
                   {/* Evaluation Result */}
                   {evaluationResult && (
-                    <div className="rounded-xl border border-emerald-500/40 bg-[#07131a] p-5">
-                      <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2">
+                    <div className="rounded-2xl border border-emerald-500/40 bg-[#07131a] p-6 shadow-inner">
+                      <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">
                         Official Lecturer Evaluation & Score Breakdown:
                       </h4>
-                      <div className="prose prose-invert max-w-none text-xs text-slate-200">
-                        <ReactMarkdown>{evaluationResult}</ReactMarkdown>
+                      <div className="prose prose-invert max-w-none text-xs">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                          components={markdownComponents}
+                        >
+                          {formatExamContent(evaluationResult)}
+                        </ReactMarkdown>
                       </div>
                     </div>
                   )}

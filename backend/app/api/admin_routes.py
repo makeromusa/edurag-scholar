@@ -75,91 +75,137 @@ class UnitUpdateBody(BaseModel):
 async def admin_overview(authorization: str = Header(None)):
     await require_admin(authorization)
     supabase = get_supabase_admin_client()
+
+    users = []
+    total_users = 0
+    admin_count = 0
+    total_units = 0
+    total_docs = 0
+    total_queries = 0
+    total_exams = 0
+    total_flashcards = 0
+    recent_signups_count = 0
+    top_enrolled = []
+
+    # 1. Fetch Users & Profiles safely
     try:
-        # Users: Use auth.admin for 100% accurate count and sync
-        users = []
-        total_users = 0
-        admin_count = 0
+        profiles_resp = supabase.table("profiles").select("*").execute()
+        profiles_list = profiles_resp.data or []
+        profiles_map = {p["id"]: p for p in profiles_list}
+
+        # Attempt to get full auth users list from Supabase Admin
+        auth_users_list = []
         try:
-            auth_users = supabase.auth.admin.list_users()
-            profiles_resp = supabase.table("profiles").select("id,is_admin,enrolled_units").execute()
-            prof_map = {p["id"]: p for p in (profiles_resp.data or [])}
-            total_users = len(auth_users)
-            for au in auth_users:
-                p = prof_map.get(au.id, {})
-                is_adm = p.get("is_admin", False) or au.email == SUPER_ADMIN_EMAIL
+            auth_res = supabase.auth.admin.list_users()
+            if isinstance(auth_res, list):
+                auth_users_list = auth_res
+            elif hasattr(auth_res, "users") and isinstance(auth_res.users, list):
+                auth_users_list = auth_res.users
+            elif hasattr(auth_res, "__iter__"):
+                auth_users_list = list(auth_res)
+        except Exception as e:
+            logger.warning(f"auth.admin.list_users error: {e}")
+
+        if auth_users_list:
+            total_users = len(auth_users_list)
+            for au in auth_users_list:
+                pid = getattr(au, "id", None) or str(au)
+                p = profiles_map.get(pid, {})
+                email = getattr(au, "email", None) or p.get("email") or ""
+                is_adm = p.get("is_admin", False) or email.lower() == SUPER_ADMIN_EMAIL.lower()
+                if is_adm:
+                    admin_count += 1
+                created_val = getattr(au, "created_at", None) or p.get("created_at")
+                users.append({
+                    "email": email,
+                    "created_at": str(created_val) if created_val else "",
+                    "enrolled_units": p.get("enrolled_units") if isinstance(p.get("enrolled_units"), list) else []
+                })
+        else:
+            total_users = len(profiles_list)
+            for p in profiles_list:
+                email = p.get("email") or ""
+                is_adm = p.get("is_admin", False) or email.lower() == SUPER_ADMIN_EMAIL.lower()
                 if is_adm:
                     admin_count += 1
                 users.append({
-                    "email": au.email,
-                    "created_at": str(au.created_at) if getattr(au, "created_at", None) else None,
-                    "enrolled_units": p.get("enrolled_units") or []
+                    "email": email,
+                    "created_at": str(p.get("created_at") or ""),
+                    "enrolled_units": p.get("enrolled_units") if isinstance(p.get("enrolled_units"), list) else []
                 })
-        except Exception:
-            users_resp = supabase.table("profiles").select("id,email,full_name,is_admin,enrolled_units,created_at").execute()
-            users = users_resp.data or []
-            total_users = len(users)
-            admin_count = sum(1 for u in users if u.get("is_admin"))
+    except Exception as e:
+        logger.error(f"Error compiling overview users: {e}")
 
-        # Units
-        units_resp = supabase.table("units").select("code,name,status").execute()
+    # 2. Units count
+    try:
+        units_resp = supabase.table("units").select("code,status").execute()
         units = units_resp.data or []
         total_units = len(units)
+    except Exception as e:
+        logger.warning(f"Error fetching units for overview: {e}")
 
-        # Documents
-        docs_resp = supabase.table("documents").select("id,created_at").execute()
+    # 3. Documents count
+    try:
+        docs_resp = supabase.table("documents").select("id").execute()
         docs = docs_resp.data or []
         total_docs = len(docs)
-
-        # Chat queries from MongoDB
-        total_queries = 0
-        try:
-            col = get_chat_transcripts_collection()
-            import asyncio
-            total_queries = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
-        except Exception:
-            pass
-
-        # Exams
-        total_exams = 0
-        try:
-            col = get_mock_exams_collection()
-            import asyncio
-            total_exams = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
-        except Exception:
-            pass
-
-        # Flashcards
-        total_flashcards = 0
-        try:
-            col = get_flashcards_collection()
-            import asyncio
-            total_flashcards = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
-        except Exception:
-            pass
-
-        # Recent signups (last 7 days)
-        from datetime import timedelta
-        cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-        recent_users = [u for u in users if (u.get("created_at") or "") >= cutoff]
-
-        return {
-            "total_users": total_users,
-            "admin_count": admin_count,
-            "total_units": total_units,
-            "total_documents": total_docs,
-            "total_queries": total_queries,
-            "total_exams": total_exams,
-            "total_flashcards": total_flashcards,
-            "new_users_this_week": len(recent_users),
-            "users_by_enrollment": [
-                {"email": u.get("email", ""), "units": len(u.get("enrolled_units") or [])}
-                for u in sorted(users, key=lambda x: len(x.get("enrolled_units") or []), reverse=True)[:5]
-            ],
-        }
     except Exception as e:
-        logger.error(f"Admin overview error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.warning(f"Error fetching documents for overview: {e}")
+
+    # 4. MongoDB Metrics
+    try:
+        col = get_chat_transcripts_collection()
+        import asyncio
+        total_queries = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
+    except Exception:
+        pass
+
+    try:
+        col = get_mock_exams_collection()
+        import asyncio
+        total_exams = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
+    except Exception:
+        pass
+
+    try:
+        col = get_flashcards_collection()
+        import asyncio
+        total_flashcards = await asyncio.wait_for(col.count_documents({}), timeout=2.0)
+    except Exception:
+        pass
+
+    # 5. Recent signups & enrollment stats safely
+    try:
+        from datetime import timedelta
+        cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).strftime("%Y-%m-%d")
+        for u in users:
+            c_str = str(u.get("created_at") or "")
+            if c_str and c_str[:10] >= cutoff:
+                recent_signups_count += 1
+
+        sorted_users = sorted(
+            users,
+            key=lambda x: len(x.get("enrolled_units") or []) if isinstance(x.get("enrolled_units"), list) else 0,
+            reverse=True
+        )
+        for u in sorted_users[:5]:
+            enrolled = u.get("enrolled_units")
+            u_len = len(enrolled) if isinstance(enrolled, list) else 0
+            top_enrolled.append({"email": u.get("email", ""), "units": u_len})
+    except Exception as e:
+        logger.warning(f"Error calculating recent users or enrollments: {e}")
+
+    return {
+        "total_users": total_users,
+        "admin_count": admin_count,
+        "total_units": total_units,
+        "total_documents": total_docs,
+        "total_queries": total_queries,
+        "total_exams": total_exams,
+        "total_flashcards": total_flashcards,
+        "new_users_this_week": recent_signups_count,
+        "users_by_enrollment": top_enrolled,
+    }
 
 
 # ─── Users ───────────────────────────────────────────────────────────────────

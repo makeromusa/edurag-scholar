@@ -80,13 +80,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const enrolledUnitCodes = (profile?.enrolled_units || []).map((c: string) => c.toUpperCase());
   
-  // Categorize enrolled vs available units
-  const myEnrolledUnits = enrolledUnitCodes.map((code: string) => {
-    const existing = units.find((u) => u.code.toUpperCase() === code);
-    return existing || { code, name: "Enrolled Course", lecturer: "Faculty Lecturer", venue: "Campus" };
+  // Merge ALL system units and approved custom units — never hide curriculum units!
+  const unitMap = new Map<string, any>();
+  units.forEach((u) => {
+    unitMap.set(u.code.toUpperCase(), u);
+  });
+  enrolledUnitCodes.forEach((code: string) => {
+    if (!unitMap.has(code)) {
+      unitMap.set(code, {
+        code,
+        name: "Custom Course",
+        lecturer: "Faculty Lecturer",
+        venue: "Campus",
+      });
+    }
   });
 
-  const displayUnits = myEnrolledUnits.length > 0 ? myEnrolledUnits : units;
+  const displayUnits = Array.from(unitMap.values());
 
   const activeUnitObj = units.find(
     (u) => u.code.toUpperCase() === selectedUnit.toUpperCase()
@@ -132,7 +142,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   Scholar
                 </span>
               </h1>
-              <p className="text-[10px] text-slate-400">Academic RAG & Copilot</p>
+              <p className="text-[10px] text-slate-400">University Learning Assistant</p>
             </div>
           </div>
 
@@ -352,7 +362,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/60 transition group cursor-pointer"
               >
                 <Layers className="h-4 w-4 text-slate-400 group-hover:text-emerald-400 transition" />
-                <span>Autonomous Pipelines</span>
+                <span>Revision & Study Vault</span>
               </button>
             )}
           </nav>
