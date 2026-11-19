@@ -19,12 +19,10 @@ import {
   ChevronDown,
   Check,
   Plus,
-  Key,
   Layers,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 import { RequestUnitModal } from "./RequestUnitModal";
-import { DeveloperApiModal } from "./DeveloperApiModal";
 
 export interface Unit {
   code: string;
@@ -71,7 +69,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const { user, signOut, openAuthModal, isAdmin, profile } = useAuth();
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
   const [isRequestUnitOpen, setIsRequestUnitOpen] = useState(false);
-  const [isDeveloperApiOpen, setIsDeveloperApiOpen] = useState(false);
 
   const userDisplayName =
     profile?.full_name || user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Scholar";
@@ -360,21 +357,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Account & Administration Footer */}
         <div className="border-t border-slate-800/80 p-3 space-y-2 shrink-0 bg-[#090d16]/90">
-          {/* Developer API Keys Shortcut */}
-          <button
-            onClick={() => setIsDeveloperApiOpen(true)}
-            className="flex w-full items-center justify-between rounded-lg border border-purple-500/25 bg-purple-950/20 px-3 py-1.5 text-xs font-semibold text-purple-300 transition hover:bg-purple-950/40"
-            title="Generate API key and access developer REST endpoints"
-          >
-            <div className="flex items-center gap-2">
-              <Key className="h-3.5 w-3.5 text-purple-400" />
-              <span>Developer API Keys</span>
-            </div>
-            <span className="text-[9px] uppercase font-mono bg-purple-900/50 px-1.5 py-0.2 rounded text-purple-200 border border-purple-500/30">
-              REST v1
-            </span>
-          </button>
-
           {/* Super Admin Command Shortcut */}
           {isAdmin && (
             <Link
@@ -451,10 +433,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <RequestUnitModal
         isOpen={isRequestUnitOpen}
         onClose={() => setIsRequestUnitOpen(false)}
-      />
-      <DeveloperApiModal
-        isOpen={isDeveloperApiOpen}
-        onClose={() => setIsDeveloperApiOpen(false)}
       />
     </>
   );

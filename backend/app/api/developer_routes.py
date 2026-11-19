@@ -109,6 +109,24 @@ def _get_user_from_bearer(authorization: Optional[str]) -> Optional[Dict[str, An
     return None
 
 
+SUPER_ADMIN_EMAIL = "makeromusa17@gmail.com"
+
+
+def require_super_admin(authorization: Optional[str]) -> Dict[str, Any]:
+    """Ensures ONLY the immutable Super Admin (makeromusa17@gmail.com) can manage developer API keys."""
+    user = _get_user_from_bearer(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+
+    user_email = (user.get("email") or "").lower().strip()
+    if user_email != SUPER_ADMIN_EMAIL.lower():
+        raise HTTPException(
+            status_code=403,
+            detail="Forbidden: Developer API Key management is restricted exclusively to the Super Admin."
+        )
+    return user
+
+
 # --- Key Management Endpoints ---
 @developer_router.post("/auth/keys", response_model=ApiKeyResponse)
 async def generate_api_key(
@@ -117,11 +135,9 @@ async def generate_api_key(
 ):
     """
     Generates a new developer API key for programmatic access.
-    Requires user authentication via Bearer token.
+    Restricted strictly to the Super Admin (makeromusa17@gmail.com).
     """
-    user = _get_user_from_bearer(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="User authentication required to issue API keys.")
+    user = require_super_admin(authorization)
 
     raw_token = f"edurag_live_{secrets.token_hex(20)}"
     key_id = str(uuid.uuid4())
@@ -158,15 +174,13 @@ async def generate_api_key(
 
 @developer_router.get("/auth/keys", response_model=List[ApiKeyResponse])
 async def list_api_keys(authorization: Optional[str] = Header(None)):
-    """Lists all active API keys issued to the authenticated scholar."""
-    user = _get_user_from_bearer(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="User authentication required.")
+    """Lists all active API keys. Restricted strictly to the Super Admin."""
+    user = require_super_admin(authorization)
 
     keys: List[ApiKeyResponse] = []
     try:
         col = get_api_keys_collection()
-        cursor = col.find({"user_id": user["id"], "is_active": True}).sort("created_at", -1)
+        cursor = col.find({"is_active": True}).sort("created_at", -1)
         async for doc in cursor:
             keys.append(ApiKeyResponse(
                 id=str(doc["_id"]),
@@ -185,16 +199,14 @@ async def list_api_keys(authorization: Optional[str] = Header(None)):
 
 @developer_router.delete("/auth/keys/{key_id}")
 async def revoke_api_key(key_id: str, authorization: Optional[str] = Header(None)):
-    """Revokes an API key."""
-    user = _get_user_from_bearer(authorization)
-    if not user:
-        raise HTTPException(status_code=401, detail="User authentication required.")
+    """Revokes an API key. Restricted strictly to the Super Admin."""
+    user = require_super_admin(authorization)
 
     try:
         col = get_api_keys_collection()
         res = await col.update_one(
-            {"_id": key_id, "user_id": user["id"]},
-            {"$set": {"is_active": False, "revoked_at": datetime.now(timezone.utc).isoformat()}}
+            {"_id": key_id},
+            {"$set": {"is_active": False, "revoked_at": datetime.now(timezone.utc).isoformat(), "revoked_by": user["email"]}}
         )
         if res.matched_count == 0:
             raise HTTPException(status_code=404, detail="API key not found.")

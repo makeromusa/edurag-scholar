@@ -16,6 +16,7 @@ import {
   ChevronRight,
   Loader2,
   Lock,
+  Key,
 } from "lucide-react";
 import { useAuth } from "@/lib/AuthContext";
 
@@ -110,7 +111,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Navigation Items */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV_ITEMS.map((item) => {
+          {[
+            ...NAV_ITEMS,
+            ...(isSuperAdminEmail
+              ? [{ href: "/admin/api-keys", label: "Developer API Keys", icon: Key, badge: "Master" }]
+              : []),
+          ].map((item) => {
             const isActive = pathname === item.href || (item.href !== "/admin/overview" && pathname.startsWith(item.href));
             const Icon = item.icon;
             return (
