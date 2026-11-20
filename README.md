@@ -14,7 +14,7 @@
   <b>EduRAG Scholar</b> is an autonomous, course-isolated academic workstation engineered to help university scholars master rigorous STEM & Computer Science curricula, conquer complex calculus derivations, and prepare for university examinations with verified, slide-accurate citations.
 </p>
 
-[🌐 Live Workstation](https://edurag.tech) • [📖 API Guide](file:///C:/Users/HomePC/Downloads/EduRAG_Developer_API_Guide.pdf) • [💰 Monetization Playbook](file:///C:/Users/HomePC/Downloads/EduRAG_Monetization_Mpesa_Daraja_Playbook.pdf)
+[🌐 Live Workstation](https://edurag.tech)
 
 </div>
 
@@ -27,7 +27,6 @@ flowchart TD
     subgraph Clients ["💻 Scholar Client Interfaces"]
         WEB["Next.js 14 Desktop Workstation\n(Split Workstation • KaTeX • Mermaid)"]
         MOBILE["Mobile Web Application\n(Dynamic 100dvh • Touch Ergonomics)"]
-        BOT["External Integrations\n(Twilio WhatsApp Bot • Developer APIs)"]
     end
 
     subgraph API_Gateway ["🛡️ Backend Gateway (FastAPI on Azure)"]
@@ -44,11 +43,11 @@ flowchart TD
 
     subgraph Data_Layer ["💾 Persistence & Vector Memory"]
         PG["Supabase PostgreSQL + pgvector\n(Units • Slide Chunks • Timetables)"]
-        MONGO["MongoDB Atlas Cluster\n(Transcripts • Mock Exams • API Keys)"]
+        MONGO["MongoDB Atlas Cluster\n(Transcripts • Mock Exams)"]
         STORAGE["Supabase Storage\n(Raw PDFs • Slides • Handouts)"]
     end
 
-    WEB & MOBILE & BOT --> ROUTER
+    WEB & MOBILE --> ROUTER
     ROUTER --> AUTH_GUARD --> RATE_LIMIT
     RATE_LIMIT --> PG & MONGO & STORAGE
     RATE_LIMIT --> AOAI & GEMINI & GROK
@@ -101,7 +100,7 @@ flowchart TD
 
 ### 7. 🛡️ Executive Operations Admin Portal
 - Real-time telemetry monitoring: registered scholars, active units, ingested slide documents, attributed AI queries.
-- Student account management, broadcast announcements, and developer API key management.
+- Student account management, unit approvals, and campus broadcast announcements.
 
 ---
 
@@ -190,7 +189,7 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 1. **Untrusted Data Boundary:** All student-uploaded documents, scanned PDFs, and past exams are treated as passive reference data; directives inside them cannot override system prompts.
 2. **Strict Vector Grounding:** All exam predictions and marking schemes must pull matching vector chunks from Supabase `document_chunks` before generating answers.
 3. **Course Isolation:** Queries for `SMA 2114` will never cross-retrieve from `SCS 3207`.
-4. **Hashed API Credentials:** Developer API keys (`edurag_live_...`) are hashed using SHA-256 before storage in MongoDB.
+4. **Role-Based Access Control:** Secure scholar sessions verified via Supabase Auth and admin-protected endpoints.
 
 ---
 
