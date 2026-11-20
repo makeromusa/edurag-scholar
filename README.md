@@ -200,6 +200,18 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
+## 🎯 What I Would Improve Next (Workbook Task 04 Alignment)
+
+Demonstrating engineering self-awareness and architectural maturity, the following key roadmap improvements are identified for future platform scaling:
+
+1. **Interactive STEM Math Keypad:** Implement an on-screen math insertion toolbar above the mobile chat input for instant calculus symbol insertion ($\int, \frac{d}{dx}, \lim, \sum, \sqrt{}, \pi, \theta$), eliminating mobile keyboard friction for STEM students.
+2. **Offline Progressive Web App (PWA) Caching:** Integrate Service Workers with IndexedDB caching to enable students to review their daily Abstractor study dossiers and flashcards offline without consuming mobile data bundles during campus commutes.
+3. **Multimodal Blackboard & Handwritten OCR:** Introduce a fine-tuned vision pipeline to extract formulas and diagrams directly from unformatted handwritten lecture notebooks and mobile camera snaps of lecture hall blackboards.
+4. **Adaptive Memory Scheduling (FSRS-4.5 Upgrade):** Advance the spaced repetition memory engine from classic SuperMemo SM-2 to the modern Free Spaced Repetition Scheduler (FSRS-4.5) algorithm for personalized memory stability and retention modeling.
+5. **Real-Time WebRTC Peer Study Rooms:** Incorporate peer-to-peer audio-collaborative revision rooms allowing study groups to whiteboard past paper solutions together.
+
+---
+
 ## 👨‍💻 Author & Maintainer
 
 **Asman Makero Musa**  
