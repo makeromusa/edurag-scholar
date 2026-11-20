@@ -20,12 +20,9 @@ import {
   HelpCircle,
   Globe,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
 import { Unit } from "./Sidebar";
 import { MermaidDiagram } from "./MermaidDiagram";
+import { AcademicMarkdown } from "./AcademicMarkdown";
 
 interface AssignmentStudioModalProps {
   units: Unit[];
@@ -512,49 +509,8 @@ export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
                   )}
 
                   {/* Markdown Solution Body */}
-                  <div className="prose prose-invert max-w-none text-xs sm:text-sm text-slate-300 leading-relaxed bg-[#090d16] p-6 rounded-2xl border border-slate-800">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                      components={{
-                        h1: ({ children, ...props }: any) => (
-                          <h1 className="text-base sm:text-lg font-black text-sky-400 border-b border-sky-500/20 pb-1.5 mt-4 mb-2 flex items-center gap-2 tracking-tight" {...props}>
-                            <span className="h-2 w-2 rounded-full bg-sky-400 inline-block shrink-0" />
-                            <span>{children}</span>
-                          </h1>
-                        ),
-                        h2: ({ children, ...props }: any) => (
-                          <h2 className="text-sm sm:text-base font-extrabold text-amber-300 mt-4 mb-2 flex items-center gap-1.5 tracking-tight" {...props}>
-                            <span className="text-amber-400 text-xs font-mono">▸</span>
-                            <span>{children}</span>
-                          </h2>
-                        ),
-                        h3: ({ children, ...props }: any) => (
-                          <h3 className="text-xs sm:text-sm font-bold text-violet-300 mt-3 mb-1.5 flex items-center gap-1" {...props}>
-                            <span>{children}</span>
-                          </h3>
-                        ),
-                        table: ({ children, ...props }: any) => (
-                          <div className="my-3 overflow-x-auto rounded-xl border border-slate-700/80 bg-[#080d1a] shadow-md">
-                            <table className="w-full text-left text-xs border-collapse" {...props}>{children}</table>
-                          </div>
-                        ),
-                        thead: ({ children, ...props }: any) => (
-                          <thead className="bg-slate-900/90 text-sky-300 font-bold border-b border-slate-700 uppercase tracking-wider text-[10px]" {...props}>{children}</thead>
-                        ),
-                        th: ({ children, ...props }: any) => (
-                          <th className="px-3 py-2 font-bold text-sky-300 border-b border-slate-700" {...props}>{children}</th>
-                        ),
-                        td: ({ children, ...props }: any) => (
-                          <td className="px-3 py-2 border-b border-slate-800/60 text-slate-200 text-xs" {...props}>{children}</td>
-                        ),
-                        strong: ({ children, ...props }: any) => (
-                          <strong className="font-bold text-sky-200" {...props}>{children}</strong>
-                        ),
-                      }}
-                    >
-                      {solution.solution_markdown}
-                    </ReactMarkdown>
+                  <div className="bg-[#090d16] p-6 rounded-2xl border border-slate-800 shadow-inner">
+                    <AcademicMarkdown content={solution.solution_markdown} />
                   </div>
                 </div>
               ) : activeTab === "diagrams" ? (

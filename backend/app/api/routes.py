@@ -1459,15 +1459,53 @@ async def dispatch_briefing_to_scholar(
 @limiter.limit("15/minute")
 async def analyze_past_paper_trends(request: Request, payload: PastPaperAnalyzeRequest):
     """
-    Predict & Trend Engine: Analyzes recurring exam themes and question frequency.
+    Predict & Trend Engine: Analyzes recurring exam themes and question frequency,
+    strictly grounded in the unit's indexed documents, lecture slides, and past papers.
     """
-    system_inst = f"You are the senior examiner for University of Nairobi unit [{payload.unit_code}]."
-    user_p = f"""Analyze typical examination trends and recurring themes based on University Computer Science syllabi for [{payload.unit_code}].
-Output:
-1. High-Probability Topics (ranked by typical exam frequency)
-2. Compulsory Section A Question Predictions
-3. Recommended Formula / Proof Revision Checklist
-Format clearly in Markdown with LaTeX math where appropriate.
+    client = get_supabase_admin_client()
+    syllabus_context = ""
+    unit_name = payload.unit_code
+    try:
+        u_info = client.table("units").select("name,lecturer").eq("code", payload.unit_code.upper()).maybe_single().execute()
+        if u_info and u_info.data:
+            unit_name = u_info.data.get("name", payload.unit_code)
+
+        chunks_res = client.table("document_chunks").select("content, page_number, slide_title, metadata").eq("unit_code", payload.unit_code.upper()).limit(12).execute()
+        if chunks_res and chunks_res.data:
+            for idx, c in enumerate(chunks_res.data[:8]):
+                doc_name = (c.get("metadata") or {}).get("file_name", f"{payload.unit_code} Course Notes")
+                syllabus_context += f"\n[SOURCE {idx+1}: {doc_name} (Page {c.get('page_number', 1)})]\n{c.get('content', '')[:400]}\n"
+    except Exception as ce:
+        logger.warning(f"Error fetching syllabus context for past papers analysis: {ce}")
+
+    is_math = any(term in payload.unit_code.lower() for term in ["sma", "calculus", "math", "algebra"])
+
+    system_inst = f"""You are the senior university chief examiner for course unit [{payload.unit_code}: {unit_name}].
+STRICT GROUNDING & ZERO-HALLUCINATION DIRECTIVE:
+1. Base all topic frequencies, exam predictions, and revision checklists STRICTLY on the actual syllabus and past examination excerpts provided below for [{payload.unit_code}].
+2. NEVER mention or mix topics from other unrelated university courses. Focus 100% on {unit_name}.
+3. {"Use rigorous mathematical notation. Format all formulas in LaTeX: display math wrapped in '$$ ... $$' and inline variables in '$ ... $'." if is_math else "Use clear technical formatting and provide Mermaid diagrams ('```mermaid ... ```') where applicable."}
+"""
+
+    user_p = f"""Analyze examination trends and recurring themes for [{payload.unit_code}: {unit_name}].
+
+Grounding Course Materials & Past Exam Excerpts:
+{syllabus_context if syllabus_context.strip() else f"Prescribed University syllabus for {payload.unit_code}: {unit_name}."}
+
+Provide a structured, highly actionable examination breakdown:
+# 📈 Examination Trend Predictor — {payload.unit_code}: {unit_name}
+
+## 🎯 1. High-Probability Examination Themes (Ranked by Frequency)
+(Provide a table with Columns: Rank | Core Topic | Typical Marks | Recurrence Likelihood)
+
+## 📝 2. Compulsory Section A Question Forecast
+(Predict the exact 3 to 4 fundamental questions likely to appear in the 30-mark compulsory Section A)
+
+## ⚠️ 3. Common Student Pitfalls & Examiner Marking Gotchas
+(Highlight exact conceptual mistakes that cause students to lose marks on this unit)
+
+## 📐 4. High-Yield Formula & Theorem Revision Checklist
+(Provide the critical formulas, theorems, or architectural laws students must master before sitting this paper)
 """
     analysis = await rag_router.generate_text(system_inst, user_p)
     return {"unit_code": payload.unit_code, "analysis": analysis}
@@ -1477,19 +1515,67 @@ Format clearly in Markdown with LaTeX math where appropriate.
 @limiter.limit("15/minute")
 async def solve_past_paper_question(request: Request, payload: PastPaperSolveRequest):
     """
-    Model Marking Scheme Solver: drafts answers formatted as UoN lecturers award marks.
+    Model Marking Scheme Solver: drafts answers formatted as university lecturers award marks,
+    grounded in the course syllabus with zero hallucinations.
     """
-    system_inst = f"You are a UoN Computer Science Lecturer evaluating a past exam question for [{payload.unit_code}]."
+    client = get_supabase_admin_client()
+    retrieved_context = ""
+    unit_name = payload.unit_code
+    try:
+        u_info = client.table("units").select("name,lecturer").eq("code", payload.unit_code.upper()).maybe_single().execute()
+        if u_info and u_info.data:
+            unit_name = u_info.data.get("name", payload.unit_code)
+
+        terms = [w.strip() for w in payload.question.replace("?", "").replace(",", "").replace(".", "").split() if len(w) > 3][:3]
+        for term in terms:
+            kw_res = client.table("document_chunks").select("content, page_number, metadata").eq("unit_code", payload.unit_code.upper()).ilike("content", f"%{term}%").limit(4).execute()
+            if kw_res and kw_res.data:
+                for idx, c in enumerate(kw_res.data):
+                    doc_name = (c.get("metadata") or {}).get("file_name", "Course Document")
+                    retrieved_context += f"\n[SOURCE: {doc_name} p.{c.get('page_number', 1)}]\n{c.get('content', '')[:350]}\n"
+                break
+    except Exception as ce:
+        logger.warning(f"Error retrieving context for past paper solve: {ce}")
+
+    is_math = any(term in payload.unit_code.lower() for term in ["sma", "calculus", "math", "algebra"])
+
+    system_inst = f"""You are an elite University Lecturer and Chief Examiner evaluating an examination question for [{payload.unit_code}: {unit_name}].
+STRICT ZERO-HALLUCINATION & RIGOROUS MARKING DIRECTIVE:
+1. Ground the solution strictly in the university syllabus for [{payload.unit_code}].
+2. For mathematics, calculus, and algorithms:
+   - State the governing rule, theorem, or formula explicitly at the start.
+   - For integration by parts or substitution: state variables clearly (e.g. Let u = ..., dv = ... => du = ..., v = ...).
+   - Show EVERY intermediate algebraic and simplification step line-by-line without skipping steps.
+   - For definite integrals, show limit substitution explicitly before giving the final value.
+   - Indefinite integrals must include '+ C'.
+   - Format ALL formulas in standard LaTeX math: wrap display equations in '$$ ... $$' and inline expressions in '$ ... $'.
+   - NEVER output raw backslashes without dollar delimiters.
+3. For software and systems questions, include a clean Mermaid architecture or flow diagram (```mermaid ... ```).
+"""
+
     user_p = f"""Total Marks: {payload.marks}
 
 QUESTION:
 {payload.question}
 
-Provide the Model Answer formatted strictly as expected in UoN marking schemes:
-1. Academic Definition & Core Principles (2-3 marks)
-2. Architectural Diagram / Flowchart (ASCII or Mermaid) (3-4 marks)
-3. Step-by-Step Technical Analysis / Proof / Derivation (6-8 marks)
-4. Critical Evaluation, Comparison or Trade-Offs (2-3 marks)
+Syllabus Context from Course Documents:
+{retrieved_context if retrieved_context.strip() else f"Course materials for {payload.unit_code}: {unit_name}."}
+
+Provide the Model Answer formatted strictly matching university lecturer marking schemes:
+
+# 📋 Model Marking Scheme & Complete Solution ({payload.marks} Marks)
+
+## 📌 1. Academic Definition & Core Principles (2-3 Marks)
+(Precise academic definition, syllabus scope, and foundational laws)
+
+## {"📐 2. Formula, Theorem & Variable Setup" if is_math else "🏗️ 2. Architectural Diagram / Schema"} (3-4 Marks)
+({"State explicit formulas, substitutions, and boundary conditions" if is_math else "Provide a clean Mermaid diagram illustrating the underlying system or flow"})
+
+## ⚡ 3. Step-by-Step Technical Working / Proof / Derivation (6-8 Marks)
+(Show all working line-by-line with complete algebraic or procedural details)
+
+## ⚖️ 4. Critical Evaluation, Edge Cases & Verification (2-3 Marks)
+(Discuss boundary conditions, common exam traps, and mark-allocation tips)
 """
     model_answer = await rag_router.generate_text(system_inst, user_p)
     return {"unit_code": payload.unit_code, "model_answer": model_answer}

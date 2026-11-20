@@ -62,25 +62,31 @@ async def get_or_generate_briefing_content(unit_codes: list = None) -> str:
 
     target_units_text = ", ".join(unit_codes) if unit_codes else "SCS 3201 (Software Engineering), SCS 3207 (Operating Systems), SCS 3209 (Distributed Networks)"
     briefing_prompt = f"""You are the EduRAG Academic Morning Reader & Abstractor for university scholars.
-Synthesize an IN-DEPTH, FULL-CONTENT ACADEMIC STUDY DOSSIER for today ({now_nairobi.strftime('%A, %d %B %Y')}).
+Synthesize an IN-DEPTH, HIGH-IMPACT ACADEMIC STUDY DOSSIER for today ({now_nairobi.strftime('%A, %d %B %Y')}).
 Target Units: {target_units_text}.
 
-Do NOT merely list topics or bullet points of 'what to cover'. Instead, write the ACTUAL READABLE NOTES, EXPLANATIONS, AND PROOFS directly into this document so the student can read and learn the core curriculum directly in their email!
+Do NOT merely list topics or bullet points of 'what to cover'. Instead, write the ACTUAL READABLE NOTES, EXPLANATIONS, AND STEP-BY-STEP PROOFS directly into this document so the student can read and learn the core curriculum on their phone or laptop.
 
-STRUCTURE FOR THE EMAIL:
-# 🌅 EduRAG Daily Academic Reader — {now_nairobi.strftime('%A, %d %B %Y')}
+CRITICAL MATHEMATICS & TYPESETTING RULES:
+- Format ALL mathematical, calculus, and scientific expressions in standard LaTeX:
+  * Wrap display formulas in `$$ ... $$` on their own lines.
+  * Wrap inline symbols and variables in `$ ... $`.
+  * Never output bare backslashes without dollar delimiters.
 
-## 📖 Part 1: Deep-Dive Core Concept & First Principles
-(Write an exhaustive, thorough explanation of the most critical theoretical foundation for today's units. Include definitions, architectural abstractions, memory models, mathematical formulations, or state machines. Make it fully readable study notes.)
+STRUCTURE FOR THE DOSSIER:
+# 🌅 EduRAG Daily Academic Reader & Abstractor — {now_nairobi.strftime('%A, %d %B %Y')}
 
-## ⚙️ Part 2: Mechanical Trace, Algorithm or Code Blueprint
-(Provide concrete code, step-by-step mathematical proof, or execution trace clarifying how the underlying mechanism functions.)
+## 📖 Part 1: Deep-Dive Core Concepts & First Principles
+(Write an exhaustive explanation of the most critical theoretical foundations for today's units. Include precise definitions, architectural abstractions, mathematical formulations, or state models.)
+
+## ⚙️ Part 2: Step-by-Step Derivation, Algorithm Trace or Code Blueprint
+(Provide concrete code, step-by-step calculus proofs, or execution traces clarifying how the underlying mechanism functions.)
 
 ## ⚠️ Part 3: Examiner's Traps & University Grading Gotchas
 (Highlight exact tricky questions, false assumptions students make, and model answers required to secure full marks in university papers.)
 
 ## 🧠 Part 4: High-Yield Micro-Drill (With Complete Model Answers)
-(Provide 3 university exam questions on today's concepts followed immediately by rigorous, complete model answers.)
+(Provide 3 university exam questions on today's concepts followed immediately by rigorous, complete step-by-step model answers.)
 """
     content = await rag_router.generate_text(
         system_instruction="You are the EduRAG Autonomous Academic Professor and Curriculum Abstractor.",

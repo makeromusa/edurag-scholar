@@ -246,7 +246,7 @@ export default function Home() {
   }
 
   return (
-    <main className="flex h-screen w-screen overflow-hidden bg-[#090d16]">
+    <main className="flex h-[100dvh] w-screen overflow-hidden bg-[#090d16]">
       {/* 1. Left Sidebar Navigation (Responsive Drawer on mobile, static on desktop) */}
       <Sidebar
         units={units}

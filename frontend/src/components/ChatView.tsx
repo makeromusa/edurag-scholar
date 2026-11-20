@@ -14,12 +14,9 @@ import {
   X,
   GraduationCap,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
+import { AcademicMarkdown } from "./AcademicMarkdown";
 import { ActiveCitation } from "./DocumentViewer";
 import { useAuth } from "@/lib/AuthContext";
-import { MermaidDiagram } from "./MermaidDiagram";
 
 interface AttachedFileMeta {
   name: string;
@@ -303,60 +300,8 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
                 </div>
               )}
 
-              <div className="prose prose-invert max-w-none text-xs">
-                <ReactMarkdown
-                  remarkPlugins={[remarkMath]}
-                  rehypePlugins={[rehypeKatex]}
-                  components={{
-                    code({ node, inline, className, children, ...props }: any) {
-                      const match = /language-(\w+)/.exec(className || "");
-                      const lang = match ? match[1] : "";
-                      const codeString = String(children).replace(/\n$/, "");
-
-                      if (!inline && lang === "mermaid") {
-                        return (
-                          <div className="my-2.5">
-                            <MermaidDiagram chart={codeString} title="Technical Architecture Diagram" />
-                          </div>
-                        );
-                      }
-
-                      return !inline ? (
-                        <div className="relative group my-2">
-                          <pre className="overflow-x-auto rounded-lg bg-slate-950 p-3 text-xs font-mono text-slate-200 border border-slate-800">
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          </pre>
-                        </div>
-                      ) : (
-                        <code className="rounded bg-slate-800/80 px-1 py-0.5 text-[11px] font-mono text-amber-300" {...props}>
-                          {children}
-                        </code>
-                      );
-                    },
-                    img({ src, alt, ...props }: any) {
-                      return (
-                        <span className="block my-3 rounded-xl overflow-hidden border border-slate-700/80 bg-slate-900 shadow-lg">
-                          <img
-                            src={src}
-                            alt={alt || "Educational diagram"}
-                            className="w-full max-h-[460px] object-contain rounded-lg"
-                            loading="lazy"
-                            {...props}
-                          />
-                          {alt && (
-                            <span className="block text-center py-1 px-3 text-[10px] text-slate-400 bg-slate-950/90 border-t border-slate-800">
-                              {alt}
-                            </span>
-                          )}
-                        </span>
-                      );
-                    }
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
+              <div className="w-full">
+                <AcademicMarkdown content={msg.content} />
               </div>
 
               {/* Citations Badges */}

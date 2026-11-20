@@ -2,43 +2,12 @@
 
 import React, { useState } from "react";
 import { X, TrendingUp, Award, Clock, Sparkles, Send, CheckCircle2, BookOpen, Layers } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import remarkMath from "remark-math";
-import rehypeKatex from "rehype-katex";
-import { MermaidDiagram } from "./MermaidDiagram";
+import { AcademicMarkdown } from "./AcademicMarkdown";
 
 interface PastPaperModalProps {
   unitCode: string;
   isOpen: boolean;
   onClose: () => void;
-}
-
-/**
- * Pre-processes markdown from the LLM. If the model outputs raw Mermaid
- * diagrams (e.g. `flowchart TD ...`) without markdown fences, wraps them
- * cleanly so the Mermaid component renders visual architectural graphics.
- */
-function formatExamContent(raw: string): string {
-  if (!raw) return "";
-  let formatted = raw;
-  const mermaidKeywords = [
-    "flowchart TD",
-    "flowchart LR",
-    "graph TD",
-    "graph LR",
-    "sequenceDiagram",
-    "classDiagram",
-    "erDiagram",
-  ];
-
-  for (const kw of mermaidKeywords) {
-    if (formatted.includes(kw) && !formatted.includes("```mermaid")) {
-      const regex = new RegExp(`(${kw}[\\s\\S]*?)(?=\\n\\s*\\n\\s*\\d|\\n\\s*\\n\\s*#|$)`, "g");
-      formatted = formatted.replace(regex, "```mermaid\n$1\n```");
-    }
-  }
-  return formatted;
 }
 
 export const PastPaperModal: React.FC<PastPaperModalProps> = ({
@@ -148,126 +117,6 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     }
   };
 
-  // Reusable styled markdown components with vibrant headers, tables & diagrams
-  const markdownComponents = {
-    h1: ({ children, ...props }: any) => (
-      <h1
-        className="text-base sm:text-lg font-black text-sky-400 border-b border-sky-500/20 pb-1.5 mt-4 mb-2 flex items-center gap-2 tracking-tight"
-        {...props}
-      >
-        <span className="h-2 w-2 rounded-full bg-sky-400 inline-block shrink-0" />
-        <span>{children}</span>
-      </h1>
-    ),
-    h2: ({ children, ...props }: any) => (
-      <h2
-        className="text-sm sm:text-base font-extrabold text-amber-300 mt-4 mb-2 flex items-center gap-1.5 tracking-tight"
-        {...props}
-      >
-        <span className="text-amber-400 text-xs font-mono">▸</span>
-        <span>{children}</span>
-      </h2>
-    ),
-    h3: ({ children, ...props }: any) => (
-      <h3
-        className="text-xs sm:text-sm font-bold text-violet-300 mt-3 mb-1.5 flex items-center gap-1"
-        {...props}
-      >
-        <span>{children}</span>
-      </h3>
-    ),
-    h4: ({ children, ...props }: any) => (
-      <h4 className="text-xs font-bold text-emerald-400 mt-2.5 mb-1" {...props}>
-        {children}
-      </h4>
-    ),
-    p: ({ children, ...props }: any) => (
-      <p className="text-xs leading-relaxed text-slate-200 my-1.5 font-normal" {...props}>
-        {children}
-      </p>
-    ),
-    strong: ({ children, ...props }: any) => (
-      <strong className="font-bold text-sky-200" {...props}>
-        {children}
-      </strong>
-    ),
-    ul: ({ children, ...props }: any) => (
-      <ul className="my-2 space-y-1 pl-4 list-disc text-xs text-slate-300" {...props}>
-        {children}
-      </ul>
-    ),
-    ol: ({ children, ...props }: any) => (
-      <ol className="my-2 space-y-1 pl-4 list-decimal text-xs text-slate-300" {...props}>
-        {children}
-      </ol>
-    ),
-    li: ({ children, ...props }: any) => (
-      <li className="text-xs leading-relaxed text-slate-200" {...props}>
-        {children}
-      </li>
-    ),
-    table: ({ children, ...props }: any) => (
-      <div className="my-3 overflow-x-auto rounded-xl border border-slate-700/80 bg-[#080d1a] shadow-md">
-        <table className="w-full text-left text-xs border-collapse" {...props}>
-          {children}
-        </table>
-      </div>
-    ),
-    thead: ({ children, ...props }: any) => (
-      <thead
-        className="bg-slate-900/90 text-sky-300 font-bold border-b border-slate-700 uppercase tracking-wider text-[10px]"
-        {...props}
-      >
-        {children}
-      </thead>
-    ),
-    th: ({ children, ...props }: any) => (
-      <th className="px-3 py-2 font-bold text-sky-300 border-b border-slate-700" {...props}>
-        {children}
-      </th>
-    ),
-    td: ({ children, ...props }: any) => (
-      <td className="px-3 py-2 border-b border-slate-800/60 text-slate-200 text-xs" {...props}>
-        {children}
-      </td>
-    ),
-    blockquote: ({ children, ...props }: any) => (
-      <blockquote
-        className="border-l-4 border-amber-500 bg-amber-950/20 px-3 py-2 rounded-r-lg my-2.5 text-xs italic text-amber-200"
-        {...props}
-      >
-        {children}
-      </blockquote>
-    ),
-    code({ node, inline, className, children, ...props }: any) {
-      const match = /language-(\w+)/.exec(className || "");
-      const lang = match ? match[1] : "";
-      const codeString = String(children).replace(/\n$/, "");
-
-      if (!inline && (lang === "mermaid" || codeString.trim().startsWith("flowchart") || codeString.trim().startsWith("graph") || codeString.trim().startsWith("sequenceDiagram"))) {
-        return (
-          <div className="my-3">
-            <MermaidDiagram chart={codeString} title="Technical Architecture Diagram" />
-          </div>
-        );
-      }
-
-      return !inline ? (
-        <div className="relative group my-2.5">
-          <pre className="overflow-x-auto rounded-xl bg-slate-950 p-3 text-xs font-mono text-emerald-300 border border-slate-800">
-            <code className={className} {...props}>
-              {children}
-            </code>
-          </pre>
-        </div>
-      ) : (
-        <code className="rounded bg-slate-800/80 px-1 py-0.5 text-[11px] font-mono text-amber-300 border border-slate-700/50" {...props}>
-          {children}
-        </code>
-      );
-    },
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in">
       <div className="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden">
@@ -352,15 +201,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
 
               {result && (
                 <div className="mt-4 rounded-2xl border border-slate-800 bg-[#090d16] p-6 shadow-inner">
-                  <div className="prose prose-invert max-w-none text-xs">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                      components={markdownComponents}
-                    >
-                      {formatExamContent(result)}
-                    </ReactMarkdown>
-                  </div>
+                  <AcademicMarkdown content={result} />
                 </div>
               )}
             </div>
@@ -390,15 +231,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
 
               {result && (
                 <div className="mt-4 rounded-2xl border border-slate-800 bg-[#090d16] p-6 shadow-inner">
-                  <div className="prose prose-invert max-w-none text-xs">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
-                      components={markdownComponents}
-                    >
-                      {formatExamContent(result)}
-                    </ReactMarkdown>
-                  </div>
+                  <AcademicMarkdown content={result} />
                 </div>
               )}
             </div>
@@ -429,14 +262,8 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
                       <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">Examination Paper: {unitCode}</span>
                       <span className="text-[10px] text-slate-500 font-mono">Exam Ref: {mockExamId?.slice(0, 12)}</span>
                     </div>
-                    <div className="prose prose-invert max-w-none text-xs max-h-72 overflow-y-auto">
-                      <ReactMarkdown
-                        remarkPlugins={[remarkGfm, remarkMath]}
-                        rehypePlugins={[rehypeKatex]}
-                        components={markdownComponents}
-                      >
-                        {formatExamContent(mockPaper)}
-                      </ReactMarkdown>
+                    <div className="max-h-72 overflow-y-auto">
+                      <AcademicMarkdown content={mockPaper} />
                     </div>
                   </div>
 
@@ -469,15 +296,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
                       <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">
                         Official Lecturer Evaluation & Score Breakdown:
                       </h4>
-                      <div className="prose prose-invert max-w-none text-xs">
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm, remarkMath]}
-                          rehypePlugins={[rehypeKatex]}
-                          components={markdownComponents}
-                        >
-                          {formatExamContent(evaluationResult)}
-                        </ReactMarkdown>
-                      </div>
+                      <AcademicMarkdown content={evaluationResult} />
                     </div>
                   )}
                 </div>
