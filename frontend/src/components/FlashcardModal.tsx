@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X, Sparkles, Brain, RotateCcw, CheckCircle, AlertTriangle, ArrowRight, Layers } from "lucide-react";
+import Link from "next/link";
+import { X, Sparkles, Brain, RotateCcw, CheckCircle, AlertTriangle, ArrowRight, Layers, ArrowLeft } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Flashcard {
@@ -18,14 +19,16 @@ interface Flashcard {
 
 interface FlashcardModalProps {
   unitCode: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 export const FlashcardModal: React.FC<FlashcardModalProps> = ({
   unitCode,
-  isOpen,
+  isOpen = false,
   onClose,
+  isPage = false,
 }) => {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,9 +37,11 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
   const [genTopic, setGenTopic] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  const isEffectivelyOpen = isPage || isOpen;
+
   // Fetch due cards on open
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isEffectivelyOpen) return;
     const fetchDue = async () => {
       setIsLoading(true);
       try {
@@ -53,9 +58,9 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
       }
     };
     fetchDue();
-  }, [isOpen, unitCode]);
+  }, [isEffectivelyOpen, unitCode]);
 
-  if (!isOpen) return null;
+  if (!isEffectivelyOpen) return null;
 
   const currentCard = cards[currentIndex];
 
@@ -107,9 +112,8 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
-      <div className="flex h-[80vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl">
+  const innerContent = (
+    <div className={`flex flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden ${isPage ? "w-full max-w-4xl mx-auto min-h-[80vh]" : "h-[80vh] w-full max-w-2xl"}`}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div className="flex items-center gap-3">
@@ -125,9 +129,11 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
-            <X className="h-5 w-5" />
-          </button>
+          {onClose && !isPage && (
+            <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white">
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Generate Deck Quick Form */}
@@ -246,6 +252,37 @@ export const FlashcardModal: React.FC<FlashcardModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="min-h-screen w-full bg-[#0b1329] text-slate-100 flex flex-col">
+        {/* Top Breadcrumb Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b1329]/95 backdrop-blur px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Campus Home</span>
+            </Link>
+            <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+              Active Recall Flashcards ({unitCode})
+            </span>
+          </div>
+        </header>
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto">
+          {innerContent}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+      {innerContent}
     </div>
   );
 };

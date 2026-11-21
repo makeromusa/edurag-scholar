@@ -224,17 +224,17 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
   };
 
   return (
-    <div className="flex h-full flex-col bg-[#080c15] text-slate-200">
+    <div className="flex h-full flex-col bg-[#f8fafc] text-slate-800">
       {/* Unit Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-[#0c111d]/80 px-6 py-3.5 backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 sm:px-6 py-3 shadow-xs">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-bold text-white">{unitCode}</h2>
-            <span className="rounded bg-blue-600/20 px-2 py-0.5 text-[10px] font-semibold text-blue-400">
+            <h2 className="text-sm sm:text-base font-bold text-[#1a2c4e]">{unitCode}</h2>
+            <span className="rounded-md bg-blue-50 border border-blue-200/80 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
               Unit Isolated
             </span>
           </div>
-          <p className="text-xs text-slate-400">{unitName}</p>
+          <p className="text-xs text-slate-500 font-medium">{unitName}</p>
         </div>
 
         {/* Deep Web Search Autonomous Toggle */}
@@ -242,58 +242,58 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
           onClick={() => setDeepSearch(!deepSearch)}
           className={`flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
             deepSearch
-              ? "border-blue-500 bg-blue-600/20 text-blue-400 shadow-sm shadow-blue-500/20"
-              : "border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              ? "border-blue-500 bg-blue-50 text-blue-700 shadow-xs"
+              : "border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:border-slate-300"
           }`}
-          title="Force academic web fallback via Tavily"
+          title="Force academic web fallback"
         >
-          <Globe className={`h-3.5 w-3.5 ${deepSearch ? "text-blue-400 animate-spin" : ""}`} />
+          <Globe className={`h-3.5 w-3.5 ${deepSearch ? "text-blue-600 animate-spin" : "text-slate-400"}`} />
           <span>Deep Web Search {deepSearch ? "(ON)" : "(Auto)"}</span>
         </button>
       </div>
 
       {/* Messages Stream */}
-      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+      <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
         {messages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 text-xs leading-relaxed ${
+            className={`flex gap-3 text-xs sm:text-sm leading-relaxed ${
               msg.sender === "user" ? "justify-end" : "justify-start"
             }`}
           >
             {msg.sender === "assistant" && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md">
-                <Bot className="h-4 w-4" />
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+                <Bot className="h-4.5 w-4.5" />
               </div>
             )}
 
             <div
-              className={`max-w-2xl rounded-2xl px-4 py-3 shadow-sm ${
+              className={`max-w-2xl rounded-2xl px-4 py-3.5 shadow-xs ${
                 msg.sender === "user"
-                  ? "bg-blue-600 text-white rounded-br-none"
-                  : "bg-[#0f172a] border border-slate-800 text-slate-200 rounded-bl-none"
+                  ? "bg-blue-600 text-white rounded-br-xs"
+                  : "bg-white border border-slate-200 text-[#1a2c4e] rounded-bl-xs"
               }`}
             >
               {/* Attached File/Image in message */}
               {msg.attachedFile && (
-                <div className="mb-2">
+                <div className="mb-2.5">
                   {msg.attachedFile.type === "image" && msg.attachedFile.previewUrl ? (
-                    <div className="overflow-hidden rounded-lg border border-white/20 max-w-sm">
+                    <div className="overflow-hidden rounded-lg border border-slate-200 max-w-sm">
                       <img
                         src={msg.attachedFile.previewUrl}
                         alt={msg.attachedFile.name}
-                        className="max-h-56 w-auto object-contain rounded-lg bg-black/40"
+                        className="max-h-56 w-auto object-contain rounded-lg bg-slate-100"
                       />
-                      <div className="text-[10px] bg-black/70 backdrop-blur-sm px-2 py-1 text-slate-200 truncate">
+                      <div className="text-[11px] bg-slate-900/80 backdrop-blur-xs px-2.5 py-1 text-slate-200 truncate">
                         📷 {msg.attachedFile.name} ({msg.attachedFile.size})
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 rounded-lg bg-blue-700/60 border border-blue-400/30 px-3 py-1.5 text-[11px] text-white max-w-xs">
-                      <FileText className="h-4 w-4 shrink-0 text-blue-200" />
+                    <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs text-blue-900 max-w-xs">
+                      <FileText className="h-4 w-4 shrink-0 text-blue-600" />
                       <div className="truncate">
                         <p className="font-semibold truncate">{msg.attachedFile.name}</p>
-                        <span className="text-[9px] text-blue-200">{msg.attachedFile.size}</span>
+                        <span className="text-[10px] text-blue-600">{msg.attachedFile.size}</span>
                       </div>
                     </div>
                   )}
@@ -306,8 +306,8 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
               {/* Citations Badges */}
               {msg.citations && msg.citations.length > 0 && (
-                <div className="mt-3 border-t border-slate-800/80 pt-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                <div className="mt-3 border-t border-slate-200/80 pt-2.5">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Lecturer Slide Citations:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -315,9 +315,9 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
                       <button
                         key={i}
                         onClick={() => onSelectCitation(c)}
-                        className="flex items-center gap-1 rounded bg-slate-800/90 hover:bg-blue-600/30 border border-slate-700/80 hover:border-blue-500/50 px-2 py-0.5 text-[10px] font-medium text-blue-300 transition"
+                        className="flex items-center gap-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200/80 px-2.5 py-1 text-xs font-semibold text-blue-700 transition"
                       >
-                        <BookOpen className="h-3 w-3 text-blue-400" />
+                        <BookOpen className="h-3 w-3 text-blue-600" />
                         <span>Slide {c.page_number}</span>
                       </button>
                     ))}
@@ -327,9 +327,9 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
               {/* Web Sources Badges */}
               {msg.external_sources && msg.external_sources.length > 0 && (
-                <div className="mt-2 border-t border-slate-800/80 pt-2">
-                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block mb-1">
-                    External Academic Sources (Tavily):
+                <div className="mt-2.5 border-t border-slate-200/80 pt-2">
+                  <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider block mb-1">
+                    External Academic Sources:
                   </span>
                   <div className="flex flex-wrap gap-1.5">
                     {msg.external_sources.map((ext, i) => (
@@ -338,10 +338,10 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
                         href={ext.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-1 rounded bg-emerald-950/30 hover:bg-emerald-900/50 border border-emerald-800/40 px-2 py-0.5 text-[10px] font-medium text-emerald-300 transition"
+                        className="flex items-center gap-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 text-xs font-semibold text-emerald-700 transition"
                       >
-                        <Globe className="h-3 w-3 text-emerald-400" />
-                        <span className="truncate max-w-[140px]">{ext.title || ext.url}</span>
+                        <Globe className="h-3 w-3 text-emerald-600" />
+                        <span className="truncate max-w-[160px]">{ext.title || ext.url}</span>
                       </a>
                     ))}
                   </div>
@@ -350,7 +350,7 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
             </div>
 
             {msg.sender === "user" && (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-800 text-slate-200">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700 font-bold">
                 <User className="h-4 w-4" />
               </div>
             )}
@@ -358,12 +358,12 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
         ))}
 
         {isLoading && (
-          <div className="flex gap-3 text-xs justify-start items-center text-slate-400">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white animate-pulse">
+          <div className="flex gap-3 text-xs sm:text-sm justify-start items-center text-slate-500">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white animate-pulse">
               <Sparkles className="h-4 w-4" />
             </div>
             <span className="animate-pulse">
-              Synthesizing response from {unitCode} lecture notes, attached files & academic sources...
+              Synthesizing response from {unitCode} lecture notes & verified materials...
             </span>
           </div>
         )}
@@ -372,14 +372,14 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
       </div>
 
       {/* Suggested Fast Prompts */}
-      <div className="flex gap-2 px-6 py-2 overflow-x-auto border-t border-slate-800/60 bg-[#090d16]/50">
+      <div className="flex gap-2 px-4 sm:px-6 py-2.5 overflow-x-auto border-t border-slate-200 bg-white">
         {onOpenProfessorMode && (
           <button
             onClick={() => onOpenProfessorMode(inputQuery.trim() || undefined)}
-            className="shrink-0 flex items-center gap-1.5 rounded-full border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 px-3.5 py-1 text-[11px] font-semibold text-indigo-300 transition shadow-sm"
-            title="Have an elite Professor teach this concept step-by-step with deep abstraction"
+            className="shrink-0 flex items-center gap-1.5 rounded-full border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 px-3.5 py-1.5 text-xs font-semibold text-indigo-700 transition shadow-2xs"
+            title="Have an elite Professor teach this concept step-by-step"
           >
-            <GraduationCap className="h-3.5 w-3.5 text-indigo-400" />
+            <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
             <span>👨‍🏫 Professor Teaching Mode</span>
           </button>
         )}
@@ -391,7 +391,7 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
           <button
             key={idx}
             onClick={() => handleSendMessage(undefined, prompt)}
-            className="shrink-0 rounded-full border border-slate-800 bg-slate-900/80 hover:bg-slate-800 px-3 py-1 text-[11px] text-slate-400 hover:text-slate-200 transition"
+            className="shrink-0 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 hover:text-blue-600 px-3.5 py-1.5 text-xs text-slate-600 transition font-medium"
           >
             {prompt}
           </button>
@@ -400,29 +400,29 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
       {/* Attachment Preview Banner */}
       {pendingAttachment && (
-        <div className="flex items-center justify-between border-t border-slate-800 bg-[#0a0f1d] px-6 py-2.5">
+        <div className="flex items-center justify-between border-t border-slate-200 bg-slate-100 px-4 sm:px-6 py-2.5">
           <div className="flex items-center gap-3 min-w-0">
             {pendingAttachment.type === "image" && pendingAttachment.previewUrl ? (
               <img
                 src={pendingAttachment.previewUrl}
                 alt="Attachment Preview"
-                className="h-10 w-10 rounded-lg object-cover border border-slate-700 shrink-0"
+                className="h-10 w-10 rounded-lg object-cover border border-slate-300 shrink-0"
               />
             ) : (
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-600/20 text-blue-400 border border-blue-500/30 shrink-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 border border-blue-200 shrink-0">
                 <FileText className="h-5 w-5" />
               </div>
             )}
             <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <span className="truncate text-xs font-semibold text-white max-w-[220px] sm:max-w-md">
+                <span className="truncate text-xs font-semibold text-[#1a2c4e] max-w-[220px] sm:max-w-md">
                   {pendingAttachment.name}
                 </span>
-                <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-400">
+                <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600">
                   {pendingAttachment.sizeFormatted}
                 </span>
               </div>
-              <p className="text-[10px] text-blue-400">
+              <p className="text-[11px] text-blue-600 font-medium">
                 {pendingAttachment.type === "image"
                   ? "Vision-ready: Visual formula, graph & diagram inspection enabled"
                   : "Document context: Will be extracted and analyzed with lecture notes"}
@@ -432,7 +432,7 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
           <button
             type="button"
             onClick={() => setPendingAttachment(null)}
-            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-200 hover:text-slate-700 transition"
             title="Remove attachment"
           >
             <X className="h-4 w-4" />
@@ -443,7 +443,7 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
       {/* Input Box */}
       <form
         onSubmit={(e) => handleSendMessage(e)}
-        className="border-t border-slate-800 bg-[#0c111d] p-4"
+        className="border-t border-slate-200 bg-white p-3 sm:p-4"
         onPaste={handlePaste}
       >
         {/* Hidden File Input */}
@@ -455,15 +455,15 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
           onChange={handleFileSelect}
         />
 
-        <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-[#090d16] px-3 py-2 focus-within:border-blue-500">
+        <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100 shadow-2xs transition">
           {/* Attach Button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-blue-400 transition"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-blue-600 transition"
             title="Attach past paper PDF, question screenshot, or diagram (or Ctrl+V to paste)"
           >
-            <Paperclip className="h-4 w-4" />
+            <Paperclip className="h-4.5 w-4.5" />
           </button>
 
           <input
@@ -475,13 +475,13 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
                 ? `Ask a question about ${pendingAttachment.name} (or hit Enter to analyze)...`
                 : `Ask about ${unitCode} slides, past papers, or attach an exam question...`
             }
-            className="flex-1 bg-transparent text-xs text-white placeholder-slate-500 focus:outline-none"
+            className="flex-1 bg-transparent text-xs sm:text-sm text-[#1a2c4e] placeholder-slate-400 focus:outline-none"
           />
 
           <button
             type="submit"
             disabled={(!inputQuery.trim() && !pendingAttachment) || isLoading}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition shadow-sm shadow-blue-500/20"
+            className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition shadow-md shadow-blue-500/20"
           >
             <Send className="h-4 w-4" />
           </button>

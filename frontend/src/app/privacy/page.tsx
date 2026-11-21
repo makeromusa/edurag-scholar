@@ -77,7 +77,7 @@ export default function PrivacyPolicyPage() {
               4. AI & Large Language Model (LLM) Processing
             </h2>
             <p>
-              When you ask questions, queries and relevant textbook chunks are processed by Google Gemini and Azure OpenAI strictly via private enterprise APIs with zero data training retention. Your questions and course notes are never used to train public foundational models.
+              When you ask questions, queries and relevant course materials are processed strictly via private enterprise academic language APIs with zero data training retention. Your questions and course notes are never used to train public models.
             </p>
           </section>
 

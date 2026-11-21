@@ -169,7 +169,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [isAsking, setIsAsking] = useState(false);
 
   // Voice & Car-Commute Player State
-  const [isVoiceHUDOpen, setIsVoiceHUDOpen] = useState(false);
+  const [isVoiceHUDOpen, setIsVoiceHUDOpen] = useState(true);
   const [isPlayingVoice, setIsPlayingVoice] = useState(false);
   const [isSynthesizingVoice, setIsSynthesizingVoice] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState("en-GB-RyanNeural");
@@ -182,7 +182,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   const [isVoiceAnswering, setIsVoiceAnswering] = useState(false);
 
   // Live Autonomous Professor & Pacing State
-  const [isLiveTeachingMode, setIsLiveTeachingMode] = useState<boolean>(false);
+  const [isLiveTeachingMode, setIsLiveTeachingMode] = useState<boolean>(true);
   const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<number>(0);
   const [autoAdvanceTotal, setAutoAdvanceTotal] = useState<number>(60);
   const [isAutoAdvanceActive, setIsAutoAdvanceActive] = useState<boolean>(false);
@@ -469,6 +469,11 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     }
     clearTimeout(timeoutId);
     setIsLoadingLecture(false);
+    if (fetchSuccess) {
+      setTimeout(() => {
+        toggleLectureAudio(true);
+      }, 400);
+    }
   };
 
   // Jump to specific slide number handler
@@ -1562,7 +1567,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
                     {lectureLoadingStage}
                   </p>
                   <p className="text-xs text-slate-400 max-w-md mx-auto">
-                    Unpacking theoretical mechanics, memory maps, C code, and Section B exam calculations with GPT-4.1.
+                    Unpacking theoretical mechanics, memory maps, C code, and Section B exam calculations with course-grounded AI.
                   </p>
                 </div>
               )}

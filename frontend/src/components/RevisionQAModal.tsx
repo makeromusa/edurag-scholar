@@ -136,9 +136,8 @@ export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
     ],
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative flex h-[92vh] w-full max-w-6xl flex-col rounded-2xl border border-slate-800 bg-[#0a0f1d] shadow-2xl overflow-hidden">
+  const innerContent = (
+    <div className={`relative flex flex-col rounded-2xl border border-slate-800 bg-[#0a0f1d] shadow-2xl overflow-hidden ${isPage ? "w-full max-w-7xl mx-auto min-h-[88vh]" : "h-[92vh] w-full max-w-6xl"}`}>
         {/* Top Header */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-[#0d1424] px-5 py-3.5">
           <div className="flex items-center gap-3">
@@ -160,13 +159,15 @@ export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-            aria-label="Close Revision Q&A"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {onClose && !isPage && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+              aria-label="Close Revision Q&A"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Split Screen Workstation */}
@@ -389,6 +390,37 @@ export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
           </div>
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="min-h-screen w-full bg-[#0b1329] text-slate-100 flex flex-col">
+        {/* Top Breadcrumb Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b1329]/95 backdrop-blur px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Campus Home</span>
+            </Link>
+            <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+              Revision Q&A Synthesizer
+            </span>
+          </div>
+        </header>
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto">
+          {innerContent}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
+      {innerContent}
     </div>
   );
 };

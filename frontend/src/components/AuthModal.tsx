@@ -287,7 +287,7 @@ export const AuthModal: React.FC = () => {
           setSignupStep(1);
         } else if (errMsg.includes("rate limit") || error.status === 429) {
           setErrorMsg(
-            "Supabase Email Rate Limit Exceeded: Supabase restricts verification emails to 3-4 per hour on the free tier. Please wait a few minutes, sign in if you already have an account, or use Google login."
+            "Email Verification Rate Limit: The authentication service restricts verification emails to 3-4 per hour. Please wait a few minutes before requesting another code, or sign in directly with Google."
           );
         } else {
           setErrorMsg(error.message || "Failed to create account.");

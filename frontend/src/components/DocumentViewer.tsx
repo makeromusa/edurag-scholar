@@ -168,16 +168,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                 <span>Open Source</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
-            ) : pdfUrl ? (
-              <a
-                href={pdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 rounded bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-sm transition"
-              >
-                <span>Open Real PDF</span>
-                <ExternalLink className="h-3 w-3" />
-              </a>
             ) : null}
           </div>
         </div>
@@ -301,41 +291,41 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   // 3. Default View: Real-Time Ingested Knowledge Base Library for this Unit
   return (
-    <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
+    <div className="flex h-full w-full flex-col bg-white border-l border-slate-200 text-slate-800">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/60 px-5 py-3 backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
         <div>
           <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-blue-400" />
-            <h3 className="text-xs font-bold text-white">Course Materials Library</h3>
+            <Layers className="h-4 w-4 text-blue-600" />
+            <h3 className="text-xs font-bold text-[#1a2c4e]">Course Materials Library</h3>
             {selectedUnit && (
-              <span className="rounded bg-blue-600/20 px-1.5 py-0.5 text-[10px] font-semibold text-blue-400">
+              <span className="rounded-md bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
                 {selectedUnit}
               </span>
             )}
           </div>
-          <p className="text-[11px] text-slate-400">Categorized notes, textbooks & exam papers</p>
+          <p className="text-[11px] text-slate-500">Categorized notes, textbooks & exam papers</p>
         </div>
 
         <button
           onClick={fetchDocuments}
           disabled={isLoadingDocs}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white transition"
+          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
           title="Refresh indexing status"
         >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoadingDocs ? "animate-spin text-blue-400" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 ${isLoadingDocs ? "animate-spin text-blue-600" : ""}`} />
           <span>Refresh</span>
         </button>
       </div>
 
       {/* Category Shelf Filter Segmented Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-slate-800 bg-[#0c121e] px-4 py-2 overflow-x-auto">
+      <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-4 py-2 overflow-x-auto">
         <button
           onClick={() => setFilterCategory("all")}
           className={`rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "all"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              ? "bg-blue-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
           All ({categorizedDocs.length})
@@ -344,8 +334,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           onClick={() => setFilterCategory("books")}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "books"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              ? "bg-blue-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
           <BookOpen className="h-3.5 w-3.5" />
@@ -355,8 +345,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           onClick={() => setFilterCategory("exams")}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "exams"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              ? "bg-blue-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
           <FileCheck2 className="h-3.5 w-3.5" />
@@ -366,8 +356,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
           onClick={() => setFilterCategory("formulas")}
           className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
             filterCategory === "formulas"
-              ? "bg-blue-600 text-white shadow-xs"
-              : "text-slate-400 hover:text-slate-200 hover:bg-slate-800/60"
+              ? "bg-blue-600 text-white shadow-2xs"
+              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
           }`}
         >
           <Sparkles className="h-3.5 w-3.5" />
@@ -376,11 +366,11 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
       </div>
 
       {/* Materials List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5">
+      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/50">
         {filteredDocs.length === 0 ? (
-          <div className="flex h-56 flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-800 bg-[#090d16]">
-            <FileText className="h-8 w-8 text-slate-600 mb-2 stroke-[1.2]" />
-            <p className="text-xs font-semibold text-slate-300">No Documents in this Category for {selectedUnit}</p>
+          <div className="flex h-56 flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-300 bg-white">
+            <FileText className="h-8 w-8 text-slate-400 mb-2 stroke-[1.2]" />
+            <p className="text-xs font-semibold text-slate-700">No Documents in this Category for {selectedUnit}</p>
             <p className="text-[11px] text-slate-500 max-w-xs mt-1">
               Select another filter above or upload your notes to populate this unit.
             </p>
@@ -397,8 +387,8 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                 key={doc.id}
                 className={`rounded-xl border p-3.5 transition ${
                   isReady
-                    ? "border-slate-800 bg-[#0e1422] hover:border-slate-700"
-                    : "border-amber-500/30 bg-amber-950/10 hover:border-amber-500/50"
+                    ? "border-slate-200 bg-white hover:border-slate-300 shadow-2xs"
+                    : "border-amber-300 bg-amber-50/40"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -406,10 +396,10 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                     <div
                       className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
                         isExam
-                          ? "bg-emerald-600/20 text-emerald-400"
+                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
                           : isFormula
-                          ? "bg-amber-600/20 text-amber-400"
-                          : "bg-blue-600/20 text-blue-400"
+                          ? "bg-amber-50 text-amber-600 border border-amber-200"
+                          : "bg-blue-50 text-blue-600 border border-blue-200"
                       }`}
                     >
                       {isExam ? (
@@ -425,10 +415,10 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                         <span
                           className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
                             isExam
-                              ? "bg-emerald-950/60 text-emerald-300 border border-emerald-800/40"
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                               : isFormula
-                              ? "bg-amber-950/60 text-amber-300 border border-amber-800/40"
-                              : "bg-blue-950/60 text-blue-300 border border-blue-800/40"
+                              ? "bg-amber-50 text-amber-700 border border-amber-200"
+                              : "bg-blue-50 text-blue-700 border border-blue-200"
                           }`}
                         >
                           {isExam ? "Exam / CAT" : isFormula ? "Formula / Outline" : "Book / Slides"}
@@ -436,73 +426,58 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
                         <span className="text-[10px] text-slate-500">{doc.page_count} pgs</span>
                       </div>
 
-                      {/* Clickable title to open PDF directly */}
-                      <a
-                        href={docPdfUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs font-semibold text-white mt-1 leading-snug truncate max-w-[240px] sm:max-w-xs hover:text-blue-400 hover:underline cursor-pointer block"
-                        title={`Click to open real PDF: ${doc.title}`}
+                      {/* Document title */}
+                      <span
+                        className="text-xs font-semibold text-[#1a2c4e] mt-1 leading-snug truncate max-w-[240px] sm:max-w-xs block"
+                        title={doc.title}
                       >
                         {doc.title}
-                      </a>
+                      </span>
                     </div>
                   </div>
 
                   {/* Status Badge */}
                   {isReady ? (
-                    <div className="flex items-center gap-1 rounded bg-slate-900 border border-slate-800 px-1.5 py-0.5 text-[9px] font-medium text-emerald-400 shrink-0">
+                    <div className="flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 shrink-0">
                       <CheckCircle2 className="h-2.5 w-2.5" />
                       <span>{doc.chunks_indexed} chks</span>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1 rounded bg-amber-950/40 border border-amber-800/40 px-1.5 py-0.5 text-[9px] font-medium text-amber-300 shrink-0">
+                    <div className="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 shrink-0">
                       <Clock className="h-2.5 w-2.5 animate-spin" />
                       <span>Indexing...</span>
                     </div>
                   )}
                 </div>
 
-                {/* Actions: Guaranteed Open Real PDF, Preview, Teach, Delete */}
-                <div className="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5 flex-wrap">
+                {/* Actions: Preview, Teach, Delete */}
+                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
                   <div className="flex items-center gap-1.5">
-                    {/* Primary Open Real PDF Action */}
-                    <a
-                      href={docPdfUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-md shadow-blue-500/20 transition cursor-pointer"
-                      title="Open real PDF in native browser viewer or Adobe Acrobat"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      <span>Open Real PDF</span>
-                    </a>
-
                     {/* Preview inside side drawer */}
                     <button
                       onClick={() => setPreviewDoc(doc)}
-                      className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800/60 hover:bg-slate-700 px-2 py-1 text-[10px] text-slate-300 transition"
-                      title="Preview PDF inside side pane"
+                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-[11px] text-slate-700 font-medium transition"
+                      title="Preview document content"
                     >
-                      <BookOpen className="h-3 w-3 text-blue-400" />
+                      <BookOpen className="h-3 w-3 text-blue-600" />
                       <span>Preview</span>
                     </button>
 
                     {onTeachDocument && isReady && (
                       <button
                         onClick={() => onTeachDocument(doc.id, doc.title)}
-                        className="flex items-center gap-1 rounded-lg border border-indigo-500/30 bg-indigo-950/30 px-2 py-1 text-[10px] font-semibold text-indigo-300 hover:bg-indigo-900/40 transition"
+                        className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition"
                         title="Have the Professor deconstruct and teach this document"
                       >
-                        <GraduationCap className="h-3 w-3 text-indigo-400" />
-                        <span className="hidden sm:inline">Teach</span>
+                        <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
+                        <span>Teach</span>
                       </button>
                     )}
                   </div>
 
                   <button
                     onClick={() => handleDeleteDocument(doc.id, doc.title)}
-                    className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-rose-400 hover:bg-rose-950/30 px-1.5 py-1 rounded transition"
+                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-1.5 py-1 rounded transition"
                     title="Delete document and purge vector chunks"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -517,7 +492,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
       {/* Footer Quick Action */}
       {onOpenUpload && (
-        <div className="border-t border-slate-800 bg-[#0a0f1d] p-4">
+        <div className="border-t border-slate-200 bg-white p-3.5">
           <button
             onClick={onOpenUpload}
             className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition shadow-sm shadow-blue-500/20"

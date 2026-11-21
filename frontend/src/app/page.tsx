@@ -179,7 +179,7 @@ export default function Home() {
       title: "Assignment & Homework Studio",
       desc: "Step-by-step working, algebraic simplification, proof structuring, and architectural diagrams — all grounded in your course slides.",
       cta: "Launch Assignment Solver",
-      onClick: () => setIsAssignmentStudioOpen(true),
+      href: "/studios/assignment",
     },
     {
       icon: <BarChart2 size={22} />,
@@ -189,7 +189,7 @@ export default function Home() {
       title: "Past Exam Questions & Trends",
       desc: "Topic recurrence predictions, compulsory Section A forecasts, and 4-part lecturer marking schemes — from your verified past papers only.",
       cta: "Explore Exam Trends",
-      onClick: () => setIsPastPapersOpen(true),
+      href: "/studios/exam-trends",
     },
     {
       icon: <FileCheck2 size={22} />,
@@ -199,17 +199,17 @@ export default function Home() {
       title: "Timed Mock Exam Simulator",
       desc: "Sit full 70-mark exams with Section A & B, submit answers, and receive instant grading with model answers.",
       cta: "Start Timed Exam",
-      onClick: () => setIsExamSimulatorOpen(true),
+      href: "/studios/exam-simulator",
     },
     {
       icon: <Volume2 size={22} />,
       iconClass: "icon-amber",
-      badge: "CAI & Omni Mode",
+      badge: "Live Audio",
       badgeClass: "badge-core",
       title: "Oral Masterclass Studio",
       desc: "Listen to spoken professor lectures from your slides with live voice interjection to ask questions hands-free.",
       cta: "Enter Lecture Studio",
-      onClick: () => handleOpenProfessor(),
+      href: "/studios/lecture",
     },
     {
       icon: <FolderOpen size={22} />,
@@ -219,7 +219,7 @@ export default function Home() {
       title: "Notes & Real PDF Slide Vault",
       desc: "Access verified original PowerPoint slides, syllabus outlines, and past papers without corruptions.",
       cta: "Open Academic Vault",
-      onClick: () => setIsVaultOpen(true),
+      href: "/vault",
     },
     {
       icon: <Brain size={22} />,
@@ -229,7 +229,7 @@ export default function Home() {
       title: "Active Recall Flashcards",
       desc: "Reinforce high-yield exam definitions, formulas, and facts into long-term memory using spaced repetition.",
       cta: "Review Flashcards",
-      onClick: () => setIsFlashcardsOpen(true),
+      href: "/flashcards",
     },
   ];
 
@@ -324,10 +324,13 @@ export default function Home() {
 
             {/* Nav links — desktop */}
             <nav className="d-none d-lg-flex align-items-center gap-1 nav-links-desktop">
-              <button className="nav-link-pill btn border-0 bg-transparent" onClick={() => setIsVaultOpen(true)}>Vault</button>
-              <button className="nav-link-pill btn border-0 bg-transparent" onClick={() => setIsPipelinesOpen(true)}>Documents</button>
+              <Link href="/copilot" className="nav-link-pill text-decoration-none">Copilot</Link>
+              <Link href="/vault" className="nav-link-pill text-decoration-none">Vault</Link>
+              <Link href="/studios/exam-simulator" className="nav-link-pill text-decoration-none">Exams</Link>
+              <Link href="/studios/lecture" className="nav-link-pill text-decoration-none">Masterclass</Link>
+              <Link href="/flashcards" className="nav-link-pill text-decoration-none">Flashcards</Link>
               {hasAdminAccess && (
-                <Link href="/admin" className="nav-link-pill">Admin</Link>
+                <Link href="/admin" className="nav-link-pill text-decoration-none">Admin</Link>
               )}
             </nav>
 
@@ -456,12 +459,27 @@ export default function Home() {
               </select>
             </div>
             <div className="d-flex flex-column gap-1">
-              <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { setIsVaultOpen(true); setIsMobileNavOpen(false); }}>
-                📁 Notes & Vault
-              </button>
-              <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { setIsPipelinesOpen(true); setIsMobileNavOpen(false); }}>
-                📄 Manage Documents
-              </button>
+              <Link href="/copilot" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                💬 AI Academic Copilot
+              </Link>
+              <Link href="/studios/lecture" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                🎙️ Oral Masterclass Studio
+              </Link>
+              <Link href="/studios/exam-simulator" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                📝 Timed Mock Exams
+              </Link>
+              <Link href="/studios/assignment" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                ✏️ Assignment Solver Studio
+              </Link>
+              <Link href="/vault" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                📁 Notes & Slide Vault
+              </Link>
+              <Link href="/flashcards" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                🧠 Active Recall Flashcards
+              </Link>
+              <Link href="/studios/exam-trends" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
+                📊 Past Exam Trends
+              </Link>
               <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { setIsUploadOpen(true); setIsMobileNavOpen(false); }}>
                 ☁️ Upload Material
               </button>
@@ -653,17 +671,19 @@ export default function Home() {
           <div className="row g-4">
             {studios.map((studio, idx) => (
               <div key={idx} className="col-md-6 col-lg-4">
-                <div className="studio-card" onClick={studio.onClick} role="button">
-                  <div className="d-flex justify-content-between align-items-start mb-1">
-                    <div className={`card-icon ${studio.iconClass}`}>{studio.icon}</div>
-                    <span className={`card-badge ${studio.badgeClass}`}>{studio.badge}</span>
+                <Link href={studio.href} className="text-decoration-none d-block h-100">
+                  <div className="studio-card">
+                    <div className="d-flex justify-content-between align-items-start mb-1">
+                      <div className={`card-icon ${studio.iconClass}`}>{studio.icon}</div>
+                      <span className={`card-badge ${studio.badgeClass}`}>{studio.badge}</span>
+                    </div>
+                    <h3>{studio.title}</h3>
+                    <p>{studio.desc}</p>
+                    <div className="card-cta">
+                      {studio.cta} <ArrowRight size={14} />
+                    </div>
                   </div>
-                  <h3>{studio.title}</h3>
-                  <p>{studio.desc}</p>
-                  <div className="card-cta">
-                    {studio.cta} <ArrowRight size={14} />
-                  </div>
-                </div>
+                </Link>
               </div>
             ))}
           </div>
@@ -784,7 +804,7 @@ export default function Home() {
                 </div>
                 <span className="ws-unit-pill">{currentUnit.code}</span>
                 <span
-                  style={{ fontSize: 11, color: "#adc4e8", fontFamily: "var(--nav-font)" }}
+                  style={{ fontSize: 11, color: "#64748b", fontFamily: "var(--nav-font)" }}
                   className="d-none d-sm-inline"
                 >
                   · {currentUnit.name}
@@ -812,7 +832,7 @@ export default function Home() {
                 </button>
                 <button
                   className="ws-action-btn"
-                  style={{ background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  style={{ background: "#f1f5f9", border: "1px solid #d1dced", color: "var(--heading-color)" }}
                   onClick={() => setIsPipelinesOpen(true)}
                 >
                   <FolderOpen size={13} />

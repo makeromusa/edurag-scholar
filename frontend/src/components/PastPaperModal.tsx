@@ -1,19 +1,22 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, TrendingUp, Award, Clock, Sparkles, Send, CheckCircle2, BookOpen, Layers } from "lucide-react";
+import Link from "next/link";
+import { X, TrendingUp, Award, Clock, Sparkles, Send, CheckCircle2, BookOpen, Layers, ArrowLeft } from "lucide-react";
 import { AcademicMarkdown } from "./AcademicMarkdown";
 
 interface PastPaperModalProps {
   unitCode: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 export const PastPaperModal: React.FC<PastPaperModalProps> = ({
   unitCode,
-  isOpen,
+  isOpen = false,
   onClose,
+  isPage = false,
 }) => {
   const [activeTab, setActiveTab] = useState<"trend" | "solve" | "mock">("trend");
   const [questionInput, setQuestionInput] = useState("");
@@ -26,7 +29,8 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
   const [studentSubmission, setStudentSubmission] = useState("");
   const [evaluationResult, setEvaluationResult] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const isEffectivelyOpen = isPage || isOpen;
+  if (!isEffectivelyOpen) return null;
 
   const handleAnalyzeTrends = async () => {
     setIsLoading(true);
@@ -117,9 +121,8 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in">
-      <div className="flex h-[88vh] w-full max-w-4xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden">
+  const innerContent = (
+    <div className={`flex flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden ${isPage ? "w-full max-w-7xl mx-auto min-h-[88vh]" : "h-[88vh] w-full max-w-4xl"}`}>
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 bg-[#0a0f1b] px-6 py-4">
           <div className="flex items-center gap-3">
@@ -135,12 +138,14 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {onClose && !isPage && (
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-slate-800 p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Tab Controls */}
@@ -305,6 +310,37 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="min-h-screen w-full bg-[#0b1329] text-slate-100 flex flex-col">
+        {/* Top Breadcrumb Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b1329]/95 backdrop-blur px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Campus Home</span>
+            </Link>
+            <div className="h-4 w-[1px] bg-slate-700 hidden sm:block" />
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+              Past Exam Questions & Trends ({unitCode})
+            </span>
+          </div>
+        </header>
+        <main className="flex-1 p-3 sm:p-6 overflow-y-auto">
+          {innerContent}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in">
+      {innerContent}
     </div>
   );
 };
