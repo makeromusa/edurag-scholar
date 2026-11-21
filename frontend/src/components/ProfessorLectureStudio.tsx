@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   X,
   GraduationCap,
@@ -40,16 +41,18 @@ import {
   Pause,
   RotateCcw,
   Radio,
+  ArrowLeft,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/lib/AuthContext";
 
 export interface ProfessorStudioProps {
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
   unitCode: string;
   initialDocumentId?: string;
   initialTopic?: string;
+  isPage?: boolean;
 }
 
 interface DocumentMeta {
@@ -88,11 +91,12 @@ interface OfficeHoursQnA {
 }
 
 export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
-  isOpen,
+  isOpen = false,
   onClose,
   unitCode,
   initialDocumentId,
   initialTopic,
+  isPage = false,
 }) => {
   const { session } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -832,7 +836,8 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  const isEffectivelyOpen = isPage || isOpen;
+  if (!isEffectivelyOpen) return null;
 
   // Filter individual slides by search term
   const filteredSlides = (syllabus?.individual_slides || []).filter((s) => {
@@ -841,12 +846,11 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     return s.title.toLowerCase().includes(term) || s.page_number.toString() === term;
   });
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-0 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className={`relative flex flex-col h-full ${isFullscreenLecture ? "h-full w-full max-w-none rounded-none" : "sm:h-[96vh] w-full max-w-7xl rounded-none sm:rounded-2xl"} overflow-hidden border border-indigo-500/30 bg-[#090d16] shadow-2xl transition-all duration-200`}>
-        
-        {/* Top Header Bar */}
-        <header className="flex h-16 w-full items-center justify-between border-b border-slate-800 bg-[#0c111e] px-4 sm:px-6 shrink-0">
+  const innerStudio = (
+    <div className={`relative flex flex-col h-full ${isFullscreenLecture || isPage ? "h-full w-full max-w-none rounded-none" : "sm:h-[96vh] w-full max-w-7xl rounded-none sm:rounded-2xl"} overflow-hidden border border-indigo-500/30 bg-[#090d16] shadow-2xl transition-all duration-200`}>
+      
+      {/* Top Header Bar */}
+      <header className="flex h-16 w-full items-center justify-between border-b border-slate-800 bg-[#0c111e] px-4 sm:px-6 shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {/* Mobile Hamburger to toggle lesson syllabus */}
             <button
@@ -936,13 +940,24 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
               {isFullscreenLecture ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </button>
 
-            <button
-              onClick={onClose}
-              className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            {onClose && !isPage && (
+              <button
+                onClick={onClose}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+            {isPage && (
+              <Link
+                href="/"
+                className="flex items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-700 transition"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Workstation</span>
+              </Link>
+            )}
           </div>
         </header>
 
@@ -1771,6 +1786,19 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
           </main>
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="h-screen w-full bg-[#090d16] text-slate-100 flex flex-col overflow-hidden">
+        {innerStudio}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-0 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+      {innerStudio}
     </div>
   );
 };

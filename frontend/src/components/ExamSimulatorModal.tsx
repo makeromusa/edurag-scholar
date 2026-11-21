@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   X,
   FileCheck2,
@@ -15,15 +16,17 @@ import {
   AlertTriangle,
   Clock,
   Layers,
-  ChevronRight
+  ChevronRight,
+  ArrowLeft
 } from "lucide-react";
 import { Unit } from "./Sidebar";
 
 interface ExamSimulatorModalProps {
   units: Unit[];
   currentUnitCode: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 interface SubQuestion {
@@ -55,8 +58,9 @@ interface ExamData {
 export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
   units,
   currentUnitCode,
-  isOpen,
+  isOpen = false,
   onClose,
+  isPage = false,
 }) => {
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnitCode || "SCS 3201");
   const [examType, setExamType] = useState<string>("Final Examination");
@@ -68,7 +72,8 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
   const [showAnswerKeys, setShowAnswerKeys] = useState<boolean>(true);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
 
-  if (!isOpen) return null;
+  const isEffectivelyOpen = isPage || isOpen;
+  if (!isEffectivelyOpen) return null;
 
   const currentUnitObj = units.find((u) => u.code === selectedUnit) || units[0];
 
@@ -130,30 +135,30 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative flex h-[92vh] w-full max-w-6xl flex-col rounded-2xl border border-slate-800 bg-[#0a0f1d] shadow-2xl overflow-hidden">
-        {/* Top Control Bar */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-[#0d1424] px-5 py-3.5">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
-              <FileCheck2 className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                  Autonomous Exam Simulation Suite
-                </h2>
-                <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
-                  UoN 70-Mark Standard
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Generate full, complete university examination papers grounded in lecture notes & past papers with complete model answer keys.
-              </p>
-            </div>
+  const innerExam = (
+    <div className={`relative flex flex-col rounded-2xl border border-slate-800 bg-[#0a0f1d] shadow-2xl overflow-hidden ${isPage ? "w-full max-w-7xl mx-auto min-h-[85vh]" : "h-[92vh] w-full max-w-6xl"}`}>
+      {/* Top Control Bar */}
+      <div className="flex items-center justify-between border-b border-slate-800 bg-[#0d1424] px-5 py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600/20 text-emerald-400 border border-emerald-500/30">
+            <FileCheck2 className="h-5 w-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                Autonomous Exam Simulation Suite
+              </h2>
+              <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-400 uppercase tracking-wider">
+                UoN 70-Mark Standard
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Generate full, complete university examination papers grounded in lecture notes & past papers with complete model answer keys.
+            </p>
+          </div>
+        </div>
 
+        {onClose && !isPage && (
           <button
             onClick={onClose}
             className="rounded-lg p-2 text-slate-400 hover:bg-slate-800 hover:text-white transition"
@@ -161,10 +166,11 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
           >
             <X className="h-5 w-5" />
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Generator Controls Shelf */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 border-b border-slate-800 bg-[#090e1a] p-3 sm:p-4 text-xs">
+      {/* Generator Controls Shelf */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 border-b border-slate-800 bg-[#090e1a] p-3 sm:p-4 text-xs">
           {/* Unit Selector */}
           <div>
             <label className="block text-[11px] font-semibold text-slate-400 mb-1">Select Academic Unit</label>
@@ -413,6 +419,41 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="min-h-screen w-full bg-[#0b1329] text-slate-100 flex flex-col">
+        {/* Top Breadcrumb Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b1329]/95 backdrop-blur px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Dashboard</span>
+            </Link>
+            <span className="text-slate-600 hidden sm:inline">/</span>
+            <span className="text-xs font-semibold text-emerald-400 hidden sm:inline">Exam Simulation Studio</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-300">
+              {selectedUnit}
+            </span>
+          </div>
+        </header>
+
+        <main className="flex-1 w-full px-2 sm:px-6 py-4 flex flex-col justify-center">
+          {innerExam}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-3 sm:p-6 backdrop-blur-md animate-in fade-in duration-200">
+      {innerExam}
     </div>
   );
 };

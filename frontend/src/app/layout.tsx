@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import "bootstrap/dist/css/bootstrap.min.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
@@ -86,7 +87,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <meta name="google-site-verification" content="0x612K42qmMrLyXRgQUb-ZMbZ3q1OgUY4MjvGrNBFWg" />
         <meta name="application-name" content="EduRAG Scholar" />

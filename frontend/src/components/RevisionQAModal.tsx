@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import {
   X,
   FileQuestion,
@@ -13,15 +14,17 @@ import {
   Send,
   Layers,
   ArrowRight,
-  GraduationCap
+  GraduationCap,
+  ArrowLeft,
 } from "lucide-react";
 import { Unit } from "./Sidebar";
 
 interface RevisionQAModalProps {
   units: Unit[];
   currentUnitCode: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 interface QAResponseData {
@@ -38,8 +41,9 @@ interface QAResponseData {
 export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
   units,
   currentUnitCode,
-  isOpen,
+  isOpen = false,
   onClose,
+  isPage = false,
 }) => {
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnitCode || "SCS 3201");
   const [questionInput, setQuestionInput] = useState<string>("");
@@ -49,7 +53,8 @@ export const RevisionQAModal: React.FC<RevisionQAModalProps> = ({
   const [qaResult, setQaResult] = useState<QAResponseData | null>(null);
   const [pdfBase64, setPdfBase64] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const isEffectivelyOpen = isPage || isOpen;
+  if (!isEffectivelyOpen) return null;
 
   const handleSynthesizeQA = async () => {
     if (!questionInput.trim()) {

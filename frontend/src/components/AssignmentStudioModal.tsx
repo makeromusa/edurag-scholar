@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef } from "react";
+import Link from "next/link";
 import {
   X,
   Compass,
@@ -19,6 +20,7 @@ import {
   Shield,
   HelpCircle,
   Globe,
+  ArrowLeft,
 } from "lucide-react";
 import { Unit } from "./Sidebar";
 import { MermaidDiagram } from "./MermaidDiagram";
@@ -27,8 +29,9 @@ import { AcademicMarkdown } from "./AcademicMarkdown";
 interface AssignmentStudioModalProps {
   units: Unit[];
   currentUnitCode: string;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isPage?: boolean;
 }
 
 interface SolutionData {
@@ -45,8 +48,9 @@ interface SolutionData {
 export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
   units,
   currentUnitCode,
-  isOpen,
+  isOpen = false,
   onClose,
+  isPage = false,
 }) => {
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnitCode || "SCS 3201");
   const [promptInput, setPromptInput] = useState<string>("");
@@ -72,7 +76,8 @@ export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  if (!isOpen) return null;
+  const isEffectivelyOpen = isPage || isOpen;
+  if (!isEffectivelyOpen) return null;
 
   const currentUnitObj = units.find((u) => u.code === selectedUnit) || units[0];
 
@@ -182,40 +187,41 @@ export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="relative flex h-[95vh] w-full max-w-7xl flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden">
-        {/* Modal Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-[#090d16] px-4 py-3 sm:px-6 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 shrink-0">
-              <Compass className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
-                  Assignment & Architecture Studio
-                </h2>
-                <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2 py-0.2 text-[10px] font-bold text-blue-400">
-                  Highest Intelligence
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Syllabus-grounded problem solver, interactive diagrams (DFD/ERD), and publication exports
-              </p>
-            </div>
+  const innerStudio = (
+    <div className={`relative flex flex-col rounded-2xl border border-slate-800 bg-[#0c111d] shadow-2xl overflow-hidden ${isPage ? "w-full max-w-7xl mx-auto min-h-[88vh]" : "h-[95vh] w-full max-w-7xl"}`}>
+      {/* Modal Top Header */}
+      <div className="flex items-center justify-between border-b border-slate-800 bg-[#090d16] px-4 py-3 sm:px-6 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 shrink-0">
+            <Compass className="h-5 w-5" />
           </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm sm:text-base font-bold text-white tracking-tight">
+                Assignment & Architecture Studio
+              </h2>
+              <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2 py-0.2 text-[10px] font-bold text-blue-400">
+                Highest Intelligence
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              Syllabus-grounded problem solver, interactive diagrams (DFD/ERD), and publication exports
+            </p>
+          </div>
+        </div>
 
+        {onClose && !isPage && (
           <button
             onClick={onClose}
             className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition cursor-pointer"
           >
             <X className="h-5 w-5" />
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Studio Workspace Layout */}
-        <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
+      {/* Studio Workspace Layout */}
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row">
           {/* Left Panel: Input & Assignment Specification */}
           <div className="w-full lg:w-[420px] border-b lg:border-b-0 lg:border-r border-slate-800 bg-[#090d16] p-4 sm:p-5 flex flex-col justify-between overflow-y-auto shrink-0">
             <div className="space-y-4">
@@ -585,6 +591,41 @@ export const AssignmentStudioModal: React.FC<AssignmentStudioModalProps> = ({
           </div>
         </div>
       </div>
+  );
+
+  if (isPage) {
+    return (
+      <div className="min-h-screen w-full bg-[#0b1329] text-slate-100 flex flex-col">
+        {/* Top Breadcrumb Bar */}
+        <header className="sticky top-0 z-40 w-full border-b border-slate-800/80 bg-[#0b1329]/95 backdrop-blur px-4 sm:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-800/60 px-3 py-1.5 text-xs font-bold text-slate-300 hover:bg-slate-700 hover:text-white transition"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              <span>Back to Dashboard</span>
+            </Link>
+            <span className="text-slate-600 hidden sm:inline">/</span>
+            <span className="text-xs font-semibold text-blue-400 hidden sm:inline">Assignment Studio</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-blue-500/20 border border-blue-500/30 px-3 py-1 text-xs font-bold text-blue-300">
+              {selectedUnit}
+            </span>
+          </div>
+        </header>
+
+        <main className="flex-1 w-full px-2 sm:px-6 py-4 flex flex-col justify-center">
+          {innerStudio}
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-2 sm:p-4 backdrop-blur-md animate-in fade-in duration-200">
+      {innerStudio}
     </div>
   );
 };
