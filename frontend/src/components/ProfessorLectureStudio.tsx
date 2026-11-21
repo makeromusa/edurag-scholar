@@ -187,6 +187,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
+  const transcriptRef = useRef<string>("");
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
 
@@ -393,7 +394,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     setErrorMsg(null);
     setOfficeHoursList([]);
     setIsSidebarOpen(false); // Close drawer on mobile upon selection
-    setLectureLoadingStage("Fetching slide context (<50ms)...");
+    setLectureLoadingStage("Preparing lecture slide context...");
 
     // 1. Immediately fetch the raw slide text in < 100ms so user has instant content!
     try {
@@ -412,7 +413,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       console.debug("Quick slide fetch skipped:", re);
     }
 
-    setLectureLoadingStage("Synthesizing deep theoretical mechanics & code with GPT-4.1...");
+    setLectureLoadingStage("Synthesizing deep theoretical mechanics & lecture syllabus...");
 
     // 2. Fetch the deep masterclass expansion from backend with timeout & retry
     const controller = new AbortController();
@@ -590,6 +591,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
     setIsSynthesizingVoice(true);
     setIsVoiceHUDOpen(true);
+    setErrorMsg(null);
 
     try {
       const streamUrl = `${apiUrl}/api/professor/voice/stream-lecture?document_id=${syllabus.document_id}&start_page=${activeLesson.start_page}&end_page=${activeLesson.end_page}&voice=${selectedVoice}&conversational=true&_t=${Date.now()}`;
@@ -602,11 +604,26 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       audio.src = streamUrl;
       audio.playbackRate = playbackSpeed;
 
+      audio.onloadstart = () => {
+        setIsSynthesizingVoice(true);
+      };
+
+      audio.onwaiting = () => {
+        setIsSynthesizingVoice(true);
+      };
+
+      audio.oncanplay = () => {
+        setIsSynthesizingVoice(false);
+      };
+
       audio.onplay = () => {
+        setIsSynthesizingVoice(false);
         setIsPlayingVoice(true);
         setIsAutoAdvanceActive(false);
       };
+
       audio.onpause = () => setIsPlayingVoice(false);
+
       audio.ontimeupdate = () => {
         setAudioProgress(audio.currentTime);
         setAudioDuration(audio.duration || 0);
@@ -614,8 +631,6 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
 
       audio.onended = () => {
         setIsPlayingVoice(false);
-        // Smart Socratic Understanding Window:
-        // 1 minute (60s) for individual slide, 2 minutes (120s) for concept batch
         const wait = navMode === "lessons" ? 120 : 60;
         setAutoAdvanceTotal(wait);
         setAutoAdvanceTimer(wait);
@@ -623,13 +638,19 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
         setIsTimerPaused(false);
       };
 
-      await audio.play();
-      setIsPlayingVoice(true);
+      audio.onerror = (e) => {
+        console.warn("Audio buffer pending or error:", e);
+      };
+
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          // Play was queued while audio buffers from server; will start upon buffering
+          console.debug("Audio play deferred until stream buffers:", err);
+        });
+      }
     } catch (err: any) {
       console.error("Audio playback error:", err);
-      setErrorMsg("Failed to start voice lecture. Please try again.");
-    } finally {
-      setIsSynthesizingVoice(false);
     }
   };
 
@@ -700,10 +721,14 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     }
   };
 
-  // Student Voice Interjection (Mic)
+  // Student Voice Interjection (Mic) - Robust multi-attempt handler
   const handleToggleVoiceMic = () => {
     if (isListeningMic) {
-      recognitionRef.current?.stop();
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.stop();
+        } catch (e) {}
+      }
       setIsListeningMic(false);
       return;
     }
@@ -714,9 +739,18 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
       return;
     }
 
+    // Pause ongoing professor audio when student interjects
     if (audioRef.current && !audioRef.current.paused) {
       audioRef.current.pause();
       setIsPlayingVoice(false);
+    }
+
+    // Clean up any lingering previous instance before starting fresh
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.abort();
+      } catch (e) {}
+      recognitionRef.current = null;
     }
 
     const recognition = new SpeechRec();
@@ -724,10 +758,12 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     recognition.interimResults = true;
     recognition.lang = "en-US";
     recognitionRef.current = recognition;
+    transcriptRef.current = "";
 
     recognition.onstart = () => {
       setIsListeningMic(true);
       setVoiceTranscript("");
+      transcriptRef.current = "";
     };
 
     recognition.onresult = (e: any) => {
@@ -735,21 +771,32 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
         .map((r: any) => (r as any)[0].transcript)
         .join("");
       setVoiceTranscript(text);
+      transcriptRef.current = text;
     };
 
     recognition.onerror = (e: any) => {
       console.warn("Mic speech error:", e);
       setIsListeningMic(false);
+      recognitionRef.current = null;
     };
 
     recognition.onend = async () => {
       setIsListeningMic(false);
-      if (voiceTranscript.trim() && syllabus && activeLesson) {
-        await submitVoiceQuestion(voiceTranscript.trim());
+      recognitionRef.current = null;
+      const question = transcriptRef.current.trim();
+      transcriptRef.current = "";
+      if (question && syllabus && activeLesson) {
+        await submitVoiceQuestion(question);
       }
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (startErr) {
+      console.warn("Failed to start speech recognition:", startErr);
+      setIsListeningMic(false);
+      recognitionRef.current = null;
+    }
   };
 
   const submitVoiceQuestion = async (q: string) => {

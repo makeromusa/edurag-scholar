@@ -91,7 +91,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
     }
 
     setIsSolving(true);
-    setSolveStatusMessage("Transcribing questions via Gemini Vision, searching notes & solving step-by-step via Dual-Engine Copilot...");
+    setSolveStatusMessage("Transcribing questions via Academic Vision, searching notes & solving step-by-step...");
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
@@ -109,7 +109,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
         throw new Error(errData.detail || "Failed to solve revision paper.");
       }
 
-      setSolveStatusMessage("Rendering WeasyPrint PDF layout...");
+      setSolveStatusMessage("Compiling publication-ready PDF layout...");
       const blob = await res.blob();
       const downloadUrl = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -135,7 +135,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
     setIsSimulationReady(false);
     setSimulationError(null);
     setSimulationTaskId(null);
-    setSimulationProgress("Dispatching asynchronous simulation task to FastAPI...");
+    setSimulationProgress("Dispatching asynchronous simulation task to academic engine...");
 
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
@@ -152,7 +152,7 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
       if (!res.ok) throw new Error("Could not start exam simulation task.");
       const data = await res.json();
       setSimulationTaskId(data.task_id);
-      setSimulationProgress("Absorbing full semester syllabus and 3 past paper templates via Gemini 1.5 Pro...");
+      setSimulationProgress("Analyzing full semester syllabus and university past paper patterns...");
     } catch (e: any) {
       console.error(e);
       setIsSimulating(false);
@@ -265,10 +265,10 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
                 <p className="font-bold text-white mb-1">How Feature 1 Works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-slate-300">
                   <li>Upload your blank university revision paper (PDF).</li>
-                  <li>Gemini 1.5 Flash extracts questions, mathematical formulas, and structure.</li>
-                  <li>Supabase pgvector retrieves matching lecture notes and textbook chunks for {selectedUnit}.</li>
-                  <li>OpenAI GPT-4o (with instant failover to GPT-4 Turbo) writes detailed, multi-paragraph working.</li>
-                  <li>WeasyPrint converts the custom Jinja2 HTML (dark blue question cards & green-bordered answers) into a downloadable PDF.</li>
+                  <li>Academic Document OCR extracts questions, mathematical formulas, and structure.</li>
+                  <li>Course Knowledge Engine retrieves matching lecture notes and textbook excerpts for {selectedUnit}.</li>
+                  <li>University Reasoning Engine writes comprehensive, marking-scheme compliant solutions.</li>
+                  <li>Academic PDF Compiler builds a beautifully styled, high-resolution downloadable PDF.</li>
                 </ol>
               </div>
 
@@ -364,12 +364,12 @@ export const DocumentPipelinesModal: React.FC<DocumentPipelinesModalProps> = ({
               <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-4 text-xs text-emerald-200 leading-relaxed">
                 <p className="font-bold text-white mb-1">How Feature 2 Works:</p>
                 <ol className="list-decimal list-inside space-y-1 text-slate-300">
-                  <li>Triggers <code>POST /api/v1/exams/simulate</code> which responds instantly with <code>task_id</code>.</li>
-                  <li>FastAPI <code>BackgroundTasks</code> runs asynchronously for 30–60 seconds.</li>
-                  <li>Gemini 1.5 Pro absorbs your full semester notes and 3 historical past paper templates.</li>
-                  <li>Outputs a strict JSON array of realistic UON questions formatted like an official 70-mark paper.</li>
-                  <li>Renders the Jinja2 formal exam template to PDF via WeasyPrint.</li>
-                  <li>Real-time status polling reveals the download button the second it's ready.</li>
+                  <li>Submits exam generation request to the academic background engine.</li>
+                  <li>Automated exam workers process the syllabus asynchronously.</li>
+                  <li>Deep Knowledge Engine synthesizes full semester notes and historical university past papers.</li>
+                  <li>Outputs a realistic 70-mark university final paper with compulsory Section A and Section B.</li>
+                  <li>Compiles the formal academic examination template to a print-ready PDF.</li>
+                  <li>Real-time status updates activate your download button the moment it's finalized.</li>
                 </ol>
               </div>
 

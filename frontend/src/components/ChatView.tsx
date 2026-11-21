@@ -424,7 +424,7 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
               </div>
               <p className="text-[10px] text-blue-400">
                 {pendingAttachment.type === "image"
-                  ? "Vision-ready: GPT-4.1-mini & Gemini will inspect equations & diagrams"
+                  ? "Vision-ready: Visual formula, graph & diagram inspection enabled"
                   : "Document context: Will be extracted and analyzed with lecture notes"}
               </p>
             </div>

@@ -188,10 +188,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                 </span>
               </div>
               <div className="space-y-1 text-[11px] text-blue-300/80 ml-6">
-                <p>① Extracting text from all pages...</p>
-                <p>② Chunking into semantic academic blocks...</p>
-                <p>③ Generating 1536-dim vector embeddings (Gemini)...</p>
-                <p>④ Storing vectors in Supabase PostgreSQL...</p>
+                <p>① Extracting academic text & formulas from all pages...</p>
+                <p>② Chunking into structured curriculum modules...</p>
+                <p>③ Generating high-accuracy semantic embeddings...</p>
+                <p>④ Indexing into course knowledge base with page citations...</p>
               </div>
               <p className="mt-2 text-[10px] text-blue-400/60 ml-6">
                 This may take 10-60 seconds depending on document size. Do NOT close this window.
