@@ -1,15 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { AcademicVaultModal } from "@/components/AcademicVaultModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function VaultPage() {
+function VaultContent() {
+  const searchParams = useSearchParams();
   const { session, profile } = useAuth();
   const [units, setUnits] = useState<Unit[]>(DEFAULT_UNITS);
-  const [selectedUnit, setSelectedUnit] = useState<string>("SCS 3207");
+
+  const initialUnit = searchParams.get("unit") || "SCS 3207";
+  const [selectedUnit, setSelectedUnit] = useState<string>(initialUnit);
+
+  useEffect(() => {
+    const urlUnit = searchParams.get("unit");
+    if (urlUnit) {
+      setSelectedUnit(urlUnit);
+    } else {
+      const saved = localStorage.getItem("edurag_last_unit");
+      if (saved) setSelectedUnit(saved);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchUnits = async () => {
@@ -39,12 +53,29 @@ export default function VaultPage() {
   });
   const allAvailableUnits = Array.from(unitMap.values());
 
+  const handleSelectUnit = (code: string) => {
+    setSelectedUnit(code);
+    try {
+      localStorage.setItem("edurag_last_unit", code);
+    } catch (e) {}
+  };
+
   return (
     <AcademicVaultModal
+      key={selectedUnit}
       isPage={true}
+      isOpen={true}
       units={allAvailableUnits}
       currentUnitCode={selectedUnit}
-      onSelectUnit={(code) => setSelectedUnit(code)}
+      onSelectUnit={handleSelectUnit}
     />
+  );
+}
+
+export default function VaultPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Academic Vault...</div>}>
+      <VaultContent />
+    </Suspense>
   );
 }

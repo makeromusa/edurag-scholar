@@ -1,15 +1,29 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { RevisionQAModal } from "@/components/RevisionQAModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function RevisionQAPage() {
+function RevisionQAContent() {
+  const searchParams = useSearchParams();
   const { session, profile } = useAuth();
   const [units, setUnits] = useState<Unit[]>(DEFAULT_UNITS);
-  const [selectedUnit, setSelectedUnit] = useState<string>("SCS 3207");
+
+  const initialUnit = searchParams.get("unit") || "SCS 3207";
+  const [selectedUnit, setSelectedUnit] = useState<string>(initialUnit);
+
+  useEffect(() => {
+    const urlUnit = searchParams.get("unit");
+    if (urlUnit) {
+      setSelectedUnit(urlUnit);
+    } else {
+      const saved = localStorage.getItem("edurag_last_unit");
+      if (saved) setSelectedUnit(saved);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchUnits = async () => {
@@ -41,9 +55,19 @@ export default function RevisionQAPage() {
 
   return (
     <RevisionQAModal
+      key={selectedUnit}
       isPage={true}
+      isOpen={true}
       units={allAvailableUnits}
       currentUnitCode={selectedUnit}
     />
+  );
+}
+
+export default function RevisionQAPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Revision Q&A...</div>}>
+      <RevisionQAContent />
+    </Suspense>
   );
 }

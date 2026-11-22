@@ -91,10 +91,30 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
       const data = await res.json();
       if (data.exam) {
         setMockExamId(data.exam._id);
-        setMockPaper(data.exam.paper_markdown);
+        let paper = data.exam.paper_markdown;
+        if (!paper && data.exam.exam_data) {
+          const ed = data.exam.exam_data;
+          paper = `# ${ed.unit_code}: ${ed.unit_name || "Final Examination"}\n\n`;
+          paper += `**Academic Year:** ${ed.academic_year || "2025/2026"} | **Time Allowed:** ${ed.time_allowed || "2 HOURS"}\n\n`;
+          paper += `> **Instructions:** ${ed.instructions || "Answer Question ONE (Compulsory - 30 Marks) and any other TWO questions (20 Marks each)."}\n\n---\n\n`;
+          if (Array.isArray(ed.questions)) {
+            ed.questions.forEach((q: any) => {
+              paper += `### ${q.question_number} ${q.is_compulsory ? "(COMPULSORY — 30 MARKS)" : `(${q.total_marks || 20} MARKS)`}\n\n`;
+              if (q.stem) paper += `*${q.stem}*\n\n`;
+              if (Array.isArray(q.sub_questions)) {
+                q.sub_questions.forEach((sq: any) => {
+                  paper += `**${sq.label}** ${sq.text} *[${sq.marks} Marks]*\n\n`;
+                });
+              }
+              paper += `---\n\n`;
+            });
+          }
+        }
+        setMockPaper(paper || "No examination paper could be formatted.");
       }
     } catch (e) {
       console.error(e);
+      setMockPaper("Error generating examination paper. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -110,7 +130,7 @@ export const PastPaperModal: React.FC<PastPaperModalProps> = ({
       const res = await fetch(`${apiUrl}/api/mock-exams/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ exam_id: mockExamId, student_answers: studentSubmission }),
+        body: JSON.stringify({ exam_id: mockExamId, student_submission: studentSubmission }),
       });
       const data = await res.json();
       setEvaluationResult(data.evaluation || "Evaluation complete.");

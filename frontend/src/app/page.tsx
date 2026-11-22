@@ -66,6 +66,21 @@ export default function Home() {
   const [selectedUnit, setSelectedUnit] = useState<string>("SCS 3207");
   const [activeCitation, setActiveCitation] = useState<ActiveCitation | null>(null);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("edurag_last_unit");
+      if (saved) setSelectedUnit(saved);
+    } catch (e) {}
+  }, []);
+
+  useEffect(() => {
+    if (selectedUnit) {
+      try {
+        localStorage.setItem("edurag_last_unit", selectedUnit);
+      } catch (e) {}
+    }
+  }, [selectedUnit]);
+
   // Modal open states
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isPastPapersOpen, setIsPastPapersOpen] = useState(false);
@@ -179,7 +194,7 @@ export default function Home() {
       title: "Assignment & Homework Studio",
       desc: "Step-by-step working, algebraic simplification, proof structuring, and architectural diagrams — all grounded in your course slides.",
       cta: "Launch Assignment Solver",
-      href: "/studios/assignment",
+      href: `/studios/assignment?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
       icon: <BarChart2 size={22} />,
@@ -189,7 +204,7 @@ export default function Home() {
       title: "Past Exam Questions & Trends",
       desc: "Topic recurrence predictions, compulsory Section A forecasts, and 4-part lecturer marking schemes — from your verified past papers only.",
       cta: "Explore Exam Trends",
-      href: "/studios/exam-trends",
+      href: `/studios/exam-trends?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
       icon: <FileCheck2 size={22} />,
@@ -199,7 +214,7 @@ export default function Home() {
       title: "Timed Mock Exam Simulator",
       desc: "Sit full 70-mark exams with Section A & B, submit answers, and receive instant grading with model answers.",
       cta: "Start Timed Exam",
-      href: "/studios/exam-simulator",
+      href: `/studios/exam-simulator?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
       icon: <Volume2 size={22} />,
@@ -209,7 +224,7 @@ export default function Home() {
       title: "Oral Masterclass Studio",
       desc: "Listen to spoken professor lectures from your slides with live voice interjection to ask questions hands-free.",
       cta: "Enter Lecture Studio",
-      href: "/studios/lecture",
+      href: `/studios/lecture?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
       icon: <FolderOpen size={22} />,
@@ -219,7 +234,7 @@ export default function Home() {
       title: "Notes & Real PDF Slide Vault",
       desc: "Access verified original PowerPoint slides, syllabus outlines, and past papers without corruptions.",
       cta: "Open Academic Vault",
-      href: "/vault",
+      href: `/vault?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
       icon: <Brain size={22} />,
@@ -229,7 +244,7 @@ export default function Home() {
       title: "Active Recall Flashcards",
       desc: "Reinforce high-yield exam definitions, formulas, and facts into long-term memory using spaced repetition.",
       cta: "Review Flashcards",
-      href: "/flashcards",
+      href: `/flashcards?unit=${encodeURIComponent(selectedUnit)}`,
     },
   ];
 

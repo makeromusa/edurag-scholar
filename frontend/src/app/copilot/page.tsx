@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, BookOpen, ChevronDown, CheckCircle2, UploadCloud, FolderOpen } from "lucide-react";
 import { ChatView } from "@/components/ChatView";
@@ -11,15 +12,27 @@ import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
 
-export default function DedicatedCopilotPage() {
+function CopilotContent() {
+  const searchParams = useSearchParams();
   const { session, profile } = useAuth();
   const [units, setUnits] = useState<Unit[]>(DEFAULT_UNITS);
-  const [selectedUnit, setSelectedUnit] = useState<string>("SCS 3207");
+  const initialUnit = searchParams.get("unit") || "SCS 3207";
+  const [selectedUnit, setSelectedUnit] = useState<string>(initialUnit);
   const [activeCitation, setActiveCitation] = useState<ActiveCitation | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "docs">("chat");
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isPipelinesOpen, setIsPipelinesOpen] = useState(false);
+
+  useEffect(() => {
+    const urlUnit = searchParams.get("unit");
+    if (urlUnit) {
+      setSelectedUnit(urlUnit);
+    } else {
+      const saved = localStorage.getItem("edurag_last_unit");
+      if (saved) setSelectedUnit(saved);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchUnits = async () => {
@@ -163,5 +176,13 @@ export default function DedicatedCopilotPage() {
         initialUnit={selectedUnit}
       />
     </div>
+  );
+}
+
+export default function DedicatedCopilotPage() {
+  return (
+    <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-slate-50 text-slate-600 text-xs font-semibold">Loading Copilot...</div>}>
+      <CopilotContent />
+    </Suspense>
   );
 }

@@ -98,6 +98,7 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   initialTopic,
   isPage = false,
 }) => {
+  const isEffectivelyOpen = isPage || isOpen;
   const { session } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -240,10 +241,10 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
   };
 
   useEffect(() => {
-    if (isOpen) {
+    if (isEffectivelyOpen) {
       fetchUnitDocs();
     }
-  }, [isOpen, unitCode, session?.access_token]);
+  }, [isEffectivelyOpen, unitCode, session?.access_token]);
 
   // Real-time File Upload Handler
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -841,7 +842,6 @@ export const ProfessorLectureStudio: React.FC<ProfessorStudioProps> = ({
     }
   };
 
-  const isEffectivelyOpen = isPage || isOpen;
   if (!isEffectivelyOpen) return null;
 
   // Filter individual slides by search term

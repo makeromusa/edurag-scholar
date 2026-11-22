@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   X,
@@ -63,6 +63,12 @@ export const ExamSimulatorModal: React.FC<ExamSimulatorModalProps> = ({
   isPage = false,
 }) => {
   const [selectedUnit, setSelectedUnit] = useState<string>(currentUnitCode || "SCS 3201");
+
+  useEffect(() => {
+    if (currentUnitCode) {
+      setSelectedUnit(currentUnitCode);
+    }
+  }, [currentUnitCode]);
   const [examType, setExamType] = useState<string>("Final Examination");
   const [difficulty, setDifficulty] = useState<string>("University Standard Exam");
   const [includeAnswers, setIncludeAnswers] = useState<boolean>(true);
