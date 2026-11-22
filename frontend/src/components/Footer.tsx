@@ -113,30 +113,8 @@ export const Footer: React.FC<FooterProps> = ({ onSelectUnit, onOpenVault, onOpe
             <li>
               <Link href="/terms" className="hover:text-white transition flex items-center gap-1">
                 <FileText className="h-3 w-3" />
-                <span>Student Fair Use & Freedom</span>
+                <span>Academic Fair Use & Terms</span>
               </Link>
-            </li>
-            <li>
-              <a
-                href="/sitemap.xml"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition flex items-center gap-1"
-              >
-                <span>XML Sitemap</span>
-                <ExternalLink className="h-2.5 w-2.5 text-slate-500" />
-              </a>
-            </li>
-            <li>
-              <a
-                href="/robots.txt"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white transition flex items-center gap-1"
-              >
-                <span>Robots.txt</span>
-                <ExternalLink className="h-2.5 w-2.5 text-slate-500" />
-              </a>
             </li>
           </ul>
         </div>

@@ -1020,10 +1020,9 @@ export default function Home() {
             </div>
             <div className="col-6 col-lg-3">
               <h4>Legal & Governance</h4>
-              <a href="/privacy" style={{ display: "block", marginBottom: 4 }}>Student Privacy Policy</a>
-              <a href="/terms" style={{ display: "block", marginBottom: 4 }}>Student Fair Use & Freedom</a>
-              <a href="/sitemap.xml" style={{ display: "block", marginBottom: 4 }}>AI Sitemap</a>
-              <a href="/robots.txt" style={{ display: "block" }}>Robots.txt</a>
+              <a href="/privacy" style={{ display: "block", marginBottom: 6 }}>Student Privacy Policy</a>
+              <a href="/terms" style={{ display: "block", marginBottom: 6 }}>Academic Fair Use & Terms</a>
+              <span style={{ display: "block", fontSize: 11, color: "#64748b" }}>Audited for Kenya DPA 2019</span>
             </div>
           </div>
         </div>
