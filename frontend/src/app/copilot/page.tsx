@@ -19,7 +19,6 @@ function CopilotContent() {
   const initialUnit = searchParams.get("unit") || "SCS 3207";
   const [selectedUnit, setSelectedUnit] = useState<string>(initialUnit);
   const [activeCitation, setActiveCitation] = useState<ActiveCitation | null>(null);
-  const [mobileTab, setMobileTab] = useState<"chat" | "docs">("chat");
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isPipelinesOpen, setIsPipelinesOpen] = useState(false);
@@ -112,56 +111,33 @@ function CopilotContent() {
 
         {/* Right Actions */}
         <div className="flex items-center gap-1.5">
-          {/* Mobile Tab Switcher */}
-          <div className="flex sm:hidden rounded-lg border border-slate-200 bg-slate-100 p-0.5">
-            <button
-              onClick={() => setMobileTab("chat")}
-              className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${mobileTab === "chat" ? "bg-white text-[#1a2c4e] shadow-xs" : "text-slate-500"}`}
-            >
-              Chat
-            </button>
-            <button
-              onClick={() => setMobileTab("docs")}
-              className={`rounded-md px-2.5 py-1 text-xs font-bold transition ${mobileTab === "docs" ? "bg-white text-[#1a2c4e] shadow-xs" : "text-slate-500"}`}
-            >
-              Docs
-            </button>
-          </div>
-
           <button
             onClick={() => setIsUploadOpen(true)}
             className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 transition shadow-xs"
           >
             <UploadCloud className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Upload</span>
+            <span>Upload Materials</span>
           </button>
         </div>
       </header>
 
-      {/* Main Split Screen */}
+      {/* Main Chat Screen - Full Width */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Chat Pane */}
-        <div className={`flex-1 flex flex-col ${mobileTab === "chat" ? "flex" : "hidden sm:flex"}`}>
-          <ChatView
-            unitCode={selectedUnit}
-            unitName={currentUnit.name}
-            onSelectCitation={(cit) => {
-              setActiveCitation(cit);
-              setMobileTab("docs");
-            }}
-          />
-        </div>
-
-        {/* Document Library Pane */}
-        <div className={`w-full sm:w-96 border-l border-slate-200 flex flex-col ${mobileTab === "docs" ? "flex" : "hidden sm:flex"}`}>
-          <DocumentViewer
-            citation={activeCitation}
-            selectedUnit={selectedUnit}
-            onOpenUpload={() => setIsUploadOpen(true)}
-            onClose={() => setActiveCitation(null)}
-          />
-        </div>
+        <ChatView
+          unitCode={selectedUnit}
+          unitName={currentUnit.name}
+          onSelectCitation={(cit) => setActiveCitation(cit)}
+        />
       </div>
+
+      {/* Floating Citation Modal */}
+      {activeCitation && (
+        <DocumentViewer
+          citation={activeCitation}
+          selectedUnit={selectedUnit}
+          onClose={() => setActiveCitation(null)}
+        />
+      )}
 
       <UploadModal
         isOpen={isUploadOpen}

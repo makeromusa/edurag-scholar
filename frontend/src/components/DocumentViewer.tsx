@@ -1,24 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
-  FileText,
   ExternalLink,
   Bookmark,
-  CheckCircle2,
-  Clock,
-  RefreshCw,
-  UploadCloud,
-  ChevronLeft,
-  BookOpen,
-  FileCheck2,
-  Sparkles,
-  Layers,
-  GraduationCap,
-  Trash2
+  X,
+  FileText,
+  ShieldCheck
 } from "lucide-react";
-import { useAuth } from "@/lib/AuthContext";
-import { getDirectPdfUrl } from "./AcademicVaultModal";
 
 export interface ActiveCitation {
   type: "local_slide" | "web";
@@ -29,19 +18,6 @@ export interface ActiveCitation {
   url?: string;
   title?: string;
   content_preview?: string;
-}
-
-interface IngestedDoc {
-  id: string;
-  unit_code: string;
-  title: string;
-  page_count: number;
-  is_processed: boolean;
-  file_size_bytes?: number;
-  chunks_indexed: number;
-  uploaded_at?: string;
-  storage_url?: string;
-  category?: "exam" | "book" | "formula";
 }
 
 interface DocumentViewerProps {
@@ -56,482 +32,93 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   citation,
   selectedUnit,
   onClose,
-  onOpenUpload,
-  onTeachDocument,
 }) => {
-  const { session } = useAuth();
-  const [documents, setDocuments] = useState<IngestedDoc[]>([]);
-  const [isLoadingDocs, setIsLoadingDocs] = useState(false);
-  const [filterCategory, setFilterCategory] = useState<"all" | "books" | "exams" | "formulas">("all");
+  if (!citation) return null;
 
-  // In-App Document Knowledge Dossier State
-  const [previewDoc, setPreviewDoc] = useState<IngestedDoc | null>(null);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl p-6 text-slate-800"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+          <div className="flex items-center gap-2 min-w-0 pr-2">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 border border-blue-200">
+              <Bookmark className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-[#1a2c4e] truncate">
+                  {citation.type === "local_slide"
+                    ? `Verified Slide ${citation.page_number}`
+                    : (citation.title || "Academic Web Reference")}
+                </span>
+                <span className="rounded bg-blue-50 border border-blue-200 px-1.5 py-0.2 text-[10px] font-semibold text-blue-700 shrink-0">
+                  {citation.unit_code || selectedUnit || "Verified"}
+                </span>
+              </div>
+              <span className="text-[11px] text-slate-500 truncate block mt-0.5">
+                {citation.file_name || citation.slide_title || "Course Material"}
+              </span>
+            </div>
+          </div>
 
-  const fetchDocuments = async () => {
-    if (!selectedUnit) return;
-    setIsLoadingDocs(true);
-    setPreviewDoc(null);
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
-      const headers: Record<string, string> = {};
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-      const res = await fetch(`${apiUrl}/api/documents?unit_code=${encodeURIComponent(selectedUnit)}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        const rawDocs: IngestedDoc[] = data.documents || [];
-        const resolvedDocs = rawDocs.map((d) => ({
-          ...d,
-          storage_url: getDirectPdfUrl(d),
-        }));
-        setDocuments(resolvedDocs);
-      }
-    } catch (e) {
-      console.error("Failed to load documents", e);
-    } finally {
-      setIsLoadingDocs(false);
-    }
-  };
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition shrink-0"
+              aria-label="Close citation"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
 
-  useEffect(() => {
-    fetchDocuments();
-  }, [selectedUnit, session?.access_token]);
+        {/* Content Excerpt */}
+        <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50/80 p-4">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center gap-1.5">
+            <FileText className="h-3 w-3 text-blue-600" />
+            <span>Citation Excerpt</span>
+          </div>
+          <p className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-700 max-h-64 overflow-y-auto">
+            {citation.content_preview || "Document text loaded and verified against vector embedding."}
+          </p>
+        </div>
 
-  const handleDeleteDocument = async (docId: string, title: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${title}" and purge all its vector chunks?`)) {
-      return;
-    }
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
-      const headers: Record<string, string> = {};
-      if (session?.access_token) {
-        headers["Authorization"] = `Bearer ${session.access_token}`;
-      }
-      const res = await fetch(`${apiUrl}/api/documents/${docId}`, {
-        method: "DELETE",
-        headers,
-      });
-      if (res.ok) {
-        setDocuments((prev) => prev.filter((d) => d.id !== docId));
-        if (previewDoc?.id === docId) {
-          setPreviewDoc(null);
-        }
-      } else {
-        const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Failed to delete document.");
-      }
-    } catch (e: any) {
-      alert(`Error deleting document: ${e.message}`);
-    }
-  };
-
-  // 1. If a citation is active, show the citation excerpt preview
-  if (citation) {
-    return (
-      <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
-        {/* Viewer Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3 bg-slate-900/50">
-          <div className="flex items-center gap-2">
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="flex items-center gap-1 rounded bg-slate-800/80 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition mr-1"
-                title="Return to Unit Course Library"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-                <span>Library</span>
-              </button>
-            )}
-            <Bookmark className="h-4 w-4 text-blue-400" />
-            <span className="text-xs font-bold text-white">
-              {citation.type === "local_slide" ? `Slide ${citation.page_number}` : "Academic Web Source"}
-            </span>
-            <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] text-slate-400">
-              {citation.unit_code || "External"}
-            </span>
+        {/* Footer */}
+        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-500">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+            <span>Verified syllabus vector citation</span>
           </div>
 
           <div className="flex items-center gap-2">
-            {citation.url ? (
+            {citation.url && (
               <a
                 href={citation.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 rounded bg-blue-600/20 px-2 py-1 text-[11px] font-medium text-blue-400 hover:bg-blue-600/30"
+                className="flex items-center gap-1 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs font-semibold text-blue-700 hover:bg-blue-100 transition"
               >
-                <span>Open Source</span>
+                <span>External Link</span>
                 <ExternalLink className="h-3 w-3" />
               </a>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Slide Visual Card Preview */}
-        <div className="flex-1 overflow-y-auto p-5">
-          <div className="rounded-xl border border-slate-800 bg-[#0e1422] p-5 shadow-inner">
-            <div className="mb-3 flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-              <h4 className="text-sm font-bold text-blue-400">
-                {citation.slide_title || citation.title || "Lecture Document Excerpt"}
-              </h4>
-              <span className="text-[10px] text-slate-400">
-                {citation.file_name || "Course Notes"}
-              </span>
-            </div>
-
-            <div className="whitespace-pre-wrap font-sans text-xs leading-relaxed text-slate-300">
-              {citation.content_preview || "Document text loaded and verified against vector embedding."}
-            </div>
-          </div>
-
-          {citation.type === "local_slide" && (
-            <div className="mt-4 flex items-center justify-between rounded-lg border border-slate-800/80 bg-slate-900/40 p-3 text-xs text-slate-400">
-              <span>Verified Course Syllabus Reference</span>
-              <span className="font-semibold text-slate-300">
-                Unit: {citation.unit_code} • Page {citation.page_number}
-              </span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Categorization helpers
-  const categorizeDoc = (title: string): "exam" | "book" | "formula" => {
-    const t = title.toUpperCase();
-    if (t.includes("EXAM") || t.includes("CAT") || t.includes("SUPP") || t.includes("TEST")) return "exam";
-    if (t.includes("FORMULA") || t.includes("CHEAT") || t.includes("OUTLINE") || t.includes("REVISION") || t.includes("LAB EXERCISE")) return "formula";
-    return "book";
-  };
-
-  const categorizedDocs = documents.map((d) => ({
-    ...d,
-    category: categorizeDoc(d.title),
-    storage_url: getDirectPdfUrl(d),
-  }));
-
-  const filteredDocs = categorizedDocs.filter((d) => {
-    if (filterCategory === "books" && d.category !== "book") return false;
-    if (filterCategory === "exams" && d.category !== "exam") return false;
-    if (filterCategory === "formulas" && d.category !== "formula") return false;
-    return true;
-  });
-
-  const countBooks = categorizedDocs.filter((d) => d.category === "book").length;
-  const countExams = categorizedDocs.filter((d) => d.category === "exam").length;
-  const countFormulas = categorizedDocs.filter((d) => d.category === "formula").length;
-
-  // 2. Secure Curriculum Knowledge Dossier (No raw PDF iframes or download links)
-  if (previewDoc) {
-    return (
-      <div className="flex h-full w-full flex-col bg-white border-l border-slate-200 text-slate-800">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-          <div className="flex items-center gap-2 min-w-0 pr-2">
-            <button
-              onClick={() => setPreviewDoc(null)}
-              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-              title="Return to library list"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              <span>Back</span>
-            </button>
-            <div className="min-w-0">
-              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
-                {previewDoc.category === "exam" ? "Past Paper & Rubric" : previewDoc.category === "formula" ? "Formula Sheet" : "Lecture Slides & Book"}
-              </span>
-              <h3 className="text-xs font-bold text-[#1a2c4e] truncate max-w-[200px] sm:max-w-xs" title={previewDoc.title}>
-                {previewDoc.title}
-              </h3>
-            </div>
-          </div>
-
-          {onTeachDocument && (
-            <button
-              onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
-              className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
-            >
-              <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
-              <span>Teach</span>
-            </button>
-          )}
-        </div>
-
-        {/* Dossier Body */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
-          {/* Indexing Status Card */}
-          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5">
-            <div className="flex items-start gap-2.5">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
-              <div>
-                <h4 className="text-xs font-bold text-emerald-900">Indexed in Vector Memory</h4>
-                <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
-                  Synthesized into {previewDoc.chunks_indexed} searchable vector chunks. Ready for citations in Copilot and speech deconstruction in Oral Studio.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Metadata Cards */}
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-slate-500">Document Size</span>
-              <div className="text-base font-bold text-[#1a2c4e] mt-1">{previewDoc.page_count} Pages</div>
-              <span className="text-[10px] text-slate-400">Total length</span>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
-              <span className="text-[10px] font-semibold uppercase text-slate-500">Target Unit</span>
-              <div className="text-base font-bold text-blue-600 mt-1">{selectedUnit || previewDoc.unit_code}</div>
-              <span className="text-[10px] text-slate-400">Academic curriculum</span>
-            </div>
-          </div>
-
-          {/* Study Actions */}
-          <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-2.5">
-            <h5 className="text-[11px] font-bold text-[#1a2c4e] uppercase tracking-wider">
-              Study Actions for this Material
-            </h5>
-            {onTeachDocument && (
+            )}
+            {onClose && (
               <button
-                onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
-                className="w-full flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50/80 p-2.5 text-left hover:bg-indigo-100/80 transition"
+                onClick={onClose}
+                className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200 transition"
               >
-                <div className="flex items-center gap-2">
-                  <GraduationCap className="h-4 w-4 text-indigo-600" />
-                  <span className="text-xs font-semibold text-indigo-900">Lecture in Studio</span>
-                </div>
-                <span className="text-[10px] font-bold text-indigo-600">Start Audio →</span>
+                Done
               </button>
             )}
-            <button
-              onClick={() => handleDeleteDocument(previewDoc.id, previewDoc.title)}
-              className="w-full flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50/50 p-2 text-left hover:bg-rose-100/50 text-rose-700 transition text-xs font-medium"
-            >
-              <div className="flex items-center gap-2">
-                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
-                <span>Remove from Unit Index</span>
-              </div>
-              <span className="text-[10px] text-rose-500">Purge Chunks</span>
-            </button>
           </div>
         </div>
       </div>
-    );
-  }
-
-  // 3. Default View: Real-Time Ingested Knowledge Base Library for this Unit
-  return (
-    <div className="flex h-full w-full flex-col bg-white border-l border-slate-200 text-slate-800">
-      {/* Header */}
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Layers className="h-4 w-4 text-blue-600" />
-            <h3 className="text-xs font-bold text-[#1a2c4e]">Course Materials Library</h3>
-            {selectedUnit && (
-              <span className="rounded-md bg-blue-50 border border-blue-200 px-1.5 py-0.5 text-[10px] font-semibold text-blue-700">
-                {selectedUnit}
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-500">Categorized notes, textbooks & exam papers</p>
-        </div>
-
-        <button
-          onClick={fetchDocuments}
-          disabled={isLoadingDocs}
-          className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
-          title="Refresh indexing status"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${isLoadingDocs ? "animate-spin text-blue-600" : ""}`} />
-          <span>Refresh</span>
-        </button>
-      </div>
-
-      {/* Category Shelf Filter Segmented Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-slate-200 bg-slate-50 px-4 py-2 overflow-x-auto">
-        <button
-          onClick={() => setFilterCategory("all")}
-          className={`rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
-            filterCategory === "all"
-              ? "bg-blue-600 text-white shadow-2xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-          }`}
-        >
-          All ({categorizedDocs.length})
-        </button>
-        <button
-          onClick={() => setFilterCategory("books")}
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
-            filterCategory === "books"
-              ? "bg-blue-600 text-white shadow-2xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-          }`}
-        >
-          <BookOpen className="h-3.5 w-3.5" />
-          <span>Books & Slides ({countBooks})</span>
-        </button>
-        <button
-          onClick={() => setFilterCategory("exams")}
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
-            filterCategory === "exams"
-              ? "bg-blue-600 text-white shadow-2xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-          }`}
-        >
-          <FileCheck2 className="h-3.5 w-3.5" />
-          <span>Past Exams & CATs ({countExams})</span>
-        </button>
-        <button
-          onClick={() => setFilterCategory("formulas")}
-          className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition whitespace-nowrap cursor-pointer ${
-            filterCategory === "formulas"
-              ? "bg-blue-600 text-white shadow-2xs"
-              : "text-slate-600 hover:text-slate-900 hover:bg-slate-200/60"
-          }`}
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          <span>Formulas ({countFormulas})</span>
-        </button>
-      </div>
-
-      {/* Materials List */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 bg-slate-50/50">
-        {filteredDocs.length === 0 ? (
-          <div className="flex h-56 flex-col items-center justify-center text-center p-6 rounded-2xl border border-dashed border-slate-300 bg-white">
-            <FileText className="h-8 w-8 text-slate-400 mb-2 stroke-[1.2]" />
-            <p className="text-xs font-semibold text-slate-700">No Documents in this Category for {selectedUnit}</p>
-            <p className="text-[11px] text-slate-500 max-w-xs mt-1">
-              Select another filter above or upload your notes to populate this unit.
-            </p>
-          </div>
-        ) : (
-          filteredDocs.map((doc) => {
-            const isReady = doc.is_processed && doc.chunks_indexed > 0;
-            const isExam = doc.category === "exam";
-            const isFormula = doc.category === "formula";
-
-            return (
-              <div
-                key={doc.id}
-                className={`rounded-xl border p-3.5 transition ${
-                  isReady
-                    ? "border-slate-200 bg-white hover:border-slate-300 shadow-2xs"
-                    : "border-amber-300 bg-amber-50/40"
-                }`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-2.5 min-w-0">
-                    <div
-                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                        isExam
-                          ? "bg-emerald-50 text-emerald-600 border border-emerald-200"
-                          : isFormula
-                          ? "bg-amber-50 text-amber-600 border border-amber-200"
-                          : "bg-blue-50 text-blue-600 border border-blue-200"
-                      }`}
-                    >
-                      {isExam ? (
-                        <FileCheck2 className="h-4 w-4" />
-                      ) : isFormula ? (
-                        <Sparkles className="h-4 w-4" />
-                      ) : (
-                        <BookOpen className="h-4 w-4" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`rounded px-1.5 py-0.2 text-[9px] font-bold uppercase tracking-wider ${
-                            isExam
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : isFormula
-                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                              : "bg-blue-50 text-blue-700 border border-blue-200"
-                          }`}
-                        >
-                          {isExam ? "Exam / CAT" : isFormula ? "Formula / Outline" : "Book / Slides"}
-                        </span>
-                        <span className="text-[10px] text-slate-500">{doc.page_count} pgs</span>
-                      </div>
-
-                      {/* Document title */}
-                      <span
-                        className="text-xs font-semibold text-[#1a2c4e] mt-1 leading-snug truncate max-w-[240px] sm:max-w-xs block"
-                        title={doc.title}
-                      >
-                        {doc.title}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Status Badge */}
-                  {isReady ? (
-                    <div className="flex items-center gap-1 rounded bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700 shrink-0">
-                      <CheckCircle2 className="h-2.5 w-2.5" />
-                      <span>{doc.chunks_indexed} chks</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-[9px] font-medium text-amber-700 shrink-0">
-                      <Clock className="h-2.5 w-2.5 animate-spin" />
-                      <span>Indexing...</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Actions: Preview, Teach, Delete */}
-                <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5 flex-wrap">
-                  <div className="flex items-center gap-1.5">
-                    {/* Preview inside side drawer */}
-                    <button
-                      onClick={() => setPreviewDoc(doc)}
-                      className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 px-2.5 py-1 text-[11px] text-slate-700 font-medium transition"
-                      title="Preview document content"
-                    >
-                      <BookOpen className="h-3 w-3 text-blue-600" />
-                      <span>Preview</span>
-                    </button>
-
-                    {onTeachDocument && isReady && (
-                      <button
-                        onClick={() => onTeachDocument(doc.id, doc.title)}
-                        className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition"
-                        title="Have the Professor deconstruct and teach this document"
-                      >
-                        <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
-                        <span>Teach</span>
-                      </button>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteDocument(doc.id, doc.title)}
-                    className="flex items-center gap-1 text-[10px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 px-1.5 py-1 rounded transition"
-                    title="Delete document and purge vector chunks"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                    <span>Delete</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* Footer Quick Action */}
-      {onOpenUpload && (
-        <div className="border-t border-slate-200 bg-white p-3.5">
-          <button
-            onClick={onOpenUpload}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-semibold text-white hover:bg-blue-500 transition shadow-sm shadow-blue-500/20"
-          >
-            <UploadCloud className="h-4 w-4" />
-            <span>Upload Another Document for {selectedUnit}</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 };

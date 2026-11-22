@@ -103,7 +103,7 @@ export default function Home() {
   // UI state
   const [isUnitDropdownOpen, setIsUnitDropdownOpen] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
-  const [mobileWorkstationTab, setMobileWorkstationTab] = useState<"chat" | "documents">("chat");
+
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const unitDropdownRef = useRef<HTMLDivElement>(null);
@@ -182,7 +182,6 @@ export default function Home() {
 
   const handleCitationSelect = (citation: ActiveCitation) => {
     setActiveCitation(citation);
-    setMobileWorkstationTab("documents");
   };
 
   const studios = [
@@ -826,43 +825,17 @@ export default function Home() {
                 </span>
               </div>
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                {/* Mobile tab switcher */}
-                <div className="d-flex d-md-none gap-1">
-                  <button
-                    className={`ws-tab ${mobileWorkstationTab === "chat" ? "active" : ""}`}
-                    onClick={() => setMobileWorkstationTab("chat")}
-                  >
-                    Chat
-                  </button>
-                  <button
-                    className={`ws-tab ${mobileWorkstationTab === "documents" ? "active" : ""}`}
-                    onClick={() => setMobileWorkstationTab("documents")}
-                  >
-                    Docs
-                  </button>
-                </div>
                 <button className="ws-action-btn" onClick={() => setIsUploadOpen(true)}>
                   <UploadCloud size={13} />
-                  <span className="d-none d-sm-inline">Upload</span>
-                </button>
-                <button
-                  className="ws-action-btn"
-                  style={{ background: "#f1f5f9", border: "1px solid #d1dced", color: "var(--heading-color)" }}
-                  onClick={() => setIsPipelinesOpen(true)}
-                >
-                  <FolderOpen size={13} />
-                  <span className="d-none d-sm-inline">Documents</span>
+                  <span>Upload Materials</span>
                 </button>
               </div>
             </div>
 
             {/* Body */}
             <div className="workstation-body">
-              {/* Chat pane */}
-              <div
-                className={`flex-column flex-grow-1 ${mobileWorkstationTab === "chat" ? "d-flex" : "d-none d-md-flex"}`}
-                style={{ minWidth: 0 }}
-              >
+              {/* Chat pane - Full width, clean and de-congested */}
+              <div className="d-flex flex-column flex-grow-1" style={{ minWidth: 0 }}>
                 <ChatView
                   unitCode={selectedUnit}
                   unitName={currentUnit.name}
@@ -870,25 +843,18 @@ export default function Home() {
                   onOpenProfessorMode={(topic) => handleOpenProfessor(topic)}
                 />
               </div>
-              {/* Document pane */}
-              <div
-                className={`flex-column ${mobileWorkstationTab === "documents" ? "d-flex" : "d-none d-md-flex"}`}
-                style={{
-                  width: "340px",
-                  flexShrink: 0,
-                  borderLeft: "1px solid rgba(255,255,255,0.08)",
-                }}
-              >
-                <DocumentViewer
-                  citation={activeCitation}
-                  selectedUnit={selectedUnit}
-                  onOpenUpload={() => setIsUploadOpen(true)}
-                  onTeachDocument={(docId, docTitle) => handleOpenProfessor(undefined, docId, docTitle)}
-                />
-              </div>
             </div>
           </div>
         </div>
+
+        {/* Floating Citation Modal */}
+        {activeCitation && (
+          <DocumentViewer
+            citation={activeCitation}
+            selectedUnit={selectedUnit}
+            onClose={() => setActiveCitation(null)}
+          />
+        )}
       </section>
 
 
