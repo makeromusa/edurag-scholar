@@ -11,6 +11,7 @@ import { DocumentPipelinesModal } from "@/components/DocumentPipelinesModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
+import { AuthGuard } from "@/components/AuthGuard";
 
 function CopilotContent() {
   const searchParams = useSearchParams();
@@ -157,8 +158,13 @@ function CopilotContent() {
 
 export default function DedicatedCopilotPage() {
   return (
-    <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-slate-50 text-slate-600 text-xs font-semibold">Loading Copilot...</div>}>
-      <CopilotContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Autonomous Academic Copilot"
+      description="Access to real-time syllabus-grounded chat, past paper citations, and multimodal homework help requires student authentication."
+    >
+      <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-slate-50 text-slate-600 text-xs font-semibold">Loading Copilot...</div>}>
+        <CopilotContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

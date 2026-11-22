@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { RevisionQAModal } from "@/components/RevisionQAModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/AuthContext";
 
 function RevisionQAContent() {
@@ -66,8 +67,13 @@ function RevisionQAContent() {
 
 export default function RevisionQAPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Revision Q&A...</div>}>
-      <RevisionQAContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Revision Q&A Companion Studio"
+      description="Question-by-question model marking schemes, step-by-step calculus derivations, and examiner trap warnings require student sign-in."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Revision Q&A...</div>}>
+        <RevisionQAContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

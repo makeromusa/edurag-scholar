@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { FlashcardModal } from "@/components/FlashcardModal";
+import { AuthGuard } from "@/components/AuthGuard";
 
 function FlashcardsContent() {
   const searchParams = useSearchParams();
@@ -31,8 +32,13 @@ function FlashcardsContent() {
 
 export default function FlashcardsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Flashcards...</div>}>
-      <FlashcardsContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Active Recall Flashcards Studio"
+      description="Spaced repetition SM-2 flashcard decks, formula drills, and recall tracking require student sign-in."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Flashcards...</div>}>
+        <FlashcardsContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

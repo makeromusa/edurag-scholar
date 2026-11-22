@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { AssignmentStudioModal } from "@/components/AssignmentStudioModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/AuthContext";
 
 function AssignmentStudioContent() {
@@ -66,8 +67,13 @@ function AssignmentStudioContent() {
 
 export default function AssignmentStudioPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Assignment Studio...</div>}>
-      <AssignmentStudioContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Assignment & Architecture Studio"
+      description="Syllabus-grounded assignment deconstruction, viva prep, and UML/DFD diagram synthesis require student sign-in."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Assignment Studio...</div>}>
+        <AssignmentStudioContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

@@ -7,7 +7,7 @@ import base64
 import logging
 import re
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Response, Header
 from pydantic import BaseModel
 
 from app.core.database import match_unit_chunks_rpc, get_supabase_admin_client
@@ -58,12 +58,19 @@ def _extract_mermaid_blocks(text: str) -> List[str]:
 
 
 @assignment_router.post("/solve")
-async def solve_assignment(payload: AssignmentSolveRequest):
+async def solve_assignment(payload: AssignmentSolveRequest, authorization: Optional[str] = Header(None)):
     """
     Synthesizes a complete, syllabus-grounded assignment solution with
     technical diagrams (Mermaid.js) and viva defense prep.
     Anonymous by default: never includes student name.
     """
+    from app.api.routes import get_user_from_header
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to solve assignments. Please sign in."
+        )
     if not (payload.prompt or "").strip() and not payload.file_base64:
         raise HTTPException(status_code=400, detail="Assignment prompt or question document is required.")
 

@@ -184,6 +184,14 @@ export default function Home() {
     setActiveCitation(citation);
   };
 
+  const handleOpenUpload = () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
+    setIsUploadOpen(true);
+  };
+
   const studios = [
     {
       icon: <PenLine size={22} />,
@@ -362,7 +370,7 @@ export default function Home() {
                   fontWeight: 600,
                   padding: "7px 14px",
                 }}
-                onClick={() => setIsUploadOpen(true)}
+                onClick={handleOpenUpload}
               >
                 <UploadCloud size={14} /> Upload
               </button>
@@ -494,7 +502,7 @@ export default function Home() {
               <Link href="/studios/exam-trends" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
                 📊 Past Exam Trends
               </Link>
-              <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { setIsUploadOpen(true); setIsMobileNavOpen(false); }}>
+              <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { handleOpenUpload(); setIsMobileNavOpen(false); }}>
                 ☁️ Upload Material
               </button>
               <button className="nav-link-pill btn border-0 bg-transparent text-start" onClick={() => { setIsRequestUnitOpen(true); setIsMobileNavOpen(false); }}>
@@ -534,7 +542,7 @@ export default function Home() {
                 >
                   <MessageSquare size={16} /> Ask Your Copilot
                 </button>
-                <button className="hero-cta-secondary" onClick={() => setIsUploadOpen(true)}>
+                <button className="hero-cta-secondary" onClick={handleOpenUpload}>
                   <UploadCloud size={16} /> Upload Your Notes
                 </button>
               </div>
@@ -754,7 +762,7 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-                <button className="more-btn" onClick={() => setIsUploadOpen(true)}>
+                <button className="more-btn" onClick={handleOpenUpload}>
                   Upload Course Material <ArrowRight size={14} />
                 </button>
               </div>
@@ -825,7 +833,7 @@ export default function Home() {
                 </span>
               </div>
               <div className="d-flex align-items-center gap-2 flex-wrap">
-                <button className="ws-action-btn" onClick={() => setIsUploadOpen(true)}>
+                <button className="ws-action-btn" onClick={handleOpenUpload}>
                   <UploadCloud size={13} />
                   <span>Upload Materials</span>
                 </button>
@@ -865,10 +873,10 @@ export default function Home() {
         <div className="container">
           <div
             className={`upload-zone ${isDragOver ? "drag-over" : ""}`}
-            onClick={() => setIsUploadOpen(true)}
+            onClick={handleOpenUpload}
             onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
             onDragLeave={() => setIsDragOver(false)}
-            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); setIsUploadOpen(true); }}
+            onDrop={(e) => { e.preventDefault(); setIsDragOver(false); handleOpenUpload(); }}
           >
             <UploadCloud className="upload-icon" />
             <h4>Drag & Drop Your Course Materials</h4>
@@ -879,7 +887,7 @@ export default function Home() {
               <button
                 className="hero-cta-primary"
                 style={{ margin: "0 auto" }}
-                onClick={(e) => { e.stopPropagation(); setIsUploadOpen(true); }}
+                onClick={(e) => { e.stopPropagation(); handleOpenUpload(); }}
               >
                 <UploadCloud size={15} /> Choose Files to Upload
               </button>

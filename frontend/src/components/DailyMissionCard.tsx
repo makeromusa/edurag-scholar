@@ -9,11 +9,11 @@ import {
   Sparkles,
   AlertTriangle,
   BrainCircuit,
-  Eye,
-  EyeOff,
-  BookOpen,
+  Lock,
+  LogIn,
 } from "lucide-react";
 import { AcademicMarkdown } from "./AcademicMarkdown";
+import { useAuth } from "@/lib/AuthContext";
 
 interface DailyMissionProps {
   briefingMarkdown?: string;
@@ -27,17 +27,25 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
   onRefresh,
   compact = false,
 }) => {
+  const { user, session, openAuthModal } = useAuth();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isTriggering, setIsTriggering] = useState(false);
-  const [showAnswer, setShowAnswer] = useState(false);
 
   const handleTriggerNow = async () => {
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     setIsTriggering(true);
     try {
       const apiUrl =
         process.env.NEXT_PUBLIC_API_URL ||
         "https://edurag-openai-musa-cpewa9epdmagg8b4.uaenorth-01.azurewebsites.net";
-      await fetch(`${apiUrl}/api/briefings/trigger-now`, { method: "POST" });
+      const headers: Record<string, string> = {};
+      if (session?.access_token) {
+        headers["Authorization"] = `Bearer ${session.access_token}`;
+      }
+      await fetch(`${apiUrl}/api/briefings/trigger-now`, { method: "POST", headers });
       if (onRefresh) onRefresh();
     } catch (e) {
       console.error(e);
@@ -56,12 +64,22 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
     return (
       <div className="relative hidden lg:block">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={() => {
+            if (!user) {
+              openAuthModal();
+              return;
+            }
+            setIsExpanded(!isExpanded);
+          }}
           className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-950/30 px-3 py-1.5 text-[11px] font-semibold text-blue-300 hover:bg-blue-900/40 hover:text-white transition shadow-sm"
         >
           <Sunrise className="h-3.5 w-3.5 text-blue-400 shrink-0 animate-pulse" />
           <span>Daily Mission</span>
-          <span className="ml-1 inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/80" />
+          {!user ? (
+            <Lock className="h-3 w-3 text-amber-400 ml-0.5" />
+          ) : (
+            <span className="ml-1 inline-block h-2 w-2 rounded-full bg-emerald-400 shadow-xs shadow-emerald-400/80" />
+          )}
           {isExpanded ? (
             <ChevronUp className="h-3 w-3 text-slate-400 ml-0.5" />
           ) : (
@@ -69,7 +87,7 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
           )}
         </button>
 
-        {isExpanded && (
+        {isExpanded && user && (
           <div className="absolute left-0 top-full mt-2 w-96 z-50 rounded-2xl border border-slate-700/80 bg-[#0c121e] shadow-2xl shadow-black/80 p-4 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-slate-800">
               <div className="flex items-center gap-2">
@@ -100,7 +118,38 @@ export const DailyMissionCard: React.FC<DailyMissionProps> = ({
     );
   }
 
-  // ── Full card mode (Mobile & Desktop Workstation Banner) ────────────────────
+  // ── Unauthenticated state: Clean locked preview ──────────────────────────
+  if (!user) {
+    return (
+      <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-b from-[#0e1628] to-[#090d16] shadow-md backdrop-blur-md p-5 sm:p-6 text-center space-y-3">
+        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shadow-blue-500/30">
+          <Lock className="h-5 w-5" />
+        </div>
+        <div>
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/20 px-2.5 py-0.5 text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-1.5">
+            <Sparkles className="h-3 w-3" />
+            <span>Autonomous Abstractor</span>
+          </div>
+          <h3 className="text-sm font-bold text-white">Daily Study Dossier Locked</h3>
+          <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto leading-relaxed">
+            Today&apos;s 3 AM autonomous abstractor notes, active recall drills, and high-probability exam gotchas are reserved for registered university scholars.
+          </p>
+        </div>
+        <div className="pt-1">
+          <button
+            type="button"
+            onClick={openAuthModal}
+            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 text-xs font-bold transition shadow-md shadow-blue-500/20 cursor-pointer"
+          >
+            <LogIn className="h-4 w-4" />
+            <span>Sign In to Unlock Today&apos;s Dossier</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Authenticated Full card mode (Mobile & Desktop Workstation Banner) ─────
   return (
     <div className="rounded-2xl border border-blue-500/20 bg-gradient-to-b from-[#0e1628] to-[#090d16] shadow-md backdrop-blur-md transition-all overflow-hidden">
       {/* Top Banner Bar */}

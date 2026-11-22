@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ExamSimulatorModal } from "@/components/ExamSimulatorModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/AuthContext";
 import { BookOpen } from "lucide-react";
 
@@ -100,8 +101,13 @@ function ExamSimulatorContent() {
 
 export default function ExamSimulatorPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Exam Simulator...</div>}>
-      <ExamSimulatorContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Timed Exam Simulator Studio"
+      description="Timed 70-mark university mock examinations, marking scheme rubrics, and automated AI grading require student authentication."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Exam Simulator...</div>}>
+        <ExamSimulatorContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

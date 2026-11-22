@@ -6,6 +6,7 @@ import { AcademicVaultModal } from "@/components/AcademicVaultModal";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
 import { useAuth } from "@/lib/AuthContext";
+import { AuthGuard } from "@/components/AuthGuard";
 
 function VaultContent() {
   const searchParams = useSearchParams();
@@ -74,8 +75,13 @@ function VaultContent() {
 
 export default function VaultPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Academic Vault...</div>}>
-      <VaultContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Curriculum Knowledge Vault"
+      description="Access to verified course syllabus documents, slides, and past papers requires an active student account."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Academic Vault...</div>}>
+        <VaultContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

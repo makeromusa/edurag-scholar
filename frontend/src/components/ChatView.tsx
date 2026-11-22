@@ -13,6 +13,8 @@ import {
   FileText,
   X,
   GraduationCap,
+  Lock,
+  LogIn,
 } from "lucide-react";
 import { AcademicMarkdown } from "./AcademicMarkdown";
 import { ActiveCitation } from "./DocumentViewer";
@@ -57,7 +59,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
   onSelectCitation,
   onOpenProfessorMode,
 }) => {
-  const { session, user, profile } = useAuth();
+  const { session, user, profile, openAuthModal } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputQuery, setInputQuery] = useState("");
   const [deepSearch, setDeepSearch] = useState(false);
@@ -144,6 +146,10 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
 
   const handleSendMessage = async (e?: React.FormEvent, customQuery?: string) => {
     if (e) e.preventDefault();
+    if (!user) {
+      openAuthModal();
+      return;
+    }
     const query = (customQuery || inputQuery).trim();
     if ((!query && !pendingAttachment) || isLoading) return;
 
@@ -390,7 +396,13 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
         ].map((prompt, idx) => (
           <button
             key={idx}
-            onClick={() => handleSendMessage(undefined, prompt)}
+            onClick={() => {
+              if (!user) {
+                openAuthModal();
+                return;
+              }
+              handleSendMessage(undefined, prompt);
+            }}
             className="shrink-0 rounded-full border border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300 hover:text-blue-600 px-3.5 py-1.5 text-xs text-slate-600 transition font-medium"
           >
             {prompt}
@@ -441,52 +453,72 @@ You can ask me questions, attach past papers (PDF), or upload screenshots/diagra
       )}
 
       {/* Input Box */}
-      <form
-        onSubmit={(e) => handleSendMessage(e)}
-        className="border-t border-slate-200 bg-white p-3 sm:p-4"
-        onPaste={handlePaste}
-      >
-        {/* Hidden File Input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*,.pdf,.txt,.docx,.doc,.md,.py,.c,.cpp,.java,.sql"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-
-        <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100 shadow-2xs transition">
-          {/* Attach Button */}
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-blue-600 transition"
-            title="Attach past paper PDF, question screenshot, or diagram (or Ctrl+V to paste)"
+      <div className="border-t border-slate-200 bg-white p-3 sm:p-4">
+        {!user ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-500/20 bg-blue-50/70 p-3 sm:px-4">
+            <div className="flex items-center gap-2 text-xs text-blue-950 font-medium">
+              <Lock className="h-4 w-4 text-blue-600 shrink-0" />
+              <span>
+                <strong>Scholar Sign In Required:</strong> Log in with your student account to ask AI questions and solve past papers.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={openAuthModal}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-500 transition shadow-xs shrink-0 cursor-pointer"
+            >
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Sign In to Chat</span>
+            </button>
+          </div>
+        ) : (
+          <form
+            onSubmit={(e) => handleSendMessage(e)}
+            onPaste={handlePaste}
           >
-            <Paperclip className="h-4.5 w-4.5" />
-          </button>
+            {/* Hidden File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,.pdf,.txt,.docx,.doc,.md,.py,.c,.cpp,.java,.sql"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
 
-          <input
-            type="text"
-            value={inputQuery}
-            onChange={(e) => setInputQuery(e.target.value)}
-            placeholder={
-              pendingAttachment
-                ? `Ask a question about ${pendingAttachment.name} (or hit Enter to analyze)...`
-                : `Ask about ${unitCode} slides, past papers, or attach an exam question...`
-            }
-            className="flex-1 bg-transparent text-xs sm:text-sm text-[#1a2c4e] placeholder-slate-400 focus:outline-none"
-          />
+            <div className="flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 focus-within:border-blue-600 focus-within:bg-white focus-within:ring-2 focus-within:ring-blue-100 shadow-2xs transition">
+              {/* Attach Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 hover:bg-slate-200 hover:text-blue-600 transition"
+                title="Attach past paper PDF, question screenshot, or diagram (or Ctrl+V to paste)"
+              >
+                <Paperclip className="h-4.5 w-4.5" />
+              </button>
 
-          <button
-            type="submit"
-            disabled={(!inputQuery.trim() && !pendingAttachment) || isLoading}
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition shadow-md shadow-blue-500/20"
-          >
-            <Send className="h-4 w-4" />
-          </button>
-        </div>
-      </form>
+              <input
+                type="text"
+                value={inputQuery}
+                onChange={(e) => setInputQuery(e.target.value)}
+                placeholder={
+                  pendingAttachment
+                    ? `Ask a question about ${pendingAttachment.name} (or hit Enter to analyze)...`
+                    : `Ask about ${unitCode} slides, past papers, or attach an exam question...`
+                }
+                className="flex-1 bg-transparent text-xs sm:text-sm text-[#1a2c4e] placeholder-slate-400 focus:outline-none"
+              />
+
+              <button
+                type="submit"
+                disabled={(!inputQuery.trim() && !pendingAttachment) || isLoading}
+                className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 transition shadow-md shadow-blue-500/20"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

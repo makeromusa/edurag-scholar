@@ -434,7 +434,12 @@ def delete_document(doc_id: str, authorization: Optional[str] = Header(None)):
     """
     client = get_supabase_admin_client()
     user = get_user_from_header(authorization)
-    user_id = user["id"] if user else None
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to delete documents. Please sign in."
+        )
+    user_id = user["id"]
 
     # Fetch document to verify ownership
     doc_res = client.table("documents").select("id, title, unit_code, uploaded_by").eq("id", doc_id).execute()
@@ -478,7 +483,12 @@ async def upload_document(
     """
     client = get_supabase_admin_client()
     user = get_user_from_header(authorization)
-    user_id = user["id"] if user else None
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to delete documents. Please sign in."
+        )
+    user_id = user["id"]
 
     file_bytes = await file.read()
     
@@ -914,12 +924,18 @@ LIVE_EXAM_REGISTRY: Dict[str, Any] = {}
 # --- Mock Exam Simulator Subsystem ---
 
 @router.post("/mock-exams/generate")
-async def generate_mock_exam(payload: MockExamGenerateRequest):
+async def generate_mock_exam(payload: MockExamGenerateRequest, authorization: Optional[str] = Header(None)):
     """
     Generates a full, complete, syllabus-grounded UoN exam paper with optional complete model answers
     formatted in structured JSON for both interactive UI and instant high-res PDF generation.
     Guaranteed zero-downtime execution.
     """
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to generate mock exams. Please sign in."
+        )
     import uuid
     client = get_supabase_admin_client()
     try:
@@ -1415,8 +1431,14 @@ OUTPUT:
 
 
 @router.get("/briefings/today")
-def get_today_briefing():
-    """Fetches today's morning briefing."""
+def get_today_briefing(authorization: Optional[str] = Header(None)):
+    """Fetches today's morning briefing for authenticated scholars."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Authentication required to view daily briefing notes. Please sign in."
+        )
     client = get_supabase_admin_client()
     res = client.table("daily_briefings").select("*").order("created_at", desc=True).limit(1).execute()
     if res.data:
@@ -1425,8 +1447,11 @@ def get_today_briefing():
 
 
 @router.post("/briefings/trigger-now")
-async def trigger_briefing_now(background_tasks: BackgroundTasks):
+async def trigger_briefing_now(background_tasks: BackgroundTasks, authorization: Optional[str] = Header(None)):
     """Manual test trigger for the 3 AM Abstractor."""
+    user = get_user_from_header(authorization)
+    if not user:
+        raise HTTPException(status_code=401, detail="Authentication required.")
     background_tasks.add_task(run_nightly_abstraction_job)
     return {"status": "accepted", "message": "3 AM Abstractor job initiated in background."}
 

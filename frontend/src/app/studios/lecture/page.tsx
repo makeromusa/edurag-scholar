@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { ProfessorLectureStudio } from "@/components/ProfessorLectureStudio";
 import { DEFAULT_UNITS } from "@/lib/constants";
 import { Unit } from "@/components/Sidebar";
+import { AuthGuard } from "@/components/AuthGuard";
 import { useAuth } from "@/lib/AuthContext";
 import { BookOpen } from "lucide-react";
 
@@ -101,8 +102,13 @@ function LectureStudioContent() {
 
 export default function LectureStudioPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Lecture Studio...</div>}>
-      <LectureStudioContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Professor Oral Masterclass Studio"
+      description="Live conversational oral lectures, interactive doubt-clearing, and slide audio deconstruction require student authentication."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Lecture Studio...</div>}>
+        <LectureStudioContent />
+      </Suspense>
+    </AuthGuard>
   );
 }

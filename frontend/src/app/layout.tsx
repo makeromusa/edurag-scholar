@@ -3,6 +3,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "katex/dist/katex.min.css";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import { GlobalAuthModal } from "@/components/GlobalAuthModal";
 import { Analytics } from "@vercel/analytics/react";
 
 export const viewport: Viewport = {
@@ -98,7 +99,10 @@ export default function RootLayout({
         <meta name="mobile-web-app-capable" content="yes" />
       </head>
       <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)] antialiased">
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <GlobalAuthModal />
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

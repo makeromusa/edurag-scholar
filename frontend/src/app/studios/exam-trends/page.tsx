@@ -3,6 +3,7 @@
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PastPaperModal } from "@/components/PastPaperModal";
+import { AuthGuard } from "@/components/AuthGuard";
 
 function ExamTrendsContent() {
   const searchParams = useSearchParams();
@@ -31,8 +32,13 @@ function ExamTrendsContent() {
 
 export default function ExamTrendsPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Exam Trends...</div>}>
-      <ExamTrendsContent />
-    </Suspense>
+    <AuthGuard
+      featureName="Exam Trends & Frequency Predictor"
+      description="Recurring examination topic frequency, Section A compulsory forecast, and marking gotchas require student sign-in."
+    >
+      <Suspense fallback={<div className="min-h-screen bg-[#080c16] flex items-center justify-center text-white text-xs">Loading Exam Trends...</div>}>
+        <ExamTrendsContent />
+      </Suspense>
+    </AuthGuard>
   );
 }
