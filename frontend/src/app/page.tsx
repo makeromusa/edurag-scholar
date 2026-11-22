@@ -229,11 +229,11 @@ export default function Home() {
     {
       icon: <FolderOpen size={22} />,
       iconClass: "icon-rose",
-      badge: "Original PDFs",
+      badge: "Knowledge Base",
       badgeClass: "badge-core",
-      title: "Notes & Real PDF Slide Vault",
-      desc: "Access verified original PowerPoint slides, syllabus outlines, and past papers without corruptions.",
-      cta: "Open Academic Vault",
+      title: "Curriculum Knowledge Vault",
+      desc: "Explore verified syllabus outlines, course slide topics, and past examination rubrics indexed in your AI brain.",
+      cta: "Explore Knowledge Vault",
       href: `/vault?unit=${encodeURIComponent(selectedUnit)}`,
     },
     {
@@ -487,7 +487,7 @@ export default function Home() {
                 ✏️ Assignment Solver Studio
               </Link>
               <Link href="/vault" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
-                📁 Notes & Slide Vault
+                📁 Curriculum Knowledge Vault
               </Link>
               <Link href="/flashcards" className="nav-link-pill text-decoration-none text-start d-block" onClick={() => setIsMobileNavOpen(false)}>
                 🧠 Active Recall Flashcards
@@ -1008,7 +1008,7 @@ export default function Home() {
                 style={{ color: "#93c5fd", fontSize: 13, cursor: "pointer", fontFamily: "var(--nav-font)", fontWeight: 600 }}
                 onClick={() => setIsVaultOpen(true)}
               >
-                Browse Real Past Exam Papers →
+                Explore Knowledge Vault →
               </button>
               <button
                 className="d-block border-0 bg-transparent text-start p-0"

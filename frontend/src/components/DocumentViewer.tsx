@@ -64,7 +64,7 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [filterCategory, setFilterCategory] = useState<"all" | "books" | "exams" | "formulas">("all");
 
-  // In-App Real PDF Preview State
+  // In-App Document Knowledge Dossier State
   const [previewDoc, setPreviewDoc] = useState<IngestedDoc | null>(null);
 
   const fetchDocuments = async () => {
@@ -128,11 +128,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
 
   // 1. If a citation is active, show the citation excerpt preview
   if (citation) {
-    const matchingDoc = documents.find((d) =>
-      citation.file_name && d.title.toLowerCase().includes(citation.file_name.toLowerCase())
-    );
-    const pdfUrl = matchingDoc ? getDirectPdfUrl(matchingDoc) : (citation.file_name ? getDirectPdfUrl({ title: citation.file_name }) : undefined);
-
     return (
       <div className="flex h-full w-full flex-col bg-[#0b0f19] border-l border-slate-800 text-slate-200">
         {/* Viewer Header */}
@@ -227,63 +222,99 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
   const countExams = categorizedDocs.filter((d) => d.category === "exam").length;
   const countFormulas = categorizedDocs.filter((d) => d.category === "formula").length;
 
-  // 2. Real Original PDF Embedded Viewer
+  // 2. Secure Curriculum Knowledge Dossier (No raw PDF iframes or download links)
   if (previewDoc) {
-    const previewPdfUrl = getDirectPdfUrl(previewDoc);
     return (
-      <div className="flex h-full w-full flex-col bg-[#080c16] border-l border-slate-800 text-slate-200">
-        {/* Viewer Top Header */}
-        <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/90 px-4 py-3">
+      <div className="flex h-full w-full flex-col bg-white border-l border-slate-200 text-slate-800">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
           <div className="flex items-center gap-2 min-w-0 pr-2">
             <button
               onClick={() => setPreviewDoc(null)}
-              className="flex items-center gap-1 rounded bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-300 hover:bg-slate-700 hover:text-white transition"
+              className="flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition"
               title="Return to library list"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
               <span>Back</span>
             </button>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block">
-                {previewDoc.category === "exam" ? "📝 Real Past Paper" : "📚 Real Course Document"}
+              <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
+                {previewDoc.category === "exam" ? "Past Paper & Rubric" : previewDoc.category === "formula" ? "Formula Sheet" : "Lecture Slides & Book"}
               </span>
-              <h3 className="text-xs font-bold text-white truncate max-w-[200px] sm:max-w-xs" title={previewDoc.title}>
+              <h3 className="text-xs font-bold text-[#1a2c4e] truncate max-w-[200px] sm:max-w-xs" title={previewDoc.title}>
                 {previewDoc.title}
               </h3>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
-            <a
-              href={previewPdfUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 text-[11px] font-bold shadow-sm transition"
-              title="Open real PDF in native browser viewer or Adobe Acrobat"
+          {onTeachDocument && (
+            <button
+              onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
+              className="flex items-center gap-1 rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[11px] font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-2xs"
             >
-              <ExternalLink className="h-3 w-3" />
-              <span className="hidden sm:inline">Open in Tab / Adobe</span>
-              <span className="sm:hidden">Open</span>
-            </a>
+              <GraduationCap className="h-3.5 w-3.5 text-indigo-600" />
+              <span>Teach</span>
+            </button>
+          )}
+        </div>
+
+        {/* Dossier Body */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+          {/* Indexing Status Card */}
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 p-3.5">
+            <div className="flex items-start gap-2.5">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 mt-0.5 shrink-0" />
+              <div>
+                <h4 className="text-xs font-bold text-emerald-900">Indexed in Vector Memory</h4>
+                <p className="text-[11px] text-emerald-800 mt-0.5 leading-relaxed">
+                  Synthesized into {previewDoc.chunks_indexed} searchable vector chunks. Ready for citations in Copilot and speech deconstruction in Oral Studio.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Metadata Cards */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-slate-500">Document Size</span>
+              <div className="text-base font-bold text-[#1a2c4e] mt-1">{previewDoc.page_count} Pages</div>
+              <span className="text-[10px] text-slate-400">Total length</span>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+              <span className="text-[10px] font-semibold uppercase text-slate-500">Target Unit</span>
+              <div className="text-base font-bold text-blue-600 mt-1">{selectedUnit || previewDoc.unit_code}</div>
+              <span className="text-[10px] text-slate-400">Academic curriculum</span>
+            </div>
+          </div>
+
+          {/* Study Actions */}
+          <div className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-2xs space-y-2.5">
+            <h5 className="text-[11px] font-bold text-[#1a2c4e] uppercase tracking-wider">
+              Study Actions for this Material
+            </h5>
             {onTeachDocument && (
               <button
                 onClick={() => onTeachDocument(previewDoc.id, previewDoc.title)}
-                className="hidden sm:flex items-center gap-1 rounded bg-indigo-600/30 border border-indigo-500/40 px-2 py-1 text-[10px] font-semibold text-indigo-300 hover:bg-indigo-600/50"
+                className="w-full flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50/80 p-2.5 text-left hover:bg-indigo-100/80 transition"
               >
-                <GraduationCap className="h-3 w-3" />
-                <span>Teach</span>
+                <div className="flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4 text-indigo-600" />
+                  <span className="text-xs font-semibold text-indigo-900">Lecture in Studio</span>
+                </div>
+                <span className="text-[10px] font-bold text-indigo-600">Start Audio →</span>
               </button>
             )}
+            <button
+              onClick={() => handleDeleteDocument(previewDoc.id, previewDoc.title)}
+              className="w-full flex items-center justify-between rounded-lg border border-rose-200 bg-rose-50/50 p-2 text-left hover:bg-rose-100/50 text-rose-700 transition text-xs font-medium"
+            >
+              <div className="flex items-center gap-2">
+                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                <span>Remove from Unit Index</span>
+              </div>
+              <span className="text-[10px] text-rose-500">Purge Chunks</span>
+            </button>
           </div>
-        </div>
-
-        {/* Real PDF Viewport */}
-        <div className="flex-1 w-full h-full p-2 bg-[#0c111d] flex flex-col">
-          <iframe
-            src={`${previewPdfUrl}#toolbar=1&navpanes=1`}
-            title={previewDoc.title}
-            className="w-full flex-1 rounded-xl border border-slate-800 bg-white shadow-inner"
-          />
         </div>
       </div>
     );
@@ -380,7 +411,6 @@ export const DocumentViewer: React.FC<DocumentViewerProps> = ({
             const isReady = doc.is_processed && doc.chunks_indexed > 0;
             const isExam = doc.category === "exam";
             const isFormula = doc.category === "formula";
-            const docPdfUrl = getDirectPdfUrl(doc);
 
             return (
               <div
